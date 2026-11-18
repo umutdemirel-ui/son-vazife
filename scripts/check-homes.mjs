@@ -20,6 +20,10 @@ try {
   try { await btn('Duraklat').waitFor(); } catch (e) { console.error((await page.locator('body').innerText()).slice(-2000)); throw e; }
   if (process.env.MISSING_RESIDENTS !== '1')
     await page.waitForFunction(() => fixture.world.homes[0].family[0].children.length >= 2, { timeout: 45000 });
+  await page.evaluate(() => { fixture.scareClock.reset(); fixture.scareClock.remaining = 0.01; fixture.updateSimulation(0.05); });
+  await page.locator('.village-scare').waitFor({ state: 'visible', timeout: 5000 });
+  await page.evaluate(() => fixture.updateSimulation(1.5));
+  await page.locator('.village-scare').waitFor({ state: 'hidden', timeout: 5000 });
   const result = await page.evaluate(async () => {
     const { Vector3 } = await import('/node_modules/three/build/three.module.js');
     const e = window.fixture, failures = [];

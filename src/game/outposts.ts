@@ -247,6 +247,8 @@ export function buildOutposts(
   desk(school, 1.1, 1.85, 1.1);
   book(school, 1.1, 0.835, 1.85);
   target(school, 'night_register', 1.1, 0.94, 1.85, 0.65, 0.38, 0.6);
+  book(school, 3.38, 0.835, -0.33);
+  target(school, 'night_drawing', 3.38, 0.94, -0.33, 0.65, 0.38, 0.6);
   target(school, 'seyir_tahta', 0.2, 1.84, -2.63, 3.9, 1.21, 0.14);
   desk(school, -2.8, -1.69, 1.52);
   book(school, -2.79, 0.835, -1.66);
@@ -328,6 +330,9 @@ export function buildOutposts(
   exchange.add(equipment);
   art.near('santral', exchange.position.x, exchange.position.z, 30);
   target(exchange, 'night_line', 0, 1.09, -1.64, 1.14, 1.58, 0.61);
+  desk(exchange, 1.65, 0.1, 1.05);
+  book(exchange, 1.65, 0.835, 0.1);
+  target(exchange, 'night_echo', 1.65, 0.94, 0.1, 0.65, 0.38, 0.6);
   box(exchange.position.x, exchange.position.z - 1.85, 1.1, 0.52);
   const dial = new THREE.Group();
   dial.name = 'Gasilhane kabul telefonu';

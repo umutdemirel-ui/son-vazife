@@ -1055,7 +1055,7 @@ export class SonVazifeEngine {
     if (clueSet.has('night_call') && (save.finalCall === 'report' || save.finalCall === 'farewell')) {
       this.finalCall = save.finalCall;
       // Completed older campaigns keep their ending rather than reopening new records.
-      for (const id of ['night_register', 'night_memorial', 'night_verdict']) clueSet.add(id);
+      for (const id of ['night_register', 'night_memorial', 'night_verdict', 'night_drawing', 'night_echo']) clueSet.add(id);
     } else {
       clueSet.delete('night_call'); // An incomplete checkpoint can always reopen the last decision.
     }
@@ -1922,9 +1922,9 @@ export class SonVazifeEngine {
     if (['item_kafur', 'clue_muhtar_note', 'clue_crash_report', 'clue_photo'].includes(id))
       return this.isInsideMuhtar(p);
     const room = insideOutpost(p.x, p.z);
-    if (id === 'night_register' || id === 'night_bag' || id === 'night_roll' || id === 'seyir_tahta') return room === 'school';
+    if (id === 'night_drawing' || id === 'night_register' || id === 'night_bag' || id === 'night_roll' || id === 'seyir_tahta') return room === 'school';
     if (id === 'night_verdict' || id === 'night_ticket' || id === 'night_spool') return room === 'station';
-    if (id === 'night_line') return room === 'exchange';
+    if (id === 'night_line' || id === 'night_echo') return room === 'exchange';
     if (id === 'seyir_sef') return !room && this.world.keeper.root.visible;
     if (id === 'night_bell' || id === 'night_signal' || id === 'seyir_peron' || id === 'seyir_abone')
       return !room;
@@ -3077,8 +3077,10 @@ export class SonVazifeEngine {
     if (this.screen !== 'playing') return;
 
     if (this.registryCaseId || this.nightPage) return;
-    const scare = this.scareClock.tick(dt, this.act, !this.isOverlayBlockingMove() && isEvening(this.survivalSeconds));
+    const wasScareVisible = this.scareVisible;
+    const scare = this.scareClock.tick(dt, this.act, !this.isOverlayBlockingMove(), isEvening(this.survivalSeconds));
     this.scareVisible = scare.visible;
+    if (wasScareVisible !== scare.visible && !scare.triggered) this.pushHudState(true);
     if (scare.triggered) {
       this.audio.playViolationSting();
       this.hallucinationPulse = 0.8;

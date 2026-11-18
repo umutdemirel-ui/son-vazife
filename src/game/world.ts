@@ -382,8 +382,8 @@ export function buildVillageWorld(
       z,
       rotY,
       w: 5.2 + (i % 3) * 0.4,
-      d: 4.3,
-      h: 3.9,
+      d: 4.3 + (i % 2) * 0.3,
+      h: 3.7 + (i % 3) * 0.25,
       style: (['himis', 'tas', 'cumba'] as const)[i % 3],
     }),
   );
