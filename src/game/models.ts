@@ -1,3 +1,4 @@
+import { CEMETERY_GRAVES, MOSQUE_GRAVES } from './cemetery';
 import { funeralFigure, preparationTowel } from './funerary';
 import { watcherFigure, type NightArt } from './nightArt';
 import * as THREE from 'three';
@@ -31,8 +32,8 @@ function getSharedVillageMaterials(textures: VillageTextures): SharedVillageMate
       metalness: 0.03,
     }),
     graveStoneMat: new THREE.MeshStandardMaterial({
-      map: textures.stone,
-      normalMap: textures.stoneNormal,
+      map: textures.marble,
+      normalMap: textures.marbleNormal,
       normalScale: new THREE.Vector2(0.9, 0.9),
       roughness: 0.92,
       metalness: 0.03,
@@ -69,6 +70,7 @@ const lampIronMat = new THREE.MeshStandardMaterial({
 
 export interface GasilhaneRefs {
   group: THREE.Group;
+  mosqueDoorPivot: THREE.Group;
   doorPivot: THREE.Group;
   shutterPivot: THREE.Group;
   windowGlowMesh: THREE.Mesh;
@@ -120,15 +122,7 @@ export function createGraveyardCluster(textures: VillageTextures): THREE.Group {
   const g = new THREE.Group();
   const { graveStoneMat: stoneMat } = getSharedVillageMaterials(textures);
 
-  const stones = [
-    { x: 0, z: 0, rot: 0.08, h: 1.35, turban: true },
-    { x: -1.6, z: 0.4, rot: -0.14, h: 1.1, turban: false },
-    { x: 1.4, z: -0.5, rot: 0.18, h: 1.25, turban: true },
-    { x: -0.5, z: -1.7, rot: -0.06, h: 1.05, turban: false },
-    { x: 1.1, z: -2.1, rot: 0.11, h: 1.3, turban: false },
-  ];
-
-  stones.forEach((st) => {
+  MOSQUE_GRAVES.forEach((st) => {
     const marker = new THREE.Group();
     marker.position.set(st.x, 0, st.z);
     marker.rotation.y = st.rot;
@@ -549,11 +543,19 @@ export function createMosqueAndGasilhane(
   const mosqueGroup = new THREE.Group();
   mosqueGroup.position.set(0, 0, -5.7);
 
-  const mBase = new THREE.Mesh(new THREE.BoxGeometry(6.8, 4.4, 4.6), plasterMat);
-  mBase.position.y = 2.2;
-  mBase.castShadow = true;
-  mBase.receiveShadow = true;
-  mosqueGroup.add(mBase);
+  // Prayer hall: the east wall has an actual opening, rather than a solid box.
+  block(mosqueGroup, timberMat, 6.8, 0.16, 4.6, 0, 0.08, 0, 1.8);
+  block(mosqueGroup, plasterMat, 0.18, 4.4, 4.6, -3.31, 2.2, 0, 2.2);
+  for (const side of [-1, 1]) {
+    block(mosqueGroup, plasterMat, 6.8, 4.4, 0.18, 0, 2.2, side * 2.21, 2.2);
+    block(mosqueGroup, plasterMat, 0.18, 4.4, 1.55, 3.31, 2.2, side * 1.525, 2.2);
+  }
+  block(mosqueGroup, plasterMat, 0.18, 2.1, 1.5, 3.31, 3.35, 0, 2.2);
+  block(mosqueGroup, craft.kilim, 5.8, 0.035, 3.6, 0, 0.18, 0);
+  const mosqueDoorPivot = new THREE.Group();
+  mosqueDoorPivot.position.set(3.4, 0.16, -0.75);
+  block(mosqueDoorPivot, craft.door, 0.1, 2.26, 1.5, 0, 1.13, 0.75);
+  mosqueGroup.add(mosqueDoorPivot);
 
   pitchedRoof(mosqueGroup, kiremitMat, kiremitMat, 7.55, 5.22, 4.43, 1.4, 1.48);
   block(mosqueGroup, timberMat, 7.5, 0.16, 5.19, 0, 4.4, 0);
@@ -876,6 +878,7 @@ export function createMosqueAndGasilhane(
     root,
     new Set<THREE.Object3D>([
       doorPivot,
+      mosqueDoorPivot,
       shutterPivot,
       windowGlowMesh,
       windowShadowFigure,
@@ -892,6 +895,7 @@ export function createMosqueAndGasilhane(
   return {
     group: root,
     doorPivot,
+    mosqueDoorPivot,
     shutterPivot,
     windowGlowMesh,
     windowShadowFigure,
@@ -1679,23 +1683,13 @@ export function createCemeteryHillAndCrypt(textures: VillageTextures, art: Night
   group.add(northFence, westFence);
 
   // Additional Ottoman stone steles + freshly dug grave mound
-  const graveOffsets = [
-    [-3.5, 2.2],
-    [-1.4, 2.6],
-    [-3.8, -0.4],
-    [-1.8, -0.6],
-    [-4.2, -3.2],
-    [-2.0, -3.6],
-    [1.8, 3.2],
-    [3.8, 2.8],
-  ];
-  graveOffsets.forEach(([gx, gz], idx) => {
-    const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.16, 1.35), stoneMat);
-    plinth.position.set(gx, 0.08, gz);
-    const stele = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.05 + (idx % 3) * 0.18, 0.1), stoneMat);
-    stele.position.set(gx, 0.65, gz - 0.52);
-    stele.rotation.z = (idx % 2 === 0 ? 1 : -1) * 0.06;
-    group.add(plinth, stele);
+  CEMETERY_GRAVES.forEach(([gx, gz], idx) => {
+    // Cut stone rather than a whole masonry-wall photograph stretched over each small marker.
+    const graveMat = getSharedVillageMaterials(textures).graveStoneMat;
+    block(group, graveMat, 0.52, 0.16, 1.35, gx, 0.08, gz, 1.4);
+    const h = 1.05 + (idx % 3) * 0.18;
+    const stele = block(group, graveMat, 0.32, h, 0.13, gx, 0.16 + h / 2, gz - 0.52, 1.4);
+    stele.rotation.z = (idx % 2 === 0 ? 1 : -1) * 0.04;
   });
 
   // Freshly dug grave mound + pit

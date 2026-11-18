@@ -55,7 +55,7 @@ export function NightRecord({
         </article>
         <section className="night-console" aria-label="Kayıt işlemi">
           <p className="panel-index">
-            NÖBET KAYDI · {String(NIGHT_ORDER.indexOf(id) + 1).padStart(2, '0')} / 10
+            NÖBET KAYDI · {String(NIGHT_ORDER.indexOf(id) + 1).padStart(2, '0')} / {NIGHT_ORDER.length}
           </p>
           {filed ? (
             <>

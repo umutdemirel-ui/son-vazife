@@ -143,6 +143,9 @@ export const GameHud: React.FC<GameHudProps> = ({
 
   return (
     <>
+      {hud.screen === 'playing' && !overlayActive && hud.scareVisible && (
+        <div className="village-scare" aria-hidden="true" />
+      )}
       {/* Subtle Danger Vignette when Kara Basma or Sis Gözcüsü is close */}
       {hud.screen === 'playing' && hud.dangerProximity > 0.15 && (
         <div
@@ -175,7 +178,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 {hud.actTitle}
               </p>
               <h2>{hud.locationName}</h2>
-              <p>Gün {hud.survivalDay} · Dayanıklılık {Math.max(0, 3 - hud.survivalHits)}/3</p>
+              <p>Gün {hud.survivalDay} · {hud.isEvening ? 'Akşam' : 'Gündüz'} · Dayanıklılık {Math.max(0, 3 - hud.survivalHits)}/3</p>
               <p>{hud.objectiveText}</p>
               {(hud.stamina < 98 || hud.isCrouching || hud.isHiding || hud.isZooming) && (
                 <div className="village-state">

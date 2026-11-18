@@ -1,6 +1,8 @@
+import { buildHome, FamilyArt, type Home } from './homes';
+import { CEMETERY, CEMETERY_GRAVES, MOSQUE_GRAVES } from './cemetery';
 import { receivingBay, STRETCHERS } from './funerary';
 import { NightArt, watcherFigure } from './nightArt';
-import { OUTER_HOMES } from './valley';
+import { OUTER_HOMES, type Outpost } from './valley';
 import { buildOutposts } from './outposts';
 import { bakeStaticChildrenByMaterial } from './meshBatch';
 import * as THREE from 'three';
@@ -68,6 +70,10 @@ export interface VirtualPointLight {
 
 export interface WorldHandles {
   colliders: BoxCollider[];
+  homes: Home[];
+  updateFamilies: (dt: number) => void;
+  specialFamilies: { family: THREE.Group[]; bounds: { minX: number; maxX: number; minZ: number; maxZ: number } }[];
+  outpostDoors: Record<Outpost, { pivot: THREE.Group; open: boolean; collider: BoxCollider }>;
   interactables: InteractableTarget[];
   interactableMeshes: THREE.Object3D[];
   itemMeshes: Record<string, THREE.Object3D>;
@@ -237,13 +243,19 @@ export function buildVillageWorld(
     { minX: -7.35, maxX: -6.85, minZ: 2.6, maxZ: 5.2 }, // Gasil East-North
     { minX: -7.35, maxX: -6.85, minZ: 6.8, maxZ: 9.4 }, // Gasil East-South
     { minX: -11.75, maxX: -9.25, minZ: 5.35, maxZ: 6.65 }, // Marble Tenesir Slab
-    { minX: -14.1, maxX: -6.9, minZ: -2.0, maxZ: 2.6 }, // Mosque body
+    { minX: -14.0, maxX: -13.8, minZ: -2.1, maxZ: 2.6 }, // Mosque west
+    { minX: -14.0, maxX: -7.0, minZ: -2.1, maxZ: -1.9 }, // Mosque north
+    { minX: -14.0, maxX: -7.0, minZ: 2.5, maxZ: 2.7 }, // Mosque south
+    { minX: -7.3, maxX: -7.0, minZ: -2.0, maxZ: -0.45 },
+    { minX: -7.3, maxX: -7.0, minZ: 1.05, maxZ: 2.6 },
   );
 
   // Mosque Graveyard beside Mosque
   const graveyard = createGraveyardCluster(textures);
   graveyard.position.set(-10.6, groundHeightAt(-10.6, -4.2), -4.2);
   cells.add(scene, graveyard, 21, 38);
+  for (const st of MOSQUE_GRAVES)
+    colliders.push(houseFootprint(-10.6 + st.x, -4.2 + st.z, 0.55, 1.45, st.rot));
 
   // 4. Walk-in Abandoned Village House (Eski Köy Evi) at (-10.8, y, -10.5)
   const abandonedPos = new THREE.Vector3(-10.8, groundHeightAt(-10.8, -10.5), -10.5);
@@ -321,6 +333,11 @@ export function buildVillageWorld(
   cemetery.group.position.copy(cemPos);
   cells.add(scene, cemetery.group, 26, 50);
 
+  // Match the physical grave plinths; leave the paths and crypt doorway clear.
+  for (const [x, z] of CEMETERY_GRAVES) {
+    colliders.push(houseFootprint(CEMETERY.x + x, CEMETERY.z + z, 0.52, 1.35, 0));
+  }
+
   // Crypt local center (1.6, 0, -3.2) => world (-32.4, y, -39.2), cw=4.6, cd=4.8
   colliders.push(
     { minX: -40.35, maxX: -27.7, minZ: -42.75, maxZ: -42.25 }, // Outer North fence
@@ -370,12 +387,41 @@ export function buildVillageWorld(
       style: (['himis', 'tas', 'cumba'] as const)[i % 3],
     }),
   );
+  const homes: Home[] = [];
+  const familyArt = new FamilyArt(allocation !== 'full', residentReady);
+  disposables.push(familyArt);
   houseConfigs.forEach((hc, i) => {
-    const house = craft.house(hc.style, i + 1, hc.w, hc.d, hc.h);
-    house.position.set(hc.x, groundHeightAt(hc.x, hc.z), hc.z);
-    house.rotation.y = hc.rotY;
-    cells.add(scene, house, 34, 58);
-    colliders.push(houseFootprint(hc.x, hc.z, hc.w, hc.d, hc.rotY));
+    const { home, walls } = buildHome(hc, i + 1, groundHeightAt(hc.x, hc.z), craft, familyArt);
+    homes.push(home);
+    const familyRoots = new Set<THREE.Object3D>(home.family);
+    const houseGeometries = new Set<THREE.BufferGeometry>();
+    const collectHouse = (node: THREE.Object3D) => {
+      if (familyRoots.has(node)) return;
+      if (node instanceof THREE.Mesh) houseGeometries.add(node.geometry);
+      node.children.forEach(collectHouse);
+    };
+    collectHouse(home.root);
+    disposables.push({ dispose: () => houseGeometries.forEach(g => g.dispose()) });
+    cells.add(scene, home.root, 34, 58);
+    colliders.push(...walls);
+  });
+
+  // Two story houses keep their authored interiors and puzzle props, but have families too.
+  const specialFamilies = [
+    { bounds: { minX: -13.8, maxX: -7.8, minZ: -13.3, maxZ: -7.7 }, ground: abandonedPos.y + 0.16,
+      spots: [[-13.0, -8.55], [-11.0, -8.55], [-8.8, -8.55]] },
+    { bounds: { minX: 7.3, maxX: 13.7, minZ: -21.0, maxZ: -15.0 }, ground: muhtarPos.y + 0.16,
+      spots: [[8.25, -20.1], [9.6, -20.1], [12.8, -15.9]] },
+  ].map((house, i) => {
+    const family = house.spots.map(([x, z], member) => {
+      const person = familyArt.figure(23 + i, member);
+      person.position.set(x, house.ground, z);
+      person.visible = false;
+      cells.add(scene, person, 20, 30);
+      colliders.push(houseFootprint(x, z, member === 2 ? 0.34 : 0.44, member === 2 ? 0.34 : 0.44, 0));
+      return person;
+    });
+    return { bounds: house.bounds, family };
   });
 
   const stoneWallMat = new THREE.MeshStandardMaterial({
@@ -631,6 +677,17 @@ export function buildVillageWorld(
     });
   };
 
+  homes.forEach((home, i) => {
+    registerTarget(`home_door_${i}`, new THREE.Vector3(0.72, 1.05, 0), [1.4, 2.1, 0.3], 2.7, home.door);
+    home.family.forEach((person, member) =>
+      registerTarget(`family_${i}_${member}`, new THREE.Vector3(0, 1.0, 0), [0.55, 1.8, 0.55], 2.5, person),
+    );
+  });
+
+  specialFamilies.forEach((house, i) => house.family.forEach((person, member) =>
+    registerTarget(`family_${homes.length + i}_${member}`, new THREE.Vector3(0, 1.0, 0), [0.55, 1.8, 0.55], 2.5, person),
+  ));
+
   registerTarget(
     'item_defter',
     defterMesh.position.clone().add(new THREE.Vector3(0, 0.12, 0)),
@@ -658,6 +715,7 @@ export function buildVillageWorld(
     3.3,
   );
 
+  registerTarget('mosque_door', new THREE.Vector3(-7.1, gasilPos.y + 1.2, 0.3), [0.4, 2.2, 1.5], 3.0);
   registerTarget(
     'gasil_door',
     new THREE.Vector3(gasilPos.x + 3.4, gasilPos.y + 1.25, gasilPos.z),
@@ -789,6 +847,15 @@ export function buildVillageWorld(
     3.4,
   );
 
+  // İdris's weathered maintenance book, on its own low stone stand in the cemetery.
+  const memorialBook = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.42), craft.wood);
+  memorialBook.position.set(-30.8, cemPos.y + 0.65, -31.1);
+  const memorialStand = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.61, 0.55), craft.masonry);
+  memorialStand.position.set(-30.8, cemPos.y + 0.305, -31.1);
+  scene.add(memorialStand, memorialBook);
+  disposables.push(memorialBook.geometry, memorialStand.geometry);
+  registerTarget('night_memorial', memorialBook.position.clone(), [0.7, 0.45, 0.55], 2.8);
+
   // Viraj Kaza Alanı targets
   registerTarget(
     'clue_crash_manifest',
@@ -797,7 +864,7 @@ export function buildVillageWorld(
     3.3,
   );
 
-  const { setSignal, keeper } = buildOutposts(
+  const { setSignal, keeper, doors: outpostDoors } = buildOutposts(
     scene,
     craft,
     nightArt,
@@ -817,6 +884,7 @@ export function buildVillageWorld(
   // A swung-open door must not leave its E hitbox in the middle of an empty doorway.
   for (const [id, hinge] of [
     ['gasil_door', gasil.doorPivot],
+    ['mosque_door', gasil.mosqueDoorPivot],
     ['clinic_door', clinic.doorPivot],
     ['abandoned_door', abandoned.doorPivot],
     ['muhtar_door', muhtar.doorPivot],
@@ -1133,6 +1201,10 @@ export function buildVillageWorld(
 
   return {
     colliders,
+    homes,
+    updateFamilies: dt => familyArt.update(dt),
+    specialFamilies,
+    outpostDoors,
     interactables,
     interactableMeshes,
     itemMeshes,

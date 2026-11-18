@@ -33,3 +33,25 @@ test('malformed saved positions and survival values are rejected', () => {
   value = JSON.stringify(base);
   assert.ok(readAutoSave());
 });
+
+test('scares run only during active night chapters and grow more frequent', async () => {
+  const { ScareClock, scareInterval } = await import('../src/game/scares');
+  const clock = new ScareClock();
+  assert.equal(clock.tick(100, 1, true).triggered, false);
+  assert.equal(clock.tick(100, 4, false).triggered, false);
+  assert.equal(clock.tick(84, 4, true).triggered, false);
+  assert.equal(clock.tick(1, 4, true).triggered, true);
+  assert.equal(clock.tick(1, 4, true).visible, false);
+  assert.ok(scareInterval(8) < scareInterval(2));
+  clock.reset();
+  assert.equal(clock.tick(1, 8, true).triggered, false);
+});
+
+test('evening follows the active day clock, repeating at the next dawn', async () => {
+  const { isEvening, SECONDS_PER_DAY } = await import('../src/game/survival');
+  assert.equal(isEvening(0), false);
+  assert.equal(isEvening(SECONDS_PER_DAY / 2 - 0.01), false);
+  assert.equal(isEvening(SECONDS_PER_DAY / 2), true);
+  assert.equal(isEvening(SECONDS_PER_DAY), false);
+  assert.equal(isEvening(SECONDS_PER_DAY * 1.75), true);
+});

@@ -32,6 +32,7 @@ import {
 const INITIAL_HUD: GameHudState = {
   screen: 'title',
   survivalDay: 1,
+  isEvening: false,
   survivalHits: 0,
   act: 1,
   actTitle: 'BÖLÜM I · İLK OTOPSİ VE HAZIRLIK',
@@ -58,6 +59,7 @@ const INITIAL_HUD: GameHudState = {
   isPointerLocked: false,
   isHiding: false,
   dangerProximity: 0,
+  scareVisible: false,
   windowAnomalyActive: false,
   dirtyBasinReady: false,
   inventory: INITIAL_INVENTORY,

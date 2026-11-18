@@ -2,7 +2,7 @@
 
 **Kuzdağ Köyü, Kasım 1993.** Yeni gassalın ilk işi sıradan bir teslim fişini deftere geçirmek. Sorun, aynı kişinin aynı haneden yirmi yıl önce de uğurlanmış olması.
 
-Türkçe, tek oyunculu bir tarayıcı korku oyunu. Önsöz ve sekiz bölüm boyunca tek bir geceyi oynarsın. Köy ve olaylar kurmacadır.
+Türkçe, tek oyunculu bir tarayıcı korku oyunu. Önsöz ve sekiz bölüm boyunca Kuzdağ’ın sırlarını araştırırsın. Köy ve olaylar kurmacadır.
 
 ![Oyun içinden: Kuzdağ çeşmesinde dövme bakır ibrik, karşısında cumbalı hane ve taş ev.](docs/kuzdag-cesmesi.webp)
 
@@ -12,16 +12,18 @@ Türkçe, tek oyunculu bir tarayıcı korku oyunu. Önsöz ve sekiz bölüm boyu
 - **Meydana çık** üç boyutlu keşfi başlatır. Bulduğun kayıt defterine taşınır ve Bekçi Hasan’la yeni bir konuşma seçeneği açar.
 - Gasilhanede, sağlık ocağında ve taş mahzende **teslim dosyaları** var. Belgeleri karşılaştırıp iki alanı doğru doldurarak dosyayı mühürleyebilirsin. Adli inceleme tezgâhı alternatif bir yoldur; hikâyede ilerlemek için onu kullanmak gerekmez.
 - Meydanı, değirmeni, mezarlığı ve virajı araştır; malzemeleri topla ve gasilhaneye dön. Köyün gerçekleri tanıklar, eşyalar ve çelişkili tutanaklarda saklı.
-- **Kefenin son düğümü oyunun sonu değil.** Nakil sedyesine bağlanmış etiket seni Sarı Mektep’e götürür. Yoklamayı, istasyon cetvelini ve santral hattını çöz; ardından gasilhaneye dönüp son çağrıyı yanıtla. Her yeni kayıt bir devam noktasıdır; işaretleri duyamıyorsan yazılı ipuçları da yeterlidir.
+- **Kefenin son düğümü oyunun sonu değil.** Nakil sedyesine bağlanmış etiket seni Sarı Mektep’e götürür. Yoklamayı, istasyon cetvelini ve santral hattını çöz; ardından aile yoklamasını, mezarlık kaydını ve ikinci bandı karşılaştırıp gasilhanede son çağrıyı yanıtla. Her yeni kayıt bir devam noktasıdır; işaretleri duyamıyorsan yazılı ipuçları da yeterlidir.
 - **Köy arşivi** menüde dört fotoğraf ve kenar notu içerir. Oyun içindeki **defter** ise topladığın kanıtları, haritayı ve kendi notlarını tutar.
 
 **Kontroller:** WASD ile yürü, fareyle bak, E ile etkileşime gir. Shift koşu, C eğilme, F mum, Tab defter/harita, M ses ve Esc duraklatmadır. Fare kilidi yoksa basılı tutup sürükle. Dokunmatikte sol hareket pedi ve sağ bakış alanı kullanılır.
 
 Önsöz, köy ilerlemesi ve tercihler bu tarayıcıda saklanır. **Devam et** son kaydı açar. Menü ve önsöz WebGL gerektirmez; üç boyutlu keşif WebGL 2 gerektirir. Sesler Web Audio ile ilk kullanıcı etkileşiminden sonra üretilir.
 
-### Hayatta kalma ve kaçış
+Köydeki 22 sıradan hane ile iki hikâye evinde aileler bulunur. Kapıların çoğu **E** ile açılır; hikâye için kilitli kapılar gerekli aşamada veya anahtarla açılır. Aile üyeleriyle **E** tuşuyla konuşabilir, ilerleyen bölümlerde değişen tanıklıklarını dinleyebilirsin. Aileler mevcut sakin modellerini ve kısa ortak tanıklıkları paylaşır; birbirinden bağımsız uzun diyalog ağaçları değildir.
 
-Köyde geçirdiğin her **10 dakikalık aktif oyun simülasyonu** bir hayatta kalma günü sayılır. Defter, diyalog ve duraklatma sırasında sayaç ilerlemez. Kara Basma ve Sis Gözcüsü üç kez yakalarsa gece sona erer; ilk iki karşılaşma kaydedilir. Son telefonu yanıtladıktan sonra defter haritasında işaretlenen **istasyon peronuna** yürüyerek köyden çıkabilirsin. Kaçışı ne kadar geciktireceğin sana kalmış; süre bir puan sayacıdır, yeni bir gün/gece döngüsü veya kaynak sistemi henüz değildir.
+## Hayatta kalma ve kaçış
+
+Köyde geçirdiğin her **10 dakikalık aktif oyun simülasyonu** bir hayatta kalma günü sayılır. Defter, diyalog ve duraklatma sırasında sayaç ilerlemez. Kara Basma ve Sis Gözcüsü üç kez yakalarsa gece sona erer; ilk iki karşılaşma kaydedilir. Son telefonu yanıtladıktan sonra defter haritasında işaretlenen **istasyon peronuna** yürüyerek köyden çıkabilirsin. Her günün ilk beş dakikası gündüz, ikinci beş dakikası akşamdır; ışık ve sis buna göre değişir. Akşamları kısa korku görüntüleri görülebilir. Mum yağı dışında yeni bir kaynak sistemi yoktur.
 
 ### Mektep yolu ve son peron
 

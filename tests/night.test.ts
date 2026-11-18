@@ -273,3 +273,15 @@ test('a horizontal scanned log is fitted by length and cannot cut across the cry
   assert.ok(extent.y < 0.6);
   assets.dispose();
 });
+
+test('cemetery foundations and grave footprints remain grounded on one level', async () => {
+  const { CEMETERY, CEMETERY_GRAVES } = await import('../src/game/cemetery');
+  const level = groundHeightAt(CEMETERY.x, CEMETERY.z);
+  for (const [x, z] of CEMETERY_GRAVES) {
+    for (const dx of [-0.4, 0.4]) for (const dz of [-0.8, 0.8]) {
+      assert.ok(Math.abs(groundHeightAt(CEMETERY.x + x + dx, CEMETERY.z + z + dz) - level) < 1e-8);
+    }
+  }
+  for (const x of [-9, 0, 9]) for (const z of [-9, 0, 9])
+    assert.equal(groundHeightAt(CEMETERY.x + x, CEMETERY.z + z), level);
+});

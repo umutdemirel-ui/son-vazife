@@ -276,6 +276,9 @@ try {
     ['night_spool', 61.5, 27.85],
     ['night_relay', -46, 29.35],
     ['night_line', -54, 42.52],
+    ['night_register', 47.1, -59.0],
+    ['night_memorial', -30.8, -29.9],
+    ['night_verdict', 59, 27.8],
     ['night_call', -8.85, 7.42],
   ];
   async function outpostCross(id) {
@@ -428,7 +431,7 @@ try {
   assert.ok(urls.every((url) => url.includes('/compact/')));
   assert.ok(missing ? assets.length === 0 : assets.every(([status]) => status === 200));
   console.log(
-    `OK: three cases, eight chapters, ten records, three endings, old and new checkpoints (${missing ? 'fallback' : 'compact'}).`,
+    `OK: three cases, eight chapters, thirteen records, three endings, old and new checkpoints (${missing ? 'fallback' : 'compact'}).`,
   );
 } finally {
   await browser.close();

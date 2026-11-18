@@ -1,3 +1,4 @@
+import { CEMETERY } from './cemetery';
 import { CORE_LANES, OUTER_LANES, OUTER_HOMES, OUTPOSTS, OUTPOST_IDS, reservedGround } from './valley';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -79,6 +80,15 @@ function valleyHeight(x: number, z: number): number {
 const homePads = OUTER_HOMES.map(([x, z]) => ({ x, z, y: valleyHeight(x, z) }));
 export function groundHeightAt(x: number, z: number): number {
   const natural = valleyHeight(x, z);
+  // The cemetery, crypt and grave markers are built on one level foundation.
+  // Extend the plateau beyond the enclosure so the terrain's coarse mesh samples
+  // also lie at the same height under its walls and graves.
+  const edge = Math.max(Math.abs(x - CEMETERY.x), Math.abs(z - CEMETERY.z));
+  if (edge < 14) {
+    const t = Math.max(0, (edge - 10) / 4);
+    const level = valleyHeight(CEMETERY.x, CEMETERY.z);
+    return level + (natural - level) * t * t * (3 - 2 * t);
+  }
   for (const b of homePads) {
     const dx = x - b.x,
       dz = z - b.z,

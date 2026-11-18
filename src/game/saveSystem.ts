@@ -13,6 +13,9 @@ export interface SaveGamePayload {
   version: 2;
   survivalSeconds?: number;
   caughtCount?: number;
+  openHomes?: number[];
+  closedOutposts?: string[];
+  mosqueDoorOpen?: boolean;
   finalCall?: 'report' | 'farewell';
   windowActive?: boolean;
   windowResolved?: boolean;
@@ -93,6 +96,12 @@ export function readAutoSave(): SaveGamePayload | null {
         (!Number.isFinite(parsed.survivalSeconds) ||
           parsed.survivalSeconds < 0 ||
           parsed.survivalSeconds > 315360000)) ||
+      (parsed.mosqueDoorOpen !== undefined && typeof parsed.mosqueDoorOpen !== 'boolean') ||
+      (parsed.closedOutposts !== undefined &&
+        (!stringList(parsed.closedOutposts) || parsed.closedOutposts.some(id => !['school', 'station', 'exchange'].includes(id)))) ||
+      (parsed.openHomes !== undefined &&
+        (!Array.isArray(parsed.openHomes) || parsed.openHomes.length > 100 ||
+          parsed.openHomes.some((n) => !Number.isInteger(n) || n < 0 || n >= 100))) ||
       (parsed.caughtCount !== undefined &&
         (!Number.isInteger(parsed.caughtCount) || parsed.caughtCount < 0 || parsed.caughtCount > 2)) ||
       [

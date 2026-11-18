@@ -149,6 +149,7 @@ export interface SaveSummary {
 
 export interface GameHudState {
   survivalDay: number;
+  isEvening: boolean;
   survivalHits: number;
   screen: GameScreen;
   act: GameAct;
@@ -176,6 +177,7 @@ export interface GameHudState {
   isPointerLocked: boolean;
   isHiding: boolean;
   dangerProximity: number;
+  scareVisible: boolean;
   windowAnomalyActive: boolean;
   dirtyBasinReady: boolean;
   inventory: InventoryItem[];

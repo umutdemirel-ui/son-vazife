@@ -91,7 +91,7 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
       },
       village_empty: {
         id: 'village_empty',
-        text: 'Üç gün önce çeşme geceleri kesilmeye başladı. Önce Şoför Mahmut’un minibüsü yukarı virajda uçtu dediler, ertesi sabah köydeki son üç hane kamyonete doluşup indi. Kalan bir tek Şerife Nine, Katip Kenan, Mezarcı İdris, bir de ben varım.',
+        text: 'Üç gün önce çeşme geceleri kesilmeye başladı. Mahmut’un minibüsü virajda uçunca bazı haneler indi, kalanlar da kapılarını örtüp içeride bekliyor. Dışarıda Şerife Nine, Katip Kenan, Mezarcı İdris ve ben dolaşıyoruz.',
         options: [
           {
             id: 'ask_crash',
@@ -146,8 +146,8 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
     role: 'Köyün Son Yaşlısı · Eski Köy Evi Avlusu',
     pace: 0.58,
     waypoints: [
-      { x: -6.4, z: -10.5, pauseSec: 9.0 },
-      { x: -5.8, z: -9.4, pauseSec: 6.5 },
+      { x: -6.35, z: -9.0, pauseSec: 9.0 },
+      { x: -5.8, z: -8.3, pauseSec: 6.5 },
     ],
     nodes: {
       root: {

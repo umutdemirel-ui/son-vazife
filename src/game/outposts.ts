@@ -27,6 +27,7 @@ export function buildOutposts(
   owned: { dispose: () => void }[],
 ) {
   const rooms = {} as Record<Outpost, THREE.Group>;
+  const doors = {} as Record<Outpost, { pivot: THREE.Group; open: boolean; collider: BoxCollider }>;
   const finish = (color: number, metalness = 0) => {
     const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.82, metalness });
     owned.push(mat);
@@ -96,6 +97,17 @@ export function buildOutposts(
       g.add(art.mount(model, shell));
       art.near(model, b.x, b.z, 50);
     }
+    // Normally open to preserve the established routes. A real hinged leaf can also be closed.
+    const pivot = new THREE.Group();
+    pivot.position.set(-b.door / 2, 0.1, d / 2);
+    block(pivot, craft.door, b.door, 2.2, 0.1, b.door / 2, 1.1, 0);
+    pivot.rotation.y = -Math.PI * 0.52;
+    g.add(pivot);
+    doors[id] = { pivot, open: true, collider: {
+      minX: b.x - b.door / 2, maxX: b.x + b.door / 2,
+      minZ: b.z + d / 2 - 0.09, maxZ: b.z + d / 2 + 0.09,
+    } };
+    target(pivot, `outpost_door_${id}`, b.door / 2, 1.1, 0, b.door, 2.2, 0.25);
     // Close the underside of the roof even on the open-sided procedural fallback.
     // Meter-scale interior finishes avoid stretching a two-pixel edge of the facade photograph across a room.
     block(g, craft.wood, w - 0.3, 0.032, d - 0.28, 0, h - 0.055, 0, 2.1);
@@ -232,6 +244,9 @@ export function buildOutposts(
   block(board, craft.wood, 4.05, 1.32, 0.08, 0, 0.66, 0);
   block(board, ink, 3.91, 1.2, 0.03, 0, 0.66, 0.048);
   prop(school, 'tahta', board, 0.2, 1.2, -2.7);
+  desk(school, 1.1, 1.85, 1.1);
+  book(school, 1.1, 0.835, 1.85);
+  target(school, 'night_register', 1.1, 0.94, 1.85, 0.65, 0.38, 0.6);
   target(school, 'seyir_tahta', 0.2, 1.84, -2.63, 3.9, 1.21, 0.14);
   desk(school, -2.8, -1.69, 1.52);
   book(school, -2.79, 0.835, -1.66);
@@ -266,6 +281,9 @@ export function buildOutposts(
   block(deck, ink, 0.69, 0.12, 0.44, 0, 0.06, 0);
   for (const side of [-1, 1]) cyl(deck, craft.metal, 0.116, 0.116, 0.032, side * 0.149, 0.138, -0.064);
   prop(station, 'makara', deck, 2.45, 0.835, -1.54, -0.08);
+  desk(station, 0, -1.7, 1.0);
+  book(station, 0, 0.835, -1.7);
+  target(station, 'night_verdict', 0, 0.93, -1.7, 0.68, 0.35, 0.6);
   target(station, 'night_spool', 2.45, 1, -1.54, 0.9, 0.49, 0.6);
   const keeper = platformKeeper(art, ink, brass, paper, red);
   station.add(keeper.root);
@@ -338,7 +356,7 @@ export function buildOutposts(
   }
   // Keep puzzle hooks and the independent signal arm out of the static batches.
   for (const g of [school, station, exchange, relay, dial]) {
-    const keep = new Set<THREE.Object3D>([arm]);
+    const keep = new Set<THREE.Object3D>([arm, ...Object.values(doors).map(d => d.pivot)]);
     g.traverse((o) => {
       if (o.layers.mask !== 1 || o.name.startsWith('night:')) keep.add(o);
     });
@@ -346,6 +364,7 @@ export function buildOutposts(
   }
   return {
     keeper,
+    doors,
     setSignal: (on: boolean) => {
       arm.rotation.z = on ? 0.07 : -0.62;
     },

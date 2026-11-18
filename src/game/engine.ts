@@ -1,4 +1,7 @@
-import { atEscapePoint, survivalDay } from './survival';
+import { insideHome } from './homes';
+import { familyName, familyTestimony } from './families';
+import { ScareClock } from './scares';
+import { atEscapePoint, isEvening, survivalDay } from './survival';
 import {
   FIELD_NOTES,
   nightStealthPrompt,
@@ -10,7 +13,7 @@ import {
   PAGES,
   type NightId,
 } from './nightWatch';
-import { districtAt, insideOutpost, OUTPOSTS, VALLEY } from './valley';
+import { districtAt, insideOutpost, OUTPOSTS, OUTPOST_IDS, VALLEY, type Outpost } from './valley';
 import { NightPatrol } from './nightPatrol';
 import * as THREE from 'three';
 import { HorrorAudioEngine } from './audio';
@@ -296,6 +299,7 @@ export class SonVazifeEngine {
   private clinicDoorAngle = 0;
   private millDoorOpen = false;
   private millDoorAngle = 0;
+  private mosqueDoorOpen = false;
   private cryptDoorOpen = false;
   private cryptDoorAngle = 0;
   private shutterClosed = false;
@@ -348,6 +352,8 @@ export class SonVazifeEngine {
   // Modular Dread Listener & Zero-GC Loop Caches
   private dreadListener = new DreadLevelListener();
   private hallucinationPulse = 0;
+  private scareClock = new ScareClock();
+  private scareVisible = false;
   private lastHallucinationCaptionTime = -20;
   private raycastTimer = 0;
   private npcKeys: NpcId[] = [];
@@ -678,7 +684,14 @@ export class SonVazifeEngine {
     this.millDoorOpen = false;
     this.millDoorAngle = 0;
     this.cryptDoorOpen = false;
+    this.mosqueDoorOpen = false;
+    if (this.world) this.world.gasil.mosqueDoorPivot.rotation.y = 0;
     this.cryptDoorAngle = 0;
+    this.world?.homes.forEach(home => { home.open = false; home.door.rotation.y = 0; });
+    if (this.world) for (const id of OUTPOST_IDS) {
+      this.world.outpostDoors[id].open = true;
+      this.world.outpostDoors[id].pivot.rotation.y = -Math.PI * 0.52;
+    }
     this.shutterClosed = false;
     this.shutterAngle = Math.PI * 0.62;
 
@@ -736,6 +749,8 @@ export class SonVazifeEngine {
 
     this.dreadListener.reset();
     this.hallucinationPulse = 0;
+    this.scareClock.reset();
+    this.scareVisible = false;
     this.lastHallucinationCaptionTime = -20;
 
     if (this.world?.autopsyLights) {
@@ -1039,6 +1054,8 @@ export class SonVazifeEngine {
     const clueSet = new Set(save.cluesDiscovered || []);
     if (clueSet.has('night_call') && (save.finalCall === 'report' || save.finalCall === 'farewell')) {
       this.finalCall = save.finalCall;
+      // Completed older campaigns keep their ending rather than reopening new records.
+      for (const id of ['night_register', 'night_memorial', 'night_verdict']) clueSet.add(id);
     } else {
       clueSet.delete('night_call'); // An incomplete checkpoint can always reopen the last decision.
     }
@@ -1047,6 +1064,19 @@ export class SonVazifeEngine {
     });
 
     this.discoveredDistricts = new Set<DistrictId>(save.discoveredDistricts || ['square']);
+    this.mosqueDoorOpen = Boolean(save.mosqueDoorOpen);
+    this.world.gasil.mosqueDoorPivot.rotation.y = this.mosqueDoorOpen ? -Math.PI * 0.52 : 0;
+    const closedOutposts = new Set(save.closedOutposts ?? []);
+    for (const id of OUTPOST_IDS) {
+      const door = this.world.outpostDoors[id];
+      door.open = !closedOutposts.has(id);
+      door.pivot.rotation.y = door.open ? -Math.PI * 0.52 : 0;
+    }
+    const openHomes = new Set(save.openHomes ?? []);
+    this.world.homes.forEach((home, i) => {
+      home.open = openHomes.has(i);
+      home.door.rotation.y = home.open ? -Math.PI * 0.52 : 0;
+    });
     if (save.doors) {
       this.gasilDoorOpen = Boolean(save.doors.gasil);
       this.abandonedDoorOpen = Boolean(save.doors.abandoned);
@@ -1140,6 +1170,9 @@ export class SonVazifeEngine {
       version: 2,
       survivalSeconds: this.survivalSeconds,
       caughtCount: this.caughtCount,
+      openHomes: this.world.homes.flatMap((home, i) => home.open ? [i] : []),
+      mosqueDoorOpen: this.mosqueDoorOpen,
+      closedOutposts: OUTPOST_IDS.filter(id => !this.world.outpostDoors[id].open),
       finalCall: this.finalCall,
       windowActive: this.windowAnomalyActive,
       windowResolved: this.windowAnomalyResolved,
@@ -1889,8 +1922,8 @@ export class SonVazifeEngine {
     if (['item_kafur', 'clue_muhtar_note', 'clue_crash_report', 'clue_photo'].includes(id))
       return this.isInsideMuhtar(p);
     const room = insideOutpost(p.x, p.z);
-    if (id === 'night_bag' || id === 'night_roll' || id === 'seyir_tahta') return room === 'school';
-    if (id === 'night_ticket' || id === 'night_spool') return room === 'station';
+    if (id === 'night_register' || id === 'night_bag' || id === 'night_roll' || id === 'seyir_tahta') return room === 'school';
+    if (id === 'night_verdict' || id === 'night_ticket' || id === 'night_spool') return room === 'station';
     if (id === 'night_line') return room === 'exchange';
     if (id === 'seyir_sef') return !room && this.world.keeper.root.visible;
     if (id === 'night_bell' || id === 'night_signal' || id === 'seyir_peron' || id === 'seyir_abone')
@@ -1943,6 +1976,25 @@ export class SonVazifeEngine {
 
   private getInteractLabel(id: string): string | null {
     if (!this.accessFromHere(id)) return null;
+    if (id === 'mosque_door') return `[E] Cami kapısını ${this.mosqueDoorOpen ? 'kapat' : 'aç'}`;
+    if (id.startsWith('outpost_door_')) {
+      const name = id.slice('outpost_door_'.length) as Outpost;
+      const door = this.world.outpostDoors[name];
+      return door ? `[E] ${OUTPOSTS[name].name} kapısını ${door.open ? 'kapat' : 'aç'}` : null;
+    }
+    if (id.startsWith('home_door_')) {
+      const home = this.world.homes[Number(id.slice('home_door_'.length))];
+      return home ? `[E] Ev kapısını ${home.open ? 'kapat' : 'aç'}` : null;
+    }
+    if (id.startsWith('family_')) {
+      const [, house, person] = id.split('_');
+      const h = Number(house), p = Number(person), home = this.world.homes[h];
+      const special = this.world.specialFamilies[h - this.world.homes.length];
+      const b = special?.bounds;
+      const inside = home ? insideHome(home, this.playerPos.x, this.playerPos.z)
+        : !!b && this.playerPos.x > b.minX && this.playerPos.x < b.maxX && this.playerPos.z > b.minZ && this.playerPos.z < b.maxZ;
+      return inside && p >= 0 && p < 3 ? `[E] ${familyName(h, p)} ile konuş` : null;
+    }
     if (isNightId(id)) {
       if (this.act < 6 || (id !== this.nextNight() && !this.hasEntry(id))) return null;
       const quiet = nightStealthPrompt(id, this.isCrouching, this.candleLit);
@@ -2073,6 +2125,38 @@ export class SonVazifeEngine {
     const id = this.activeInteractId;
 
     if (!this.getInteractLabel(id)) return;
+    if (id === 'mosque_door') {
+      this.mosqueDoorOpen = !this.mosqueDoorOpen;
+      this.audio.playDoorCreak();
+      this.triggerAutoSave(false);
+      this.pushHudState(true);
+      return;
+    }
+    if (id.startsWith('outpost_door_')) {
+      const door = this.world.outpostDoors[id.slice('outpost_door_'.length) as Outpost];
+      if (!door) return;
+      door.open = !door.open;
+      this.audio.playDoorCreak();
+      this.triggerAutoSave(false);
+      this.pushHudState(true);
+      return;
+    }
+    if (id.startsWith('home_door_')) {
+      const home = this.world.homes[Number(id.slice('home_door_'.length))];
+      if (!home) return;
+      home.open = !home.open;
+      this.triggerAutoSave(false);
+      this.audio.playDoorCreak();
+      this.pushHudState(true);
+      return;
+    }
+    if (id.startsWith('family_')) {
+      const [, house, person] = id.split('_');
+      const h = Number(house), p = Number(person);
+      this.showCaption(`${familyName(h, p)}: ${familyTestimony(h, p, this.act)}`, 6);
+      this.audio.playDialogueBlip();
+      return;
+    }
     if (isNightId(id)) {
       const quiet = nightStealthPrompt(id, this.isCrouching, this.candleLit);
       if (quiet && !this.hasEntry(id)) {
@@ -2782,7 +2866,24 @@ export class SonVazifeEngine {
     nextPos.z = THREE.MathUtils.clamp(nextPos.z, VALLEY.z1, VALLEY.z2);
 
     for (const c of this.world.colliders) pushOutsideBox(nextPos, c, PLAYER_RADIUS);
+    for (const home of this.world.homes) if (!home.open) pushOutsideBox(nextPos, home.doorCollider, PLAYER_RADIUS);
+    for (const id of OUTPOST_IDS) {
+      const door = this.world.outpostDoors[id];
+      if (!door.open) pushOutsideBox(nextPos, door.collider, PLAYER_RADIUS);
+    }
 
+    // Give solid residents a small footprint, while preserving enough room to pass.
+    for (const actor of Object.values(this.world.npcs)) {
+      const dx = nextPos.x - actor.pos.x, dz = nextPos.z - actor.pos.z;
+      const dist = Math.hypot(dx, dz), radius = PLAYER_RADIUS + 0.12;
+      if (dist < radius) {
+        if (dist < 0.0001) nextPos.x += radius;
+        else { nextPos.x += dx / dist * (radius - dist); nextPos.z += dz / dist * (radius - dist); }
+      }
+    }
+    if (!this.mosqueDoorOpen && Math.abs(nextPos.x + 7.1) < 0.45 && nextPos.z > -0.45 && nextPos.z < 1.05) {
+      nextPos.x = nextPos.x > -7.1 ? -6.65 : -7.55;
+    }
     if (!this.gasilDoorOpen && Math.abs(nextPos.x - -7.1) < 0.45 && nextPos.z > 5.2 && nextPos.z < 6.8) {
       nextPos.x = nextPos.x > -7.1 ? -7.1 + 0.45 : -7.1 - 0.45;
     }
@@ -2976,6 +3077,13 @@ export class SonVazifeEngine {
     if (this.screen !== 'playing') return;
 
     if (this.registryCaseId || this.nightPage) return;
+    const scare = this.scareClock.tick(dt, this.act, !this.isOverlayBlockingMove() && isEvening(this.survivalSeconds));
+    this.scareVisible = scare.visible;
+    if (scare.triggered) {
+      this.audio.playViolationSting();
+      this.hallucinationPulse = 0.8;
+      this.pushHudState(true);
+    }
     if (!this.isOverlayBlockingMove()) {
       const oldDay = survivalDay(this.survivalSeconds);
       this.survivalSeconds += dt;
@@ -2991,6 +3099,33 @@ export class SonVazifeEngine {
         this.triggerEnding();
         return;
       }
+    }
+
+    // Doors retain their hinge and family members breathe subtly while at home.
+    this.world.homes.forEach((home, i) => {
+      home.door.rotation.y = THREE.MathUtils.damp(home.door.rotation.y, home.open ? -Math.PI * 0.52 : 0, 7, dt);
+      const occupied = insideHome(home, this.playerPos.x, this.playerPos.z);
+      home.family.forEach((person, j) => {
+        person.visible = occupied;
+        if (occupied) person.rotation.y = Math.PI + Math.sin(this.elapsedTime * 0.8 + i + j) * 0.035;
+      });
+    });
+
+    this.world.specialFamilies.forEach((home, i) => {
+      const b = home.bounds;
+      const occupied = this.playerPos.x > b.minX && this.playerPos.x < b.maxX && this.playerPos.z > b.minZ && this.playerPos.z < b.maxZ;
+      home.family.forEach((person, j) => {
+        person.visible = occupied;
+        if (occupied) person.rotation.y = Math.PI + Math.sin(this.elapsedTime * 0.8 + i + j) * 0.035;
+      });
+    });
+    this.world.updateFamilies(dt);
+    this.world.gasil.mosqueDoorPivot.rotation.y = THREE.MathUtils.damp(
+      this.world.gasil.mosqueDoorPivot.rotation.y, this.mosqueDoorOpen ? -Math.PI * 0.52 : 0, 7, dt,
+    );
+    for (const id of OUTPOST_IDS) {
+      const door = this.world.outpostDoors[id];
+      door.pivot.rotation.y = THREE.MathUtils.damp(door.pivot.rotation.y, door.open ? -Math.PI * 0.52 : 0, 7, dt);
     }
 
     // 2. NPC Patrols (zero-GC index loop)
@@ -3126,6 +3261,7 @@ export class SonVazifeEngine {
 
     const targetSpeed = crouching ? 2.2 : this.isSprinting ? 5.2 : 3.7;
     const insideGasil = this.isInsideGasilhane(this.playerPos);
+    const insideMosque = this.playerPos.x > -13.9 && this.playerPos.x < -7.1 && this.playerPos.z > -2 && this.playerPos.z < 2.6;
     const insideAbandoned = this.isInsideAbandoned(this.playerPos);
     const insideMuhtar = this.isInsideMuhtar(this.playerPos);
     const insideClinic = this.isInsideClinic(this.playerPos);
@@ -3133,8 +3269,9 @@ export class SonVazifeEngine {
     const insideCrypt = this.isInsideCrypt(this.playerPos);
     const onBridge = this.isOnBridge(this.playerPos);
     const outpost = insideOutpost(this.playerPos.x, this.playerPos.z);
+    const home = this.world.homes.find(h => insideHome(h, this.playerPos.x, this.playerPos.z));
     const isIndoors =
-      !!outpost ||
+      !!home || !!outpost || insideMosque ||
       insideGasil ||
       insideAbandoned ||
       insideMuhtar ||
@@ -3170,7 +3307,10 @@ export class SonVazifeEngine {
       }
     }
 
-    const groundY = outpost
+    const groundY = home
+      ? home.ground + 0.08
+      : insideMosque ? groundHeightAt(-10.5, 6) + 0.16
+      : outpost
       ? OUTPOSTS[outpost].y + 0.09
       : isIndoors
         ? insideGasil
@@ -3549,12 +3689,12 @@ export class SonVazifeEngine {
   }
 
   private updateEnvironmentVisuals(dt: number, isIndoors: boolean, dangerProximity: number): void {
-    const dusk = this.act === 1;
+    const dusk = !isEvening(this.survivalSeconds);
     this.scene.environmentIntensity = dusk ? 0.16 : 0.045;
     const horizonTint = this.world.horizon.material.color;
     horizonTint.setScalar(THREE.MathUtils.damp(horizonTint.r, dusk ? 0.65 : 0.14, 0.9, dt));
-    this.world.moonMesh.visible = this.act >= 3;
-    const baseFogDensity = this.act === 1 ? 0.022 : this.act >= 3 ? 0.044 : 0.032;
+    this.world.moonMesh.visible = !dusk;
+    const baseFogDensity = dusk ? 0.022 + Math.min(0.008, (this.act - 1) * 0.001) : 0.034 + Math.min(0.01, (this.act - 1) * 0.002);
     const targetFogDensity =
       this.resolvedQualityTier === 'minimum'
         ? Math.max(baseFogDensity, 0.052)
@@ -3571,7 +3711,7 @@ export class SonVazifeEngine {
       this.scene.fog.density = THREE.MathUtils.damp(this.scene.fog.density, targetFogDensity, 1.5, dt);
     }
 
-    const targetKey = this.act === 1 ? 1.35 : 0.28 + this.stormFlashIntensity;
+    const targetKey = dusk ? Math.max(0.8, 1.35 - (this.act - 1) * 0.06) : 0.28 + this.stormFlashIntensity;
     const iblBoost = this.scene.environment === null ? 0.14 : 0;
     this.world.sunKeyLight.intensity = THREE.MathUtils.damp(
       this.world.sunKeyLight.intensity,
@@ -3882,6 +4022,7 @@ export class SonVazifeEngine {
     this.onHudUpdate({
       screen: this.screen,
       survivalDay: survivalDay(this.survivalSeconds),
+      isEvening: isEvening(this.survivalSeconds),
       survivalHits: this.caughtCount,
       act: this.act,
       actTitle: meta.actTitle,
@@ -3908,6 +4049,7 @@ export class SonVazifeEngine {
       isPointerLocked: this.isPointerLocked,
       isHiding,
       dangerProximity,
+      scareVisible: this.scareVisible,
       windowAnomalyActive: this.windowAnomalyActive,
       dirtyBasinReady: this.dirtyBasinReady,
       inventory: this.inventory.map((i) => ({ ...i })),
