@@ -399,16 +399,12 @@ export function buildMountainTerrainAndForest(
     const tx = Math.cos(angle) * radius;
     const tz = Math.sin(angle) * radius;
     if (reservedGround(tx, tz) || VILLAGE_GRAVES.some(g => Math.hypot(tx - g.x, tz - g.z) < 2.2)) continue;
-    // Keep the original districts and connecting roads clear of trees
+    // Clear landmark foundations; reservedGround handles the new road survey.
     if (Math.abs(tx) < 16.5 && tz > -46 && tz < 38) continue;
     if (Math.hypot(tx - CLINIC.x, tz - CLINIC.z) < 11.5) continue; // Clinic pad
     if (Math.hypot(tx + 34, tz + 36) < 12.5) continue; // Cemetery hill
     if (Math.hypot(tx + 36, tz - 8) < 11.5) continue; // Mill pad
     if (Math.hypot(tx - 28, tz - 20) < 11.5) continue; // Crash bend
-    if (Math.abs(tz - 8) < 4.5 && tx > -38 && tx < 2) continue; // Mill lane
-    if (Math.abs(tz + 26) < 4.8 && tx > -4 && tx < 28) continue; // Clinic lane
-    if (Math.abs(tz + 32) < 4.8 && tx > -36 && tx < 2) continue; // Cemetery lane
-    if (Math.abs(tz - 18) < 4.8 && tx > -2 && tx < 30) continue; // Crash lane
     if (Math.abs(tx + 24) < 3.8) continue; // Stream bed
 
     treeCoords.push({

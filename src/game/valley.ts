@@ -103,17 +103,26 @@ export function mainRoadX(z: number): number {
   }
   return points[points.length - 1][0];
 }
+/** Branch streets of the rebuilt village: each chain begins on the spine. */
 export const CORE_LANES: readonly Lane[] = [
-  [0.5, -24, 9, -26.4, 3.4],
-  [9, -26.4, 21.5, -28, 3.4],
-  [-1, -29, -9, -30.8, 3.0],
-  [-9, -30.8, -18, -30.4, 3.0],
-  [-18, -30.4, -24.5, -32.0, 3.0],
+  // Upper village: climb behind the office to the hillside clinic junction.
+  [1.5, -26, 7, -27.4, 3.2],
+  [7, -27.4, 14, -26.5, 3.2],
+  [14, -26.5, 20, -27.7, 3.2],
+  // Cemetery road approaches its bridge and entrance from the north-west.
+  [1, -30, -6, -30, 3.0],
+  [-6, -30, -13, -31.2, 3.0],
+  [-13, -31.2, -20, -30.8, 3.0],
+  [-20, -30.8, -24.5, -32.0, 3.0],
   [-24.5, -32.0, -32, -34.5, 3.0],
-  [-1, 10.1, -14.7, 11.2, 2.7],
-  [-14.7, 11.2, -20.8, 8, 2.7],
-  [-20.8, 8, -32, 8, 2.7],
-  [1, 16, 25, 20, 4],
+  // South of the mosque, the footpath bends toward the mill bridge.
+  [0.5, 16, -6, 15.5, 2.8],
+  [-6, 15.5, -14.7, 11.2, 2.8],
+  [-14.7, 11.2, -20.8, 8, 2.8],
+  [-20.8, 8, -32, 8, 2.8],
+  // The lower village forks toward the wreck and eastern hamlet.
+  [1, 20, 12, 19, 3.8],
+  [12, 19, 24, 19.7, 3.8],
 ];
 export const OUTER_LANES: readonly Lane[] = [
   // Hillside clinic spur leaves the old northern road and approaches its west door.
@@ -123,16 +132,20 @@ export const OUTER_LANES: readonly Lane[] = [
   // Northern road to the school yard.
   [20, -27.7, 20, -22.5, 3.1],
   [20, -22.5, 33, -22.5, 3.1],
-  [33, -22.5, 34, -35, 3.1],
+  [33, -22.5, 36, -29, 3.1],
+  [36, -29, 34, -35, 3.1],
   [34, -35, 32, -42, 3.1],
   [32, -42, 46, -53, 3.1],
   [46, -53, 43, -58, 3.1],
   [43, -58, 43, -61.95, 2.4],
-  // Old post road: school, east hamlet, station and southern crossing. Avoid the wreck itself.
+  // The eastern hillside route winds from the school to the station and southern crossing.
   [46, -53, 57, -44, 3.1],
-  [57, -44, 54, -20, 3.1],
-  [54, -20, 49, 1, 3.1],
-  [49, 1, 44, 22, 3.1],
+  [57, -44, 56, -34, 3.1],
+  [56, -34, 54, -20, 3.1],
+  [54, -20, 52, -9, 3.1],
+  [52, -9, 49, 1, 3.1],
+  [49, 1, 46, 12, 3.1],
+  [46, 12, 44, 22, 3.1],
   [44, 22, 50, 32, 3.1],
   [50, 32, 53, 47, 3.1],
   [53, 47, 60, 49, 3.1],
@@ -140,8 +153,10 @@ export const OUTER_LANES: readonly Lane[] = [
   [24, 19.7, 24.6, 23.8, 3.3],
   [24.6, 23.8, 31, 24.8, 3.3],
   [31, 24.8, 44, 22, 3.3],
-  [53, 47, 29, 42, 2.9],
-  [29, 42, 0, 40, 2.9],
+  [53, 47, 40, 40, 2.9],
+  [40, 40, 29, 42, 2.9],
+  [29, 42, 15, 39, 2.9],
+  [15, 39, 0, 40, 2.9],
   [0, 40, -18, 39, 3.1],
   [-18, 39, -30, 39, 3.1],
   [-30, 39, -43, 47, 3.1],
