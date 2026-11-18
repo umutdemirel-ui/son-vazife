@@ -30,7 +30,7 @@ export type AutopsyCaseId = 'case_arif' | 'case_mahmut' | 'case_unknown';
 export type AutopsyTool = 'magnifier' | 'scalpel' | 'forceps' | 'camera';
 export type AutopsyCameraAngle = 'overview' | 'floor' | 'perimeter';
 export type AutopsyZoneId = 'head' | 'neck' | 'chest' | 'hands' | 'pocket';
-export type GraphicsQualityPreset = 'auto' | 'high' | 'medium' | 'low';
+export type GraphicsQualityPreset = 'minimum' | 'auto' | 'high' | 'medium' | 'low';
 
 export type NpcId = 'bekci' | 'serife' | 'kenan' | 'idris';
 
@@ -179,7 +179,7 @@ export interface GameHudState {
   ritualProgress: number; // 0-8
   endingReason: string;
   controlSettings: ControlSettings;
-  resolvedQualityTier: 'high' | 'medium' | 'low';
+  resolvedQualityTier: Exclude<GraphicsQualityPreset, 'auto'>;
   // New extended systems
   assetLoadPercent: number;
   assetsReady: boolean;

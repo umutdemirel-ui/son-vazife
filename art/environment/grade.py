@@ -7,7 +7,8 @@ from PIL import Image
 from scipy.ndimage import gaussian_filter
 
 p = Path(__file__).resolve().parents[2] / "public/assets"
-src = p / "cc0/textures"
+cc0 = Path(__file__).parent / "cc0"
+src = cc0 / "textures"
 out = p / "village"
 
 
@@ -43,7 +44,7 @@ chip = np.clip((weather - 0.86) * 3.2, 0, 1)
 gain = 182 + (v - v.mean()) * 0.88 + (v - m) * 0.85 + weather * 6 - chip * 38 + grain(0.65) * 2.8
 write("limewash", gain[..., None] * [1.04, 1.014, 0.962] + chip[..., None] * [6, 1, -4])
 rock = np.asarray(
-    Image.open(p / "cc0/models/rock_04/textures/rock_04_diff_1k.jpg")
+    Image.open(cc0 / "models/rock_04/textures/rock_04_diff_1k.jpg")
     .convert("RGB")
     .resize((512, 512), Image.Resampling.LANCZOS),
     dtype=float,

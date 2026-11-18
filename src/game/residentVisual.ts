@@ -178,7 +178,12 @@ export class ResidentVisual {
   private animTime = 0;
   private disposed = false;
 
-  constructor(id: NpcId, loader: ResidentLoader) {
+  constructor(
+    id: NpcId,
+    loader: ResidentLoader,
+    onReady?: (root: THREE.Object3D) => void,
+    compact = false,
+  ) {
     this.eyeHeight = wardrobe[id].height * 0.92;
     this.group.name = `resident-${id}`;
     this.fallback = waitingFigure(id);
@@ -208,7 +213,7 @@ export class ResidentVisual {
     shade.renderOrder = 1;
     this.group.add(shade);
     loader.load(
-      `/assets/residents/${id}.glb`,
+      `/assets/residents/${compact ? 'compact/' : ''}${id}.glb`,
       ({ scene, animations }) => {
         if (this.disposed) {
           release(scene);
@@ -233,6 +238,7 @@ export class ResidentVisual {
         this.fallback!.removeFromParent();
         release(this.fallback!);
         this.fallback = null;
+        onReady?.(scene);
         this.mixer = new THREE.AnimationMixer(scene);
         this.idle = this.mixer.clipAction(idle).play();
         this.walk = this.mixer.clipAction(walk).setEffectiveWeight(0).play();
@@ -246,7 +252,9 @@ export class ResidentVisual {
 
   update(dt: number, moving: boolean, distance: number, time: number) {
     if (this.fallback) {
-      this.fallback.position.y = moving ? 0.023 * Math.abs(Math.sin(time * 6)) : 0.003 * Math.sin(time * 2);
+      this.fallback.position.y = moving
+        ? 0.023 * Math.abs(Math.sin(time * 6))
+        : 0.003 * Math.sin(time * 2);
       return;
     }
     if (!this.mixer || distance > 42) return;

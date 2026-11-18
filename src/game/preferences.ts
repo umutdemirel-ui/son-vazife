@@ -12,7 +12,7 @@ export function readControls(): ControlSettings {
     if (!raw) return { ...sessionControls };
     const value = JSON.parse(raw);
     return {
-      graphicsQuality: ['auto', 'high', 'medium', 'low'].includes(value.graphicsQuality)
+      graphicsQuality: ['auto', 'minimum', 'high', 'medium', 'low'].includes(value.graphicsQuality)
         ? value.graphicsQuality
         : DEFAULT_CONTROL_SETTINGS.graphicsQuality,
       mouseSensitivity: Number.isFinite(value.mouseSensitivity)

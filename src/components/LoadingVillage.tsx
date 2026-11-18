@@ -1,12 +1,6 @@
 import { ArrowLeft, LoaderCircle } from 'lucide-react';
 
-export function LoadingVillage({
-  failed = false,
-  onExit,
-}: {
-  failed?: boolean;
-  onExit: () => void;
-}) {
+export function LoadingVillage({ failed = false, onExit }: { failed?: boolean; onExit: () => void }) {
   return (
     <main className="village-loading">
       <div>
@@ -17,8 +11,8 @@ export function LoadingVillage({
         <h1>{failed ? 'Köy açılamadı' : 'Meydana doğru…'}</h1>
         {failed ? (
           <p>
-            Üç boyutlu köy için WebGL 2 destekli bir tarayıcı ve donanım hızlandırma gerekir. İlk
-            nöbeti ve köy arşivini üç boyutlu görüntü olmadan da açabilirsin.
+            Üç boyutlu köy WebGL 2 gerektirir. Tarayıcının grafik hızlandırma ayarını kontrol
+            edebilirsin. İlk nöbeti ve köy arşivini üç boyutlu görüntü olmadan da açabilirsin.
           </p>
         ) : (
           <p className="loading-status">

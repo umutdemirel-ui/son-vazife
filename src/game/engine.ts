@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { HorrorAudioEngine } from './audio';
 import {
   AUTOPSY_ANOMALY_LAYER,
@@ -7,7 +6,18 @@ import {
   AUTOPSY_LAYER,
   createInitialAutopsyCases,
 } from './autopsy';
-import { CC0AssetLibrary } from './cc0Assets';
+import { WorkshopAssets } from './workshopAssets';
+import { VertexLight } from './vertexLight';
+import {
+  deviceClass,
+  adaptiveTier,
+  capTier,
+  startingTier,
+  allocationFor,
+  rasterRatio,
+  SoftwareRasterBudget,
+  type RenderTier,
+} from './quality';
 import { DreadLevelListener, SpatialDreadTrigger } from './dreadListener';
 import { createHandCandle, HandCandleRefs } from './models';
 import {
@@ -15,7 +25,7 @@ import {
   updateNpcActorPatrol,
   VILLAGE_NPCS,
 } from './npcs';
-import { createPostProcessing, PostProcessingRig } from './postprocessing';
+import type { PostProcessingRig } from './postprocessing';
 import {
   getAutoSaveSummary,
   readAutoSave,
@@ -25,7 +35,7 @@ import {
 import { exteriorFloorAt, groundHeightAt } from './terrain';
 import { DELIVERY_FILES, validDelivery } from './registry';
 import { readControls, readMuted, storeControls, storeMuted } from './preferences';
-import { createProceduralTextures, ProceduralTextureSet } from './textures';
+import { loadVillageTextures, VillageTextures } from './textures';
 import {
   ActiveDialogueState,
   AutopsyCameraAngle,
@@ -218,17 +228,21 @@ export class SonVazifeEngine {
   private renderer!: THREE.WebGLRenderer;
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
-  private textures!: ProceduralTextureSet;
-  private cc0 = new CC0AssetLibrary();
+  private textures!: VillageTextures;
+  private assets = new WorkshopAssets();
+  private vertexLight = new VertexLight();
+  private usingVertexLight = false;
+  private effectsPending = false;
+  private effectsFailed = false;
   private world!: WorldHandles;
   private handCandle!: HandCandleRefs;
   private postProcessing: PostProcessingRig | null = null;
   private audio = new HorrorAudioEngine();
 
   private isSoftwareGl = false;
-  private isLowEndHardware = false;
+  private softwareBudget = new SoftwareRasterBudget();
   private isContextLost = false;
-  private envTexture: THREE.Texture | null = null;
+  private envTarget: THREE.WebGLRenderTarget | null = null;
   private frameId = 0;
   private softwareFence: WebGLSync | null = null;
   private disposed = false;
@@ -329,9 +343,11 @@ export class SonVazifeEngine {
   private snapshotCanvas: HTMLCanvasElement | null = null;
 
   // Dynamic Adaptive FPS & Quality Controller
-  private resolvedQualityTier: 'high' | 'medium' | 'low' = 'medium';
+  private resolvedQualityTier: RenderTier = 'medium';
   private emaFrameMs = 16.7;
   private qualityEvalTimer = 0;
+  private fastWindows = 0;
+  private autoCeiling:RenderTier='high';
   private shadowFrameCounter = 0;
   private shadowRefreshStride = 3;
   private lightCullDistSq = 21 * 21;
@@ -435,65 +451,107 @@ export class SonVazifeEngine {
 
   private syncQualityTierFromSettings(): void {
     if (this.isSoftwareGl) {
-      this.applyGraphicsQuality('low');
+      this.applyGraphicsQuality('minimum');
       return;
     }
     const preset = this.controlSettings.graphicsQuality;
     if (preset === 'auto') {
       this.qualityEvalTimer = 0;
-      this.applyGraphicsQuality(this.resolvedQualityTier);
+      this.applyGraphicsQuality(capTier(this.resolvedQualityTier,this.autoCeiling));
     } else {
       this.applyGraphicsQuality(preset);
     }
   }
 
-  private applyGraphicsQuality(tier: 'high' | 'medium' | 'low'): void {
+  private applyGraphicsQuality(tier: RenderTier): void {
     if (!this.renderer || !this.container) return;
-    const effectiveTier = this.isSoftwareGl ? 'low' : tier;
+    const effectiveTier = this.isSoftwareGl ? 'minimum' : tier;
+    const minimal = effectiveTier === 'minimum',
+      effects = effectiveTier === 'medium' || effectiveTier === 'high';
     this.resolvedQualityTier = effectiveTier;
 
     const width = this.container.clientWidth || window.innerWidth;
     const height = this.container.clientHeight || window.innerHeight;
     const nativeDpr = window.devicePixelRatio || 1;
-    const targetDpr = this.isSoftwareGl
-      ? Math.min(0.83, 760 / Math.max(width, height))
-      : effectiveTier === 'high'
-        ? Math.min(nativeDpr, 1.4)
-        : effectiveTier === 'medium'
-          ? Math.min(nativeDpr, 1.0)
-          : Math.min(nativeDpr, 0.78);
-
+    const targetDpr = rasterRatio(
+      effectiveTier,
+      width,
+      height,
+      nativeDpr,
+      this.isSoftwareGl,
+      this.softwareBudget.side,
+    );
+    // Allocate the offscreen pipeline only when it will be used. Free it on a downshift.
+    if (effects && !this.postProcessing && !this.effectsPending && !this.effectsFailed) {
+      this.effectsPending = true;
+      void import('./postprocessing')
+        .then(({ createPostProcessing, createRoomLight }) => {
+          if (this.disposed || !['medium', 'high'].includes(this.resolvedQualityTier)) return;
+          this.envTarget = createRoomLight(this.renderer);
+          this.scene.environment = this.envTarget.texture;
+          this.scene.environmentIntensity = 0.16;
+          this.postProcessing = createPostProcessing(
+            this.renderer,
+            this.scene,
+            this.camera,
+            this.container.clientWidth,
+            this.container.clientHeight,
+          );
+          this.lastAppliedQualityKey = '';
+          this.applyGraphicsQuality(this.resolvedQualityTier);
+        })
+        .catch(() => {
+          this.effectsFailed = true;
+          this.scene.environment = null;
+          this.envTarget?.dispose();
+          this.envTarget = null;
+        })
+        .finally(() => {
+          this.effectsPending = false;
+        });
+    } else if (!effects && this.postProcessing) {
+      this.scene.environment = null;
+      this.envTarget?.dispose();
+      this.envTarget = null;
+      this.postProcessing.dispose();
+      this.postProcessing = null;
+    }
+    if (minimal !== this.usingVertexLight) {
+      this.usingVertexLight = minimal;
+      if (minimal) this.vertexLight.include(this.scene);
+      else this.vertexLight.restore();
+    }
     const key = `${effectiveTier}:${targetDpr.toFixed(2)}:${width}x${height}`;
     if (key !== this.lastAppliedQualityKey) {
       this.lastAppliedQualityKey = key;
       this.renderer.setPixelRatio(targetDpr);
       this.renderer.setSize(width, height);
-      this.postProcessing?.setSize(width, height);
+      this.postProcessing?.setSize(width, height, targetDpr);
     }
 
     if (this.camera) {
-      const targetFar = effectiveTier === 'high' ? 165 : effectiveTier === 'medium' ? 125 : 92;
+      const targetFar =
+        effectiveTier === 'high' ? 165 : effectiveTier === 'medium' ? 125 : minimal ? 48 : 86;
       if (this.camera.far !== targetFar) {
         this.camera.far = targetFar;
         this.camera.updateProjectionMatrix();
       }
     }
 
-    if (this.scene && this.envTexture) {
-      const useIbl = !this.isSoftwareGl && effectiveTier !== 'low';
-      this.scene.environment = useIbl ? this.envTexture : null;
-    }
-
     if (this.world) {
-      this.world.rainGeo.setDrawRange(0, effectiveTier === 'high' ? 1450 : effectiveTier === 'medium' ? 750 : 320);
+      this.world.horizon.scale.setScalar(minimal ? 0.64 : 1);
+      this.world.rainGeo.setDrawRange(
+        0,
+        effectiveTier === 'high' ? 1450 : effectiveTier === 'medium' ? 750 : minimal ? 96 : 320,
+      );
       for (let i = 0; i < this.world.mistSprites.length; i++) {
-        this.world.mistSprites[i].visible = effectiveTier !== 'low' || i % 2 === 0;
+        this.world.mistSprites[i].visible = !minimal && (effects || i % 2 === 0);
       }
     }
 
     this.postProcessing?.setBloomEnabled(!this.isSoftwareGl && effectiveTier === 'high');
 
-    const shadowsOn = !this.isSoftwareGl && effectiveTier !== 'low';
+    const shadowsOn = effects;
     if (this.renderer.shadowMap.enabled !== shadowsOn) {
       this.renderer.shadowMap.enabled = shadowsOn;
       if (shadowsOn) {
@@ -511,7 +569,11 @@ export class SonVazifeEngine {
       }
     }
     this.shadowRefreshStride = effectiveTier === 'high' ? 3 : effectiveTier === 'medium' ? 6 : 0;
-    this.maxPoolLights = effectiveTier === 'low' ? 2 : 4;
+    this.maxPoolLights = minimal ? 1 : effectiveTier === 'low' ? 2 : 4;
+    if (this.world)
+      this.world.worldLightPool.forEach((light, i) => {
+        light.visible = i < this.maxPoolLights;
+      });
 
     const cullDist = effectiveTier === 'high' ? 28 : effectiveTier === 'medium' ? 21 : 15;
     this.lightCullDistSq = cullDist * cullDist;
@@ -537,11 +599,7 @@ export class SonVazifeEngine {
     const sens = this.controlSettings.mouseSensitivity * (this.isZooming ? 0.55 : 1.0);
     const ySign = this.controlSettings.invertY ? -1 : 1;
     this.targetYaw -= dx * 0.0042 * sens;
-    this.targetPitch = THREE.MathUtils.clamp(
-      this.targetPitch - dy * 0.0042 * sens * ySign,
-      -1.28,
-      1.28,
-    );
+    this.targetPitch = THREE.MathUtils.clamp(this.targetPitch - dy * 0.0042 * sens * ySign, -1.28, 1.28);
   }
 
   public setVirtualSprint(active: boolean): void {
@@ -549,7 +607,12 @@ export class SonVazifeEngine {
   }
 
   private isOverlayBlockingMove(): boolean {
-    return this.isNotebookOpen || this.activeDialogueNpcId !== null || this.activeAutopsyCaseId !== null || this.registryCaseId !== null;
+    return (
+      this.isNotebookOpen ||
+      this.activeDialogueNpcId !== null ||
+      this.activeAutopsyCaseId !== null ||
+      this.registryCaseId !== null
+    );
   }
 
   private resetStoryState(): void {
@@ -670,47 +733,61 @@ export class SonVazifeEngine {
   }
 
   private initThree(): void {
+    // Probe and render on one context: creating a disposable second GL context can
+    // exhaust the browser's context limit on older phones.
+    const canvas = document.createElement('canvas');
+    const cores = navigator.hardwareConcurrency || 4;
+    const devMem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
+    const coarsePointer = window.matchMedia('(pointer:coarse)').matches;
+    const powerSaver =
+      cores <= 4 ||
+      devMem <= 4 ||
+      coarsePointer ||
+      ['low', 'minimum'].includes(this.controlSettings.graphicsQuality);
+    const gl = canvas.getContext('webgl2', {
+      alpha: false,
+      stencil: false,
+      antialias: !powerSaver && this.controlSettings.graphicsQuality === 'high',
+      powerPreference: powerSaver ? 'low-power' : 'high-performance',
+    });
+    if (!gl) throw new Error('3B köy için WebGL 2 gerekiyor.');
     const hardwareProfile = (() => {
-      const gl = document.createElement('canvas').getContext('webgl2');
-      const cores = navigator.hardwareConcurrency || 4;
-      const devMem = (navigator as unknown as { deviceMemory?: number }).deviceMemory ?? 8;
-      const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
-      if (!gl) {
-        return { softwareGl: true, lowEnd: true, veryWeak: true };
-      }
       const ext = gl.getExtension('WEBGL_debug_renderer_info');
       const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER;
       const gpu = String(gl.getParameter(param));
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
-      const softwareGl = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
-      const lowEndGpu = /Intel.*(UHD|HD|Iris)|Mali|Adreno|PowerVR|Apple GPU/i.test(gpu) && (cores <= 4 || devMem <= 4 || coarsePointer);
-      const lowEnd = softwareGl || lowEndGpu || cores <= 4 || devMem <= 4 || coarsePointer;
-      const veryWeak = softwareGl || cores <= 2 || devMem <= 2;
-      return { softwareGl, lowEnd, veryWeak };
+      return deviceClass(gpu, cores, devMem, coarsePointer);
     })();
 
     this.isSoftwareGl = hardwareProfile.softwareGl;
-    this.isLowEndHardware = hardwareProfile.lowEnd;
+    this.autoCeiling=hardwareProfile.veryWeak ? 'minimum' : hardwareProfile.lowEnd ? 'low' : 'high';
 
-    if (this.controlSettings.graphicsQuality === 'auto') {
-      this.resolvedQualityTier = hardwareProfile.veryWeak ? 'low' : 'medium';
-    }
+    this.resolvedQualityTier = startingTier(
+      this.controlSettings.graphicsQuality,
+      this.isSoftwareGl,
+      hardwareProfile.veryWeak,
+      hardwareProfile.lowEnd,
+    );
+    const allocation = allocationFor(this.resolvedQualityTier),
+      compact = allocation !== 'full';
 
     const width = this.container.clientWidth || window.innerWidth;
     const height = this.container.clientHeight || window.innerHeight;
 
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: !this.isSoftwareGl && !this.isLowEndHardware,
-      powerPreference: 'high-performance',
-    });
+    this.renderer = new THREE.WebGLRenderer({ canvas, context: gl });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.12;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.setPixelRatio(
-      this.isSoftwareGl ? 1 : this.isLowEndHardware ? 1 : Math.min(window.devicePixelRatio || 1, 1.4),
+      rasterRatio(
+        this.resolvedQualityTier,
+        width,
+        height,
+        window.devicePixelRatio || 1,
+        this.isSoftwareGl,
+      ),
     );
     this.renderer.setSize(width, height);
-    this.renderer.shadowMap.enabled = !this.isSoftwareGl && !hardwareProfile.veryWeak;
+    this.renderer.shadowMap.enabled = !compact;
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.needsUpdate = this.renderer.shadowMap.enabled;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -722,36 +799,27 @@ export class SonVazifeEngine {
     this.camera.rotation.order = 'YXZ';
     this.scene.add(this.camera);
 
-    if (!this.isSoftwareGl) {
-      const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-      const room = new RoomEnvironment();
-      this.envTexture = pmremGenerator.fromScene(room, 0.04).texture;
-      this.scene.environment = this.envTexture;
-      pmremGenerator.dispose();
-      room.dispose();
-    }
-
-    const rawAniso = this.renderer.capabilities.getMaxAnisotropy();
-    const maxAnisotropy = this.isSoftwareGl || this.isLowEndHardware ? Math.min(2, rawAniso) : Math.min(4, rawAniso);
-    this.textures = createProceduralTextures(maxAnisotropy);
-    this.world = buildVillageWorld(this.scene, this.textures, (id) => this.getInteractLabel(id));
+    const maxAnisotropy = Math.min(compact ? 1 : 4, this.renderer.capabilities.getMaxAnisotropy());
+    this.textures = loadVillageTextures(maxAnisotropy, compact);
+    this.world = buildVillageWorld(
+      this.scene,
+      this.textures,
+      (id) => this.getInteractLabel(id),
+      allocation,
+      (root) => {
+        if (this.usingVertexLight) this.vertexLight.include(root);
+      },
+    );
     this.npcKeys = Object.keys(this.world.npcs) as NpcId[];
-
-    // Preload local CC0 3D models & PBR textures in background without blocking interaction
-    void this.cc0
-      .preloadAll(maxAnisotropy, (percent, ready) => {
-        if (this.disposed) return;
-        this.assetLoadPercent = percent;
-        this.assetsReady = ready;
-        if (ready) {
-          this.world.applyCC0Assets(this.cc0);
-          if (this.renderer.shadowMap.enabled) {
-            this.renderer.shadowMap.needsUpdate = true;
-          }
-          this.syncVisualMeshes();
-          this.pushHudState(true);
-        }
-      }, this.isSoftwareGl || this.isLowEndHardware);
+    void this.assets.load(allocation, (id, percent) => {
+      if (this.disposed) return;
+      this.world.applyModel(this.assets, id);
+      if (this.usingVertexLight) this.vertexLight.include(this.scene);
+      this.assetLoadPercent = percent;
+      this.assetsReady = percent === 100;
+      if (this.renderer.shadowMap.enabled) this.renderer.shadowMap.needsUpdate = true;
+      this.pushHudState(true);
+    });
 
     // First-person held brass candle (detach light onto camera permanently so NUM_POINT_LIGHTS stays constant)
     this.handCandle = createHandCandle();
@@ -764,17 +832,6 @@ export class SonVazifeEngine {
     this.handCandle.light.visible = true;
     this.camera.add(this.handCandle.root);
     this.camera.add(this.handCandle.light);
-
-    if (!this.isSoftwareGl) {
-      this.postProcessing = createPostProcessing(
-        this.renderer,
-        this.scene,
-        this.camera,
-        width,
-        height,
-      );
-      this.renderer.compile(this.scene, this.camera);
-    }
 
     this.syncQualityTierFromSettings();
     this.syncVisualMeshes();
@@ -824,7 +881,8 @@ export class SonVazifeEngine {
       body.incisionGroup.visible = isInspecting && st.zones.chest.incised;
       body.neckIncision.visible = isInspecting && st.zones.neck.incised;
       if (body.sampleNodes.chest) {
-        body.sampleNodes.chest.visible = isInspecting && st.zones.chest.incised && !st.zones.chest.sampleExtracted;
+        body.sampleNodes.chest.visible =
+          isInspecting && st.zones.chest.incised && !st.zones.chest.sampleExtracted;
       }
       if (body.sampleNodes.pocket) {
         body.sampleNodes.pocket.visible = isInspecting && !st.zones.pocket.sampleExtracted;
@@ -884,7 +942,7 @@ export class SonVazifeEngine {
   public startNewGame(registryFiled = false): void {
     this.audio.init();
     this.resetStoryState();
-    const firstEntry = this.clues.find(clue => clue.id === 'clue_first_ledger');
+    const firstEntry = this.clues.find((clue) => clue.id === 'clue_first_ledger');
     if (firstEntry) firstEntry.discovered = registryFiled;
     this.syncVisualMeshes();
     this.camera.position.set(this.playerPos.x, this.playerPos.y + PLAYER_EYE_HEIGHT, this.playerPos.z);
@@ -911,7 +969,11 @@ export class SonVazifeEngine {
     this.resetStoryState();
 
     this.act = save.act;
-    this.playerPos.set(save.playerPos.x, groundHeightAt(save.playerPos.x, save.playerPos.z), save.playerPos.z);
+    this.playerPos.set(
+      save.playerPos.x,
+      groundHeightAt(save.playerPos.x, save.playerPos.z),
+      save.playerPos.z,
+    );
     this.yaw = save.playerPos.yaw;
     this.targetYaw = save.playerPos.yaw;
     this.pitch = save.playerPos.pitch;
@@ -1125,7 +1187,13 @@ export class SonVazifeEngine {
   }
 
   public toggleNotebook(): void {
-    if (this.screen !== 'playing' || this.activeDialogueNpcId || this.activeAutopsyCaseId || this.registryCaseId) return;
+    if (
+      this.screen !== 'playing' ||
+      this.activeDialogueNpcId ||
+      this.activeAutopsyCaseId ||
+      this.registryCaseId
+    )
+      return;
     this.isNotebookOpen = !this.isNotebookOpen;
     this.keys = {};
     this.rightMouseDown = false;
@@ -1392,7 +1460,10 @@ export class SonVazifeEngine {
     this.pushHudState(true);
   }
 
-  private syncAutopsyCameraTarget(body: WorldHandles['autopsyBodies'][AutopsyCaseId], angle: AutopsyCameraAngle): void {
+  private syncAutopsyCameraTarget(
+    body: WorldHandles['autopsyBodies'][AutopsyCaseId],
+    angle: AutopsyCameraAngle,
+  ): void {
     const preset = body.cameraPresets[angle] ?? body.cameraPresets.overview;
     body.group.updateWorldMatrix(true, false);
     this.autopsyCamPos.copy(preset.pos);
@@ -1420,7 +1491,10 @@ export class SonVazifeEngine {
     this.hoveredAutopsyAnomalyId = null;
     this.audio.playExamineClick();
     if (tool === 'camera' && this.activeAutopsyCameraAngle === 'overview') {
-      this.showCaption('Fotoğraf Makinesi seçildi. "Zemin & İzler" veya "Oda Çevresi" açısına geçip mavi işaretli anomalileri çek.', 4.6);
+      this.showCaption(
+        'Fotoğraf Makinesi seçildi. "Zemin & İzler" veya "Oda Çevresi" açısına geçip mavi işaretli anomalileri çek.',
+        4.6,
+      );
     }
     this.syncVisualMeshes();
     this.pushHudState(true);
@@ -1459,7 +1533,11 @@ export class SonVazifeEngine {
     this.pushHudState(true);
   }
 
-  public linkCrimeSceneAnomaly(caseId: AutopsyCaseId, anomalyId: string, zoneId: AutopsyZoneId | ''): void {
+  public linkCrimeSceneAnomaly(
+    caseId: AutopsyCaseId,
+    anomalyId: string,
+    zoneId: AutopsyZoneId | '',
+  ): void {
     const st = this.autopsyCases[caseId];
     const anom = st?.anomalies?.[anomalyId];
     if (!st || !anom) return;
@@ -1474,12 +1552,13 @@ export class SonVazifeEngine {
     const diag = AUTOPSY_DIAGNOSIS[caseId];
     if (!st || !diag) return;
 
-    const requiredInspected = (Object.values(st.zones) as Array<AutopsyCaseState['zones'][AutopsyZoneId]>).filter(
-      (z) => z.externalFound,
-    ).length;
+    const requiredInspected = (
+      Object.values(st.zones) as Array<AutopsyCaseState['zones'][AutopsyZoneId]>
+    ).filter((z) => z.externalFound).length;
 
     if (requiredInspected < 4 || !st.zones.chest.incised) {
-      st.diagnosisError = 'Mühürlemeden önce en az 4 bölgeyi büyüteçle incele ve göğüs bölgesine neşter uygula.';
+      st.diagnosisError =
+        'Mühürlemeden önce en az 4 bölgeyi büyüteçle incele ve göğüs bölgesine neşter uygula.';
       this.audio.playViolationSting();
       this.pushHudState(true);
       return;
@@ -1487,21 +1566,24 @@ export class SonVazifeEngine {
 
     const anomalies = Object.values(st.anomalies || {});
     if (anomalies.some((a) => !a.photographed)) {
-      st.diagnosisError = 'Mühürlemeden önce [4] Fotoğraf Makinesi ile olay yerindeki tüm çevresel anomalileri fotoğrafla.';
+      st.diagnosisError =
+        'Mühürlemeden önce [4] Fotoğraf Makinesi ile olay yerindeki tüm çevresel anomalileri fotoğrafla.';
       this.audio.playViolationSting();
       this.pushHudState(true);
       return;
     }
 
     if (anomalies.some((a) => !a.selectedTag || a.selectedTag !== a.correctTag)) {
-      st.diagnosisError = 'Fotoğraflanan olay yeri anomalilerinden biri eksik veya yanlış etiketlenmiş. Kanıt etiketlerini kontrol et.';
+      st.diagnosisError =
+        'Fotoğraflanan olay yeri anomalilerinden biri eksik veya yanlış etiketlenmiş. Kanıt etiketlerini kontrol et.';
       this.audio.playViolationSting();
       this.pushHudState(true);
       return;
     }
 
     if (anomalies.some((a) => !a.linkedZone || a.linkedZone !== a.correctZone)) {
-      st.diagnosisError = 'Olay yeri fotoğrafı yanlış otopsi bulgusuyla eşleştirilmiş. Anatomik bulguyla çapraz referansını düzelt.';
+      st.diagnosisError =
+        'Olay yeri fotoğrafı yanlış otopsi bulgusuyla eşleştirilmiş. Anatomik bulguyla çapraz referansını düzelt.';
       this.audio.playViolationSting();
       this.pushHudState(true);
       return;
@@ -1515,7 +1597,8 @@ export class SonVazifeEngine {
     }
 
     if (st.selectedCause !== diag.correctCause || st.selectedTime !== diag.correctTime) {
-      st.diagnosisError = 'Ölüm nedeni veya ölüm saati adli bulgularla örtüşmüyor. Bölge notlarını tekrar oku.';
+      st.diagnosisError =
+        'Ölüm nedeni veya ölüm saati adli bulgularla örtüşmüyor. Bölge notlarını tekrar oku.';
       this.audio.playViolationSting();
       this.pushHudState(true);
       return;
@@ -1607,7 +1690,10 @@ export class SonVazifeEngine {
       _raycaster.far = 8.0;
       const hits = _raycaster.intersectObjects(Object.values(body.anomalyMeshes), false);
       if (hits.length === 0) {
-        this.showCaption('Kadrajda çevresel anomali yok. Kamera açısını değiştirip (Zemin & İzler / Oda Çevresi) tekrar dene.', 3.4);
+        this.showCaption(
+          'Kadrajda çevresel anomali yok. Kamera açısını değiştirip (Zemin & İzler / Oda Çevresi) tekrar dene.',
+          3.4,
+        );
         return;
       }
 
@@ -1626,7 +1712,10 @@ export class SonVazifeEngine {
       if (photoUrl) anomaly.photoDataUrl = photoUrl;
       st.diagnosisError = null;
 
-      this.showCaption(`Olay yeri fotoğrafı çekildi: ${anomaly.label}. Sağdan etiketleyip otopsi bulgusuyla eşleştir.`, 4.8);
+      this.showCaption(
+        `Olay yeri fotoğrafı çekildi: ${anomaly.label}. Sağdan etiketleyip otopsi bulgusuyla eşleştir.`,
+        4.8,
+      );
       this.syncVisualMeshes();
       this.pushHudState(true);
       return;
@@ -1679,8 +1768,7 @@ export class SonVazifeEngine {
 
     try {
       const maybePromise = this.renderer.domElement.requestPointerLock?.() as unknown as
-        | Promise<void>
-        | undefined;
+        Promise<void> | undefined;
       if (maybePromise && typeof maybePromise.catch === 'function') {
         maybePromise.catch(() => {
           // Fallback drag-look & arrow keys remain active
@@ -1807,9 +1895,7 @@ export class SonVazifeEngine {
           ? '[E] Kirli Suyu Avlu Oluğuna Dök'
           : null;
       case 'vigil_candle':
-        return this.act >= 2 && !this.vigilLit
-          ? '[E] Başucunda Sabır Mumunu Yak'
-          : null;
+        return this.act >= 2 && !this.vigilLit ? '[E] Başucunda Sabır Mumunu Yak' : null;
       case 'clue_serife_letter':
         return this.act >= 3 ? '[E] Şerife Nine’nin Mektubunu Oku' : null;
       case 'clue_mill_ledger':
@@ -1867,16 +1953,24 @@ export class SonVazifeEngine {
         if (this.autopsyCases.case_unknown.completed) {
           this.act = 5;
         }
-        this.showCaption('Kafur kavanozu ve yırtık sayfa alındı! Gasilhanede Son Vazifeyi tamamla.', 5.6);
+        this.showCaption(
+          'Kafur kavanozu ve yırtık sayfa alındı! Gasilhanede Son Vazifeyi tamamla.',
+          5.6,
+        );
       } else {
         this.showCaption(`${item.name} alındı.`, 3.0);
       }
 
       if (
         this.act === 1 &&
-        ['defter', 'kefen', 'sabun', 'ibrik'].every((r) => this.inventory.find((i) => i.id === r)?.collected)
+        ['defter', 'kefen', 'sabun', 'ibrik'].every(
+          (r) => this.inventory.find((i) => i.id === r)?.collected,
+        )
       ) {
-        this.showCaption('Hazırlık malzemeleri tamam. Gasilhanede teslim dosyasını mühürle ve gusle başla.', 5.0);
+        this.showCaption(
+          'Hazırlık malzemeleri tamam. Gasilhanede teslim dosyasını mühürle ve gusle başla.',
+          5.0,
+        );
       }
       this.triggerAutoSave(true);
       this.pushHudState(true);
@@ -2075,7 +2169,10 @@ export class SonVazifeEngine {
           this.dreadLevel = Math.min(100, this.dreadLevel + 18);
           this.syncVisualMeshes();
           this.audio.playWindowKnock();
-          this.showCaption('Sabunlu yıkama tamamlandı... Pencereye bir şey vurdu! Bakma, kepengi kapat!', 5.6);
+          this.showCaption(
+            'Sabunlu yıkama tamamlandı... Pencereye bir şey vurdu! Bakma, kepengi kapat!',
+            5.6,
+          );
         } else if (this.windowAnomalyActive && !this.shutterClosed) {
           this.showCaption('Önce sol duvardaki ahşap kepengi kapat!', 3.2);
         } else if (!this.dirtyBasinDrained) {
@@ -2102,7 +2199,10 @@ export class SonVazifeEngine {
         if (!this.stepFinalCamphorDone) {
           this.stepFinalCamphorDone = true;
           this.audio.playWaterPour();
-          this.showCaption('Kafurlu suyla üç kez son durulama yapıldı. Şimdi havlu ve gülsuyu ile kurula.', 4.2);
+          this.showCaption(
+            'Kafurlu suyla üç kez son durulama yapıldı. Şimdi havlu ve gülsuyu ile kurula.',
+            4.2,
+          );
         } else if (!this.stepDryDone) {
           this.stepDryDone = true;
           this.audio.playPickup();
@@ -2183,6 +2283,9 @@ export class SonVazifeEngine {
 
   private onWebGlContextRestored = (): void => {
     this.isContextLost = false;
+    this.postProcessing?.dispose(); this.postProcessing=null;
+    this.scene.environment=null;this.envTarget?.dispose();this.envTarget=null;
+    this.effectsFailed=false;this.lastAppliedQualityKey='';
     if (this.renderer.shadowMap.enabled) {
       this.renderer.shadowMap.needsUpdate = true;
     }
@@ -2229,7 +2332,13 @@ export class SonVazifeEngine {
   };
 
   private onMouseDown = (e: MouseEvent): void => {
-    if (this.screen !== 'playing' || this.isNotebookOpen || this.activeDialogueNpcId || this.registryCaseId) return;
+    if (
+      this.screen !== 'playing' ||
+      this.isNotebookOpen ||
+      this.activeDialogueNpcId ||
+      this.registryCaseId
+    )
+      return;
     this.audio.init();
 
     if (this.activeAutopsyCaseId) {
@@ -2258,7 +2367,13 @@ export class SonVazifeEngine {
   };
 
   private onMouseMove = (e: MouseEvent): void => {
-    if (this.screen !== 'playing' || this.isNotebookOpen || this.activeDialogueNpcId || this.registryCaseId) return;
+    if (
+      this.screen !== 'playing' ||
+      this.isNotebookOpen ||
+      this.activeDialogueNpcId ||
+      this.registryCaseId
+    )
+      return;
 
     if (this.activeAutopsyCaseId) {
       const body = this.world.autopsyBodies[this.activeAutopsyCaseId];
@@ -2274,7 +2389,8 @@ export class SonVazifeEngine {
         _raycaster.layers.set(AUTOPSY_ANOMALY_LAYER);
         _raycaster.far = 8.0;
         const hits = _raycaster.intersectObjects(Object.values(body.anomalyMeshes), false);
-        const nextAnomaly = hits.length > 0 ? (hits[0].object.userData.autopsyAnomalyId as string) : null;
+        const nextAnomaly =
+          hits.length > 0 ? (hits[0].object.userData.autopsyAnomalyId as string) : null;
         if (nextAnomaly !== this.hoveredAutopsyAnomalyId || this.hoveredAutopsyZone !== null) {
           this.hoveredAutopsyAnomalyId = nextAnomaly;
           this.hoveredAutopsyZone = null;
@@ -2284,7 +2400,8 @@ export class SonVazifeEngine {
         _raycaster.layers.set(AUTOPSY_LAYER);
         _raycaster.far = 6.0;
         const hits = _raycaster.intersectObjects(Object.values(body.zoneMeshes), false);
-        const nextZone = hits.length > 0 ? (hits[0].object.userData.autopsyZoneId as AutopsyZoneId) : null;
+        const nextZone =
+          hits.length > 0 ? (hits[0].object.userData.autopsyZoneId as AutopsyZoneId) : null;
         if (nextZone !== this.hoveredAutopsyZone || this.hoveredAutopsyAnomalyId !== null) {
           this.hoveredAutopsyZone = nextZone;
           this.hoveredAutopsyAnomalyId = null;
@@ -2329,7 +2446,8 @@ export class SonVazifeEngine {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     // The modal owns Tab, Escape and form input while filing a record.
-    if (this.registryCaseId || (this.screen === 'paused' && document.querySelector('dialog[open]'))) return;
+    if (this.registryCaseId || (this.screen === 'paused' && document.querySelector('dialog[open]')))
+      return;
     const target = e.target as HTMLElement | null;
     const isTypingTarget =
       target instanceof HTMLInputElement ||
@@ -2459,19 +2577,39 @@ export class SonVazifeEngine {
     if (!this.gasilDoorOpen && Math.abs(nextPos.x - -7.1) < 0.45 && nextPos.z > 5.2 && nextPos.z < 6.8) {
       nextPos.x = nextPos.x > -7.1 ? -7.1 + 0.45 : -7.1 - 0.45;
     }
-    if (!this.abandonedDoorOpen && Math.abs(nextPos.x - -7.8) < 0.45 && nextPos.z > -11.3 && nextPos.z < -9.7) {
+    if (
+      !this.abandonedDoorOpen &&
+      Math.abs(nextPos.x - -7.8) < 0.45 &&
+      nextPos.z > -11.3 &&
+      nextPos.z < -9.7
+    ) {
       nextPos.x = nextPos.x > -7.8 ? -7.8 + 0.45 : -7.8 - 0.45;
     }
-    if (!this.muhtarDoorOpen && Math.abs(nextPos.x - 7.3) < 0.45 && nextPos.z > -18.8 && nextPos.z < -17.2) {
+    if (
+      !this.muhtarDoorOpen &&
+      Math.abs(nextPos.x - 7.3) < 0.45 &&
+      nextPos.z > -18.8 &&
+      nextPos.z < -17.2
+    ) {
       nextPos.x = nextPos.x > 7.3 ? 7.3 + 0.45 : 7.3 - 0.45;
     }
-    if (!this.clinicDoorOpen && Math.abs(nextPos.x - 22.3) < 0.45 && nextPos.z > -28.8 && nextPos.z < -27.2) {
+    if (
+      !this.clinicDoorOpen &&
+      Math.abs(nextPos.x - 22.3) < 0.45 &&
+      nextPos.z > -28.8 &&
+      nextPos.z < -27.2
+    ) {
       nextPos.x = nextPos.x > 22.3 ? 22.3 + 0.45 : 22.3 - 0.45;
     }
     if (!this.millDoorOpen && Math.abs(nextPos.x - -32.9) < 0.45 && nextPos.z > 7.2 && nextPos.z < 8.8) {
       nextPos.x = nextPos.x > -32.9 ? -32.9 + 0.45 : -32.9 - 0.45;
     }
-    if (!this.cryptDoorOpen && Math.abs(nextPos.z - -36.8) < 0.45 && nextPos.x > -33.15 && nextPos.x < -31.65) {
+    if (
+      !this.cryptDoorOpen &&
+      Math.abs(nextPos.z - -36.8) < 0.45 &&
+      nextPos.x > -33.15 &&
+      nextPos.x < -31.65
+    ) {
       nextPos.z = nextPos.z > -36.8 ? -36.8 + 0.45 : -36.8 - 0.45;
     }
   }
@@ -2479,7 +2617,23 @@ export class SonVazifeEngine {
   private renderFrame(): void {
     if (this.isContextLost) return;
     this.world.horizon.position.copy(this.camera.position);
-    if (this.postProcessing && !this.isSoftwareGl && this.resolvedQualityTier !== 'low') {
+    this.world.updateDetail(this.camera.position, this.resolvedQualityTier);
+    if (this.usingVertexLight) {
+      const exam = this.world.autopsyLights;
+      const lamp =
+        exam.flashLight.intensity > 0.05
+          ? exam.flashLight
+          : exam.examLight.intensity > 0.05
+            ? exam.examLight
+            : this.world.worldLightPool[0];
+      this.vertexLight.update(
+        this.world.hemiLight.intensity,
+        this.world.sunKeyLight.intensity,
+        lamp,
+        this.handCandle.light.intensity,
+      );
+    }
+    if (this.postProcessing) {
       this.postProcessing.update(
         this.elapsedTime,
         THREE.MathUtils.clamp(this.dreadLevel / 100, 0, 1),
@@ -2492,7 +2646,11 @@ export class SonVazifeEngine {
   }
 
   private evaluateAdaptiveQuality(rawDt: number): void {
-    if (this.isSoftwareGl || this.screen !== 'playing' || this.controlSettings.graphicsQuality !== 'auto') {
+    if (
+      this.isSoftwareGl ||
+      this.screen !== 'playing' ||
+      this.controlSettings.graphicsQuality !== 'auto'
+    ) {
       return;
     }
     const frameMs = THREE.MathUtils.clamp(rawDt * 1000, 4, 100);
@@ -2501,16 +2659,10 @@ export class SonVazifeEngine {
     if (this.qualityEvalTimer < 1.2) return;
     this.qualityEvalTimer = 0;
 
-    let nextTier = this.resolvedQualityTier;
-    if (this.emaFrameMs > 29) {
-      nextTier = 'low';
-    } else if (this.emaFrameMs > 22) {
-      nextTier = this.resolvedQualityTier === 'high' ? 'medium' : 'low';
-    } else if (this.emaFrameMs < 13.5) {
-      nextTier = this.resolvedQualityTier === 'low' ? 'medium' : 'high';
-    }
-
+    this.fastWindows=this.emaFrameMs<18.2?this.fastWindows+1:0;
+    const nextTier=adaptiveTier(this.resolvedQualityTier,this.autoCeiling,this.emaFrameMs,this.fastWindows);
     if (nextTier !== this.resolvedQualityTier) {
+      this.fastWindows=0;
       this.applyGraphicsQuality(nextTier);
       this.pushHudState(true);
     }
@@ -2519,11 +2671,11 @@ export class SonVazifeEngine {
   private startLoop(): void {
     let lastFrameAt = performance.now();
     let lastSoftwareDraw = -Infinity;
-    const gl = this.isSoftwareGl ? this.renderer.getContext() as WebGL2RenderingContext : null;
+    const gl = this.isSoftwareGl ? (this.renderer.getContext() as WebGL2RenderingContext) : null;
     // Service controls independently of a busy software GPU. Only submit a new
     // frame when the previous one has finished; never gate simulation on a fence.
     const schedule = () => {
-      this.frameId = gl ? window.setTimeout(tick, 40) : requestAnimationFrame(tick);
+      this.frameId = gl ? window.setTimeout(tick, 16) : requestAnimationFrame(tick);
     };
     const tick = () => {
       if (this.disposed) return;
@@ -2533,7 +2685,7 @@ export class SonVazifeEngine {
       lastFrameAt = now;
       // Reading a delivery sheet is untimed. Keep the last composed frame
       // beneath the dialog instead of drawing the whole village behind it.
-      if (this.screen === 'paused' || this.registryCaseId || document.hidden) {
+      if (this.isContextLost || this.screen === 'paused' || this.registryCaseId || document.hidden) {
         this.frameId = window.setTimeout(tick, 100);
         return;
       }
@@ -2554,15 +2706,21 @@ export class SonVazifeEngine {
       }
 
       if (gl && this.softwareFence) {
-        const status = gl.clientWaitSync(this.softwareFence, gl.SYNC_FLUSH_COMMANDS_BIT, 0);
+        const status = gl.clientWaitSync(this.softwareFence, 0, 0);
         // Some drivers never signal after context restoration. Retry a draw,
         // not a blocking wait, if the fence has outlived a full second.
         if (status !== gl.TIMEOUT_EXPIRED || now - lastSoftwareDraw > 1000) {
+          if (
+            status !== gl.WAIT_FAILED &&
+            status !== gl.TIMEOUT_EXPIRED &&
+            this.softwareBudget.sample(now - lastSoftwareDraw)
+          )
+            this.applyGraphicsQuality('minimum');
           gl.deleteSync(this.softwareFence);
           this.softwareFence = null;
         }
       }
-      if (!gl || (!this.softwareFence && now - lastSoftwareDraw >= 95)) {
+      if (!gl || (!this.softwareFence && now - lastSoftwareDraw >= 30)) {
         this.renderFrame();
         if (gl && !this.isContextLost) {
           this.softwareFence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
@@ -2671,7 +2829,10 @@ export class SonVazifeEngine {
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
         this.targetYaw += diff * Math.min(1, dt * 5);
-        const facePitch = Math.atan2(actor.pos.y + actor.visual.eyeHeight - this.camera.position.y, Math.max(.3, Math.hypot(dx, dz)));
+        const facePitch = Math.atan2(
+          actor.pos.y + actor.visual.eyeHeight - this.camera.position.y,
+          Math.max(0.3, Math.hypot(dx, dz)),
+        );
         this.targetPitch = THREE.MathUtils.damp(this.targetPitch, facePitch, 5, dt);
       }
     }
@@ -2766,23 +2927,24 @@ export class SonVazifeEngine {
     }
 
     const groundY = isIndoors
-      ? (insideGasil
-          ? groundHeightAt(-10.5, 6.0) + 0.16
-          : insideAbandoned
-            ? groundHeightAt(-10.8, -10.5) + 0.16
-            : insideMuhtar
-              ? groundHeightAt(10.5, -18.0) + 0.16
-              : insideClinic
-                ? groundHeightAt(26.0, -28.0) + 0.16
-                : insideMill
-                  ? groundHeightAt(-36.0, 8.0) + 0.16
-                  : groundHeightAt(-34.0, -36.0) + 0.14)
+      ? insideGasil
+        ? groundHeightAt(-10.5, 6.0) + 0.16
+        : insideAbandoned
+          ? groundHeightAt(-10.8, -10.5) + 0.16
+          : insideMuhtar
+            ? groundHeightAt(10.5, -18.0) + 0.16
+            : insideClinic
+              ? groundHeightAt(26.0, -28.0) + 0.16
+              : insideMill
+                ? groundHeightAt(-36.0, 8.0) + 0.16
+                : groundHeightAt(-34.0, -36.0) + 0.14
       : onBridge
         ? 0.44
         : exteriorFloorAt(this.playerPos.x, this.playerPos.z);
 
     const bobAmp = THREE.MathUtils.clamp(horizSpeed / 3.5, 0, 1.2) * (crouching ? 0.02 : 0.032);
-    const targetEyeY = groundY + (crouching ? 1.12 : PLAYER_EYE_HEIGHT) + Math.sin(this.headBobPhase) * bobAmp;
+    const targetEyeY =
+      groundY + (crouching ? 1.12 : PLAYER_EYE_HEIGHT) + Math.sin(this.headBobPhase) * bobAmp;
     this.camera.position.x = this.playerPos.x;
     this.camera.position.z = this.playerPos.z;
     this.camera.position.y = THREE.MathUtils.damp(this.camera.position.y, targetEyeY, 14, dt);
@@ -2798,7 +2960,12 @@ export class SonVazifeEngine {
     }
 
     // 5. Doors & Shutters Damping
-    this.gasilDoorAngle = THREE.MathUtils.damp(this.gasilDoorAngle, this.gasilDoorOpen ? -Math.PI * 0.56 : 0, 7, dt);
+    this.gasilDoorAngle = THREE.MathUtils.damp(
+      this.gasilDoorAngle,
+      this.gasilDoorOpen ? -Math.PI * 0.56 : 0,
+      7,
+      dt,
+    );
     this.world.gasil.doorPivot.rotation.y = this.gasilDoorAngle;
 
     this.abandonedDoorAngle = THREE.MathUtils.damp(
@@ -2809,25 +2976,51 @@ export class SonVazifeEngine {
     );
     this.world.abandoned.doorPivot.rotation.y = this.abandonedDoorAngle;
 
-    this.muhtarDoorAngle = THREE.MathUtils.damp(this.muhtarDoorAngle, this.muhtarDoorOpen ? Math.PI * 0.56 : 0, 7, dt);
+    this.muhtarDoorAngle = THREE.MathUtils.damp(
+      this.muhtarDoorAngle,
+      this.muhtarDoorOpen ? Math.PI * 0.56 : 0,
+      7,
+      dt,
+    );
     this.world.muhtar.doorPivot.rotation.y = this.muhtarDoorAngle;
 
-    this.clinicDoorAngle = THREE.MathUtils.damp(this.clinicDoorAngle, this.clinicDoorOpen ? Math.PI * 0.56 : 0, 7, dt);
+    this.clinicDoorAngle = THREE.MathUtils.damp(
+      this.clinicDoorAngle,
+      this.clinicDoorOpen ? Math.PI * 0.56 : 0,
+      7,
+      dt,
+    );
     this.world.clinic.doorPivot.rotation.y = this.clinicDoorAngle;
 
-    this.millDoorAngle = THREE.MathUtils.damp(this.millDoorAngle, this.millDoorOpen ? -Math.PI * 0.56 : 0, 7, dt);
+    this.millDoorAngle = THREE.MathUtils.damp(
+      this.millDoorAngle,
+      this.millDoorOpen ? -Math.PI * 0.56 : 0,
+      7,
+      dt,
+    );
     this.world.millAndBridge.doorPivot.rotation.y = this.millDoorAngle;
 
-    this.cryptDoorAngle = THREE.MathUtils.damp(this.cryptDoorAngle, this.cryptDoorOpen ? -Math.PI * 0.58 : 0, 7, dt);
+    this.cryptDoorAngle = THREE.MathUtils.damp(
+      this.cryptDoorAngle,
+      this.cryptDoorOpen ? -Math.PI * 0.58 : 0,
+      7,
+      dt,
+    );
     this.world.cemetery.doorPivot.rotation.y = this.cryptDoorAngle;
 
-    this.shutterAngle = THREE.MathUtils.damp(this.shutterAngle, this.shutterClosed ? 0 : Math.PI * 0.62, 9, dt);
+    this.shutterAngle = THREE.MathUtils.damp(
+      this.shutterAngle,
+      this.shutterClosed ? 0 : Math.PI * 0.62,
+      9,
+      dt,
+    );
     this.world.gasil.shutterPivot.rotation.y = this.shutterAngle;
 
     // 6. Candle Flicker, Sway & Oil
     if (this.candleLit) {
       this.candleOil = Math.max(8, this.candleOil - dt * 0.1);
-      const flicker = 0.88 + Math.sin(this.elapsedTime * 19) * 0.08 + Math.sin(this.elapsedTime * 31) * 0.06;
+      const flicker =
+        0.88 + Math.sin(this.elapsedTime * 19) * 0.08 + Math.sin(this.elapsedTime * 31) * 0.06;
       this.handCandle.light.intensity = 4.4 * flicker;
       this.handCandle.flame.scale.set(1, flicker, 1);
       const swayAmp = THREE.MathUtils.clamp(horizSpeed / 4.2, 0.08, 1);
@@ -2960,7 +3153,8 @@ export class SonVazifeEngine {
 
     // 9. Nocturnal Threats (Acts 3-5): Kara Basma & Sis Gözcüsü
     let dangerProximity = 0;
-    const isHiding = isIndoors || ((this.isUnderPorchOrAlcove(this.playerPos) || crouching) && !this.candleLit);
+    const isHiding =
+      isIndoors || ((this.isUnderPorchOrAlcove(this.playerPos) || crouching) && !this.candleLit);
 
     if (this.act >= 3) {
       // Kara Basma patrols center/clinic roads
@@ -3011,7 +3205,8 @@ export class SonVazifeEngine {
             this.caughtCount += 1;
             if (this.caughtCount >= 3) {
               this.screen = 'game_over';
-              this.endingReason = 'Kara Basma ve Sis Gözcüsü seni yağmurlu sokakta yakaladı. Köyün sisi seni yuttu.';
+              this.endingReason =
+                'Kara Basma ve Sis Gözcüsü seni yağmurlu sokakta yakaladı. Köyün sisi seni yuttu.';
               if (document.pointerLockElement === this.renderer.domElement) {
                 document.exitPointerLock();
               }
@@ -3119,12 +3314,17 @@ export class SonVazifeEngine {
 
   private updateEnvironmentVisuals(dt: number, isIndoors: boolean, dangerProximity: number): void {
     const dusk = this.act === 1;
+    this.scene.environmentIntensity = dusk ? 0.16 : 0.045;
     const horizonTint = this.world.horizon.material.color;
     horizonTint.setScalar(THREE.MathUtils.damp(horizonTint.r, dusk ? 0.65 : 0.14, 0.9, dt));
     this.world.moonMesh.visible = this.act >= 3;
     const baseFogDensity = this.act === 1 ? 0.022 : this.act >= 3 ? 0.044 : 0.032;
     const targetFogDensity =
-      this.resolvedQualityTier === 'low' ? Math.max(baseFogDensity, 0.034) : baseFogDensity;
+      this.resolvedQualityTier === 'minimum'
+        ? Math.max(baseFogDensity, 0.052)
+        : this.resolvedQualityTier === 'low'
+          ? Math.max(baseFogDensity, 0.034)
+          : baseFogDensity;
 
     if (this.scene.background instanceof THREE.Color) {
       this.scene.background.lerp(dusk ? _duskFog : _nightFog, 1 - Math.exp(-1.5 * dt));
@@ -3137,10 +3337,15 @@ export class SonVazifeEngine {
 
     const targetKey = this.act === 1 ? 1.35 : 0.28 + this.stormFlashIntensity;
     const iblBoost = this.scene.environment === null ? 0.14 : 0;
-    this.world.sunKeyLight.intensity = THREE.MathUtils.damp(this.world.sunKeyLight.intensity, targetKey, 4, dt);
+    this.world.sunKeyLight.intensity = THREE.MathUtils.damp(
+      this.world.sunKeyLight.intensity,
+      targetKey,
+      4,
+      dt,
+    );
     this.world.hemiLight.intensity = THREE.MathUtils.damp(
       this.world.hemiLight.intensity,
-      (dusk ? 1.30 : 0.42) + iblBoost,
+      (dusk ? 1.3 : 0.42) + iblBoost,
       2,
       dt,
     );
@@ -3154,6 +3359,7 @@ export class SonVazifeEngine {
     }
 
     const rainLevel = this.act === 1 ? 0 : this.act >= 3 ? 1.0 : 0.45;
+    this.world.rainPoints.visible = rainLevel > 0;
     this.world.rainUniforms.uTime.value = this.elapsedTime;
     this.world.rainUniforms.uPlayerPos.value.copy(this.camera.position);
     this.world.rainUniforms.uOpacity.value = rainLevel * 0.58;
@@ -3293,9 +3499,10 @@ export class SonVazifeEngine {
       if (!this.autopsyCases.case_arif.completed) {
         return {
           actTitle: 'BÖLÜM I · İLK VAZİFE',
-          objective: this.world.npcs.bekci.spokenNodes.size === 0 && collectedCount === 0
-            ? 'Meydandaki Bekçi Hasan’ı bul ve onunla konuş.'
-            : `Gasilhanedeki teslim dosyasını aç. Gusül malzemeleri: ${collectedCount}/4.`,
+          objective:
+            this.world.npcs.bekci.spokenNodes.size === 0 && collectedCount === 0
+              ? 'Meydandaki Bekçi Hasan’ı bul ve onunla konuş.'
+              : `Gasilhanedeki teslim dosyasını aç. Gusül malzemeleri: ${collectedCount}/4.`,
           location,
         };
       }
@@ -3314,7 +3521,8 @@ export class SonVazifeEngine {
     }
 
     if (this.act === 2) {
-      let objective = 'Bekçi Hasan’dan Sağlık Ocağı Anahtarını al ve Şoför Mahmut’un teslim dosyasını aç';
+      let objective =
+        'Bekçi Hasan’dan Sağlık Ocağı Anahtarını al ve Şoför Mahmut’un teslim dosyasını aç';
       if (!this.stepPrepDone) {
         objective = 'Teneşirde setr-i avret örtüsünü ser veya Sağlık Ocağına git';
       } else if (!this.stepWashDone) {
@@ -3482,7 +3690,8 @@ export class SonVazifeEngine {
     this.disposed = true;
     cancelAnimationFrame(this.frameId);
     clearTimeout(this.frameId);
-    if (this.softwareFence) (this.renderer.getContext() as WebGL2RenderingContext).deleteSync(this.softwareFence);
+    if (this.softwareFence)
+      (this.renderer.getContext() as WebGL2RenderingContext).deleteSync(this.softwareFence);
     this.softwareFence = null;
 
     window.removeEventListener('resize', this.onResize);
@@ -3498,10 +3707,11 @@ export class SonVazifeEngine {
     window.removeEventListener('mousemove', this.onMouseMove);
     window.removeEventListener('mouseup', this.onMouseUp);
 
-    this.envTexture?.dispose();
+    this.vertexLight.restore();
+    this.envTarget?.dispose();
     this.postProcessing?.dispose();
     this.world.dispose();
-    this.cc0.dispose();
+    this.assets.dispose();
     this.textures.disposeAll();
     this.audio.dispose();
     this.renderer.dispose();

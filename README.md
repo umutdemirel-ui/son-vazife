@@ -4,7 +4,7 @@
 
 Türkçe, tek oyunculu bir tarayıcı korku oyunu. Bu prototip, köye varıştan şafağa uzanan bir nöbete odaklanır. Köy ve olaylar kurmacadır.
 
-![Oyun içinden: elinde feneriyle Bekçi Hasan, gasilhane ve Kuzdağ meydanındaki evler.](docs/kuzdag-meydani.webp)
+![Oyun içinden: Kuzdağ çeşmesinde dövme bakır ibrik, karşısında cumbalı hane ve taş ev.](docs/kuzdag-cesmesi.webp)
 
 ## Oynamak
 
@@ -17,6 +17,10 @@ Türkçe, tek oyunculu bir tarayıcı korku oyunu. Bu prototip, köye varıştan
 **Kontroller:** WASD ile yürü, fareyle bak, E ile etkileşime gir. Shift koşu, C eğilme, F mum, Tab defter/harita, M ses ve Esc duraklatmadır. Fare kilidi yoksa basılı tutup sürükle. Dokunmatikte sol hareket pedi ve sağ bakış alanı kullanılır.
 
 Önsöz, köy ilerlemesi ve tercihler bu tarayıcıda saklanır. **Devam et** son kaydı açar. Menü ve önsöz WebGL gerektirmez; üç boyutlu keşif WebGL 2 gerektirir. Sesler Web Audio ile ilk kullanıcı etkileşiminden sonra üretilir.
+
+### Düşük sistemde oynamak
+
+**Ayarlar → Görüntü kalitesi → Asgari** seçip köye gir. Zayıf cihazlarda Otomatik de bu profili seçebilir. Yakındaki evler ve eşyalar üç boyutlu, tanıklar animasyonludur; kazanç uzak ayrıntılardan, daha küçük dokulardan ve daha az çizimden gelir. Yüksek çözünürlüklü paket Asgari oturumda indirilmez. [Ölçümler, test cihazı ve sınırlar](docs/performans.md).
 
 ## Çalıştırmak
 
@@ -35,6 +39,6 @@ npm run build   # Üretim çıktısı: dist/
 
 ## Varlıklar
 
-`public/assets/archive/` altındaki sahne ve arşiv görselleri oyun için üretilmiştir. Yazı tipleri Türkçe karakterleri içeren yerel alt kümelerdir; lisansları `public/fonts/licenses/` içindedir. Üç boyutlu köy mevcut `public/assets/cc0/` modellerini ve doku paketlerini kullanır. Bu paketler ana menü için indirilmez.
+`public/assets/archive/` altındaki sahne ve arşiv görselleri oyun için üretilmiştir. Yazı tipleri Türkçe karakterleri içeren yerel alt kümelerdir; lisansları `public/fonts/licenses/` içindedir. Atölyedeki kaynaklar menüde indirilmez: oyun `public/assets/workshop/` içindeki hazır modelleri ve `public/assets/village/` içindeki işlenmiş yüzeyleri kullanır.
 
-Dört köylünün kendine ait iskeletli modeli, kıyafeti ve taşıdığı eşya var: Hasan'ın feneri, Şerife Nine'nin bastonu, Kenan'ın evrak dosyası, İdris'in küreği. Aynı modeller düşük kalite ayarında da kullanılır. Meydandaki cumbalı, hımış ve taş evler; kitabeli çeşme ve gasilhane girişi oyun dünyasının parçasıdır. Modellerin ve yüzeylerin çalışma kaynakları için [Kuzdağ atölyesine](art/README.md) bakın.
+Cumbalı, hımış ve taş haneler; kemerli hayrat çeşmesi, gasilhane girişi, tahta sandıklar, işlemeli bakır ibrik, ciltli defter, bağlı kefen ve sabun oyun dünyasının parçalarıdır. [Bekçi Hasan'la meydanda](docs/kuzdag-meydani.webp) karşılaşabilirsin; Şerife Nine, Katip Kenan ve Mezarcı İdris'in de ayrı iskeleti, kıyafeti ve eşyası vardır. Model kaynakları ve yeniden üretim için [Kuzdağ atölyesi](art/README.md).

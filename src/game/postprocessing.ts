@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
@@ -65,7 +66,7 @@ export const DreadPostShader = {
       // Subtle dark vignette tightening around screen perimeter
       float vigStart = mix(0.86, 0.56, clamp(tension * 0.75, 0.0, 1.0));
       float vigEnd = mix(0.32, 0.16, clamp(tension * 0.75, 0.0, 1.0));
-      float vig = smoothstep(vigStart, vigEnd, dist);
+      float vig = (1.0 - smoothstep(vigEnd, vigStart, dist));
       float vigDarkness = mix(0.26, 0.88, clamp(tension * 0.85, 0.0, 1.0)) * pulse;
       col *= mix(1.0 - vigDarkness, 1.0, vig);
 
@@ -74,19 +75,27 @@ export const DreadPostShader = {
       col = mix(col, vec3(0.14, 0.02, 0.02), bloodEdge * pulse);
 
       // Organic fine film grain
-      float grain = (hash12(vUv * 950.0 + fract(uTime * 17.3)) - 0.5) * (0.018 + tension * 0.028);
-      col = clamp(col + grain, 0.0, 1.0);
+      float grain = (hash12(vUv * 950.0 + fract(uTime * 17.3)) - 0.5) * (0.0025 + tension * 0.009);
+      col = max(col + grain, vec3(0.0));
 
       gl_FragColor = vec4(col, 1.0);
     }
   `,
 };
 
+export function createRoomLight(renderer: THREE.WebGLRenderer) {
+  const generator = new THREE.PMREMGenerator(renderer),
+    room = new RoomEnvironment();
+  try {
+    return generator.fromScene(room, 0.04);
+  } finally {
+    generator.dispose();
+    room.dispose();
+  }
+}
+
 export interface PostProcessingRig {
-  composer: EffectComposer;
-  bloomPass: UnrealBloomPass;
-  dreadPass: ShaderPass;
-  setSize: (w: number, h: number) => void;
+  setSize: (w: number, h: number, dpr: number) => void;
   setBloomEnabled: (enabled: boolean) => void;
   update: (time: number, dreadNormalized: number, dangerNormalized: number) => void;
   render: () => void;
@@ -105,16 +114,7 @@ export function createPostProcessing(
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);
 
-  const halfW = Math.max(1, Math.floor(width / 2));
-  const halfH = Math.max(1, Math.floor(height / 2));
-  const bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(halfW, halfH),
-    0.26, // subtle warm candlelight/lantern bloom at half resolution
-    0.5,
-    0.84,
-  );
-  composer.addPass(bloomPass);
-
+  let bloomPass: UnrealBloomPass | null = null;
   const dreadPass = new ShaderPass(DreadPostShader);
   composer.addPass(dreadPass);
 
@@ -122,15 +122,19 @@ export function createPostProcessing(
   composer.addPass(outputPass);
 
   return {
-    composer,
-    bloomPass,
-    dreadPass,
-    setSize: (w: number, h: number) => {
+    setSize: (w: number, h: number, dpr: number) => {
+      composer.setPixelRatio(dpr);
       composer.setSize(w, h);
-      bloomPass.resolution.set(Math.max(1, Math.floor(w / 2)), Math.max(1, Math.floor(h / 2)));
     },
     setBloomEnabled: (enabled: boolean) => {
-      bloomPass.enabled = enabled;
+      if (enabled && !bloomPass) {
+        bloomPass = new UnrealBloomPass(new THREE.Vector2(width / 2, height / 2), 0.1, 0.5, 1.8);
+        composer.insertPass(bloomPass, 1);
+      } else if (!enabled && bloomPass) {
+        composer.removePass(bloomPass);
+        bloomPass.dispose();
+        bloomPass = null;
+      }
     },
     update: (time: number, dreadNormalized: number, dangerNormalized: number) => {
       dreadPass.uniforms.uTime.value = time;
@@ -141,6 +145,7 @@ export function createPostProcessing(
       composer.render();
     },
     dispose: () => {
+      for (const pass of composer.passes) pass.dispose();
       composer.dispose();
     },
   };

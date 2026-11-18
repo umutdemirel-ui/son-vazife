@@ -89,8 +89,8 @@ export function ControlsPanel({ onClose }: { onClose: () => void }) {
   return (
     <MenuDialog title="Nasıl oynanır?" kicker="OYUNCU REHBERİ / 01" onClose={onClose}>
       <p className="panel-intro">
-        İlk nöbetinde teslim fişini eski kayıtlarla karşılaştır. Ardından köyü dolaş, kapıları yokla
-        ve tanıkları dinle. Bulduğun belgeler defterinde saklanır.
+        İlk nöbetinde teslim fişini eski kayıtlarla karşılaştır. Ardından köyü dolaş, kapıları yokla ve
+        tanıkları dinle. Bulduğun belgeler defterinde saklanır.
       </p>
       <h3 className="section-tag">
         <Keyboard size={16} />
@@ -108,8 +108,8 @@ export function ControlsPanel({ onClose }: { onClose: () => void }) {
       </dl>
       <p className="panel-tip">
         <MousePointer2 size={17} />
-        Bakış kilidi kullanılamıyorsa fareyi basılı tutup sürükle. Dokunmatik ekranda soldan yürü,
-        sağdan bak.
+        Bakış kilidi kullanılamıyorsa fareyi basılı tutup sürükle. Dokunmatik ekranda soldan yürü, sağdan
+        bak.
       </p>
       <button className="menu-button secondary full-button" onClick={onClose}>
         Anladım
@@ -134,6 +134,7 @@ function Switch({ value, onClick, label }: { value: boolean; onClick: () => void
 }
 const QUALITY: [GraphicsQualityPreset, string][] = [
   ['auto', 'Otomatik'],
+  ['minimum', 'Asgari'],
   ['low', 'Düşük'],
   ['medium', 'Dengeli'],
   ['high', 'Yüksek'],
@@ -172,11 +173,13 @@ export function SettingsPanel({
           </button>
         ))}
       </div>
-      <p className="setting-help">Otomatik mod, köyü keşfederken kaliteyi cihazına göre ayarlar.</p>
+      <p className="setting-help">
+        Otomatik mod cihazına uyum sağlar. Asgari mod görüş mesafesini ve bellek kullanımını azaltır.
+        Doku paketi köye girişte seçilir; yazılım çizicisinde Asgari kullanılır.
+      </p>
       <div className="sensitivity">
         <label htmlFor="look-speed">
-          Bakış hassasiyeti{' '}
-          <output>{controls.mouseSensitivity.toFixed(1).replace('.', ',')}×</output>
+          Bakış hassasiyeti <output>{controls.mouseSensitivity.toFixed(1).replace('.', ',')}×</output>
         </label>
         <input
           id="look-speed"

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { bakeStaticChildrenByMaterial } from './meshBatch';
 import { VillageCraft, block, face, pitchedRoof } from './villageCraft';
 import { AutopsyBodyRefs, createAutopsyCadaverOverlay } from './autopsy';
-import { ProceduralTextureSet } from './textures';
+import { VillageTextures } from './textures';
 
 interface SharedVillageMaterials {
   stoneMat: THREE.MeshStandardMaterial;
@@ -14,9 +14,9 @@ interface SharedVillageMaterials {
   cutWoodMat: THREE.MeshStandardMaterial;
 }
 
-const sharedMaterialCache = new WeakMap<ProceduralTextureSet, SharedVillageMaterials>();
+const sharedMaterialCache = new WeakMap<VillageTextures, SharedVillageMaterials>();
 
-function getSharedVillageMaterials(textures: ProceduralTextureSet): SharedVillageMaterials {
+function getSharedVillageMaterials(textures: VillageTextures): SharedVillageMaterials {
   const existing = sharedMaterialCache.get(textures);
   if (existing) return existing;
 
@@ -109,7 +109,7 @@ export interface KaraBasmaRefs {
   eyeRight: THREE.Mesh;
 }
 
-export function createGraveyardCluster(textures: ProceduralTextureSet): THREE.Group {
+export function createGraveyardCluster(textures: VillageTextures): THREE.Group {
   const g = new THREE.Group();
   const { graveStoneMat: stoneMat } = getSharedVillageMaterials(textures);
 
@@ -268,7 +268,10 @@ export function createCopperEwerAndSoap(
   return g;
 }
 
-export function createAbandonedHouse(textures: ProceduralTextureSet, craft: VillageCraft): AbandonedHouseRefs {
+export function createAbandonedHouse(
+  textures: VillageTextures,
+  craft: VillageCraft,
+): AbandonedHouseRefs {
   const g = new THREE.Group();
 
   const stoneMat = new THREE.MeshStandardMaterial({
@@ -357,8 +360,9 @@ export function createAbandonedHouse(textures: ProceduralTextureSet, craft: Vill
   doorPivot.add(doorMesh, knob);
   g.add(doorPivot);
 
-  face(doorPivot, craft.door, 1.54, 2.1, .049, 1.05, .77, Math.PI/2);
-  for (const x of [-1.55, 1.45]) craft.window(g, x, 1.84, rd/2+.124, .90, 1.19, 0, craft.shutters[2], x<0);
+  face(doorPivot, craft.door, 1.54, 2.1, 0.049, 1.05, 0.77, Math.PI / 2);
+  for (const x of [-1.55, 1.45])
+    craft.window(g, x, 1.84, rd / 2 + 0.124, 0.9, 1.19, 0, craft.shutters[2], x < 0);
 
   // Dusty wooden table & overturned stool + stone hearth
   const table = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.78, 1.5), timberMat);
@@ -390,7 +394,10 @@ export function createAbandonedHouse(textures: ProceduralTextureSet, craft: Vill
   gulsuyuProp.position.set(0.6, 0.71, -2.15);
   g.add(gulsuyuProp);
 
-  bakeStaticChildrenByMaterial(g, new Set<THREE.Object3D>([doorPivot, emberLight, letterPaper, gulsuyuProp]));
+  bakeStaticChildrenByMaterial(
+    g,
+    new Set<THREE.Object3D>([doorPivot, emberLight, letterPaper, gulsuyuProp]),
+  );
 
   return {
     group: g,
@@ -437,9 +444,7 @@ export function createStreetLamp(): { group: THREE.Group; light: THREE.PointLigh
   return { group: g, light, bulbMat };
 }
 
-export function createMosqueAndGasilhane(
-  textures: ProceduralTextureSet, craft: VillageCraft,
-): GasilhaneRefs {
+export function createMosqueAndGasilhane(textures: VillageTextures, craft: VillageCraft): GasilhaneRefs {
   const root = new THREE.Group();
 
   const stoneMat = new THREE.MeshStandardMaterial({
@@ -498,9 +503,9 @@ export function createMosqueAndGasilhane(
   mBase.receiveShadow = true;
   mosqueGroup.add(mBase);
 
-  pitchedRoof(mosqueGroup, kiremitMat, kiremitMat, 7.55, 5.22, 4.43, 1.40, 1.48);
-  block(mosqueGroup, timberMat, 7.5, .16, 5.19, 0, 4.4, 0);
-  for (const z of [-1.30, 1.30]) craft.window(mosqueGroup, 3.42, 2.05, z, .82, 1.48, Math.PI/2);
+  pitchedRoof(mosqueGroup, kiremitMat, kiremitMat, 7.55, 5.22, 4.43, 1.4, 1.48);
+  block(mosqueGroup, timberMat, 7.5, 0.16, 5.19, 0, 4.4, 0);
+  for (const z of [-1.3, 1.3]) craft.window(mosqueGroup, 3.42, 2.05, z, 0.82, 1.48, Math.PI / 2);
 
   const porchFloor = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.25, 4.66), stoneMat);
   porchFloor.position.set(4.5, 0.125, 0);
@@ -516,8 +521,8 @@ export function createMosqueAndGasilhane(
     mosqueGroup.add(col);
   });
 
-  const chest = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.56, 1.35), timberMat);
-  chest.position.set(4.2, 0.52, -0.50);
+  const chest = craft.chest(0.85, 0.55, 1.35);
+  chest.position.set(4.2, 0.25, -0.5);
   chest.castShadow = true;
   mosqueGroup.add(chest);
 
@@ -555,8 +560,8 @@ export function createMosqueAndGasilhane(
   const ceiling = new THREE.Mesh(new THREE.BoxGeometry(rw + 0.3, 0.22, rd + 0.3), plasterMat);
   ceiling.position.y = rh + 0.11;
   gasilGroup.add(ceiling);
-  pitchedRoof(gasilGroup, kiremitMat, kiremitMat, rw + .86, rd + .82, rh + .2, 1.30, 1.52);
-  block(gasilGroup, timberMat, rw+.81, .14, rd+.77, 0, rh+.16, 0);
+  pitchedRoof(gasilGroup, kiremitMat, kiremitMat, rw + 0.86, rd + 0.82, rh + 0.2, 1.3, 1.52);
+  block(gasilGroup, timberMat, rw + 0.81, 0.14, rd + 0.77, 0, rh + 0.16, 0);
 
   // Exterior Stone Entry Step & Rain Gutter Downspout on Gasilhane
   const gStep = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.15, 2.0), stoneMat);
@@ -601,9 +606,9 @@ export function createMosqueAndGasilhane(
   const doorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.09, 2.22, 1.54), timberMat);
   doorMesh.position.set(0, 1.11, 0.77);
   doorMesh.castShadow = true;
-  const doorKnob = new THREE.Mesh(new THREE.TorusGeometry(.052, .009, 6, 14), craft.metal);
-  doorKnob.rotation.y = Math.PI/2;
-  doorKnob.position.set(.061, 1.08, 1.15);
+  const doorKnob = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.009, 6, 14), craft.metal);
+  doorKnob.rotation.y = Math.PI / 2;
+  doorKnob.position.set(0.061, 1.08, 1.15);
   const doorKnobIn = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), brassMat);
   doorKnobIn.position.set(-0.08, 1.05, 1.38);
   doorPivot.add(doorMesh, doorKnob, doorKnobIn);
@@ -697,8 +702,16 @@ export function createMosqueAndGasilhane(
   const deceasedGroup = new THREE.Group();
   deceasedGroup.position.set(0, 0.87, 0);
 
-  const clothBaseMat = new THREE.MeshStandardMaterial({ color: 0xc8c3b8, roughness: 0.88, metalness: 0.0 });
-  const pestemalMat = new THREE.MeshStandardMaterial({ color: 0xe6e1d4, roughness: 0.84, metalness: 0.0 });
+  const clothBaseMat = new THREE.MeshStandardMaterial({
+    color: 0xc8c3b8,
+    roughness: 0.88,
+    metalness: 0.0,
+  });
+  const pestemalMat = new THREE.MeshStandardMaterial({
+    color: 0xe6e1d4,
+    roughness: 0.84,
+    metalness: 0.0,
+  });
   const kefenMat = new THREE.MeshStandardMaterial({ color: 0xf2eee6, roughness: 0.86, metalness: 0.0 });
 
   const bodyCore = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.22, 0.44), clothBaseMat);
@@ -742,7 +755,12 @@ export function createMosqueAndGasilhane(
   stool.position.y = 0.175;
   const basinWall = new THREE.Mesh(
     new THREE.CylinderGeometry(0.28, 0.21, 0.24, 16, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0xa66238, roughness: 0.32, metalness: 0.85, side: THREE.DoubleSide }),
+    new THREE.MeshStandardMaterial({
+      color: 0xa66238,
+      roughness: 0.32,
+      metalness: 0.85,
+      side: THREE.DoubleSide,
+    }),
   );
   basinWall.position.y = 0.47;
   const basinBottom = new THREE.Mesh(
@@ -753,7 +771,13 @@ export function createMosqueAndGasilhane(
   basinBottom.position.y = 0.355;
   const basinWaterMesh = new THREE.Mesh(
     new THREE.CircleGeometry(0.255, 16),
-    new THREE.MeshStandardMaterial({ color: 0x45606b, roughness: 0.12, metalness: 0.22, transparent: true, opacity: 0.85 }),
+    new THREE.MeshStandardMaterial({
+      color: 0x45606b,
+      roughness: 0.12,
+      metalness: 0.22,
+      transparent: true,
+      opacity: 0.85,
+    }),
   );
   basinWaterMesh.rotation.x = -Math.PI / 2;
   basinWaterMesh.position.y = 0.53;
@@ -833,7 +857,7 @@ export function createMosqueAndGasilhane(
   };
 }
 
-export function createMuhtarHouse(textures: ProceduralTextureSet, craft: VillageCraft): MuhtarRefs {
+export function createMuhtarHouse(textures: VillageTextures, craft: VillageCraft): MuhtarRefs {
   const g = new THREE.Group();
 
   const stoneMat = new THREE.MeshStandardMaterial({
@@ -857,7 +881,11 @@ export function createMuhtarHouse(textures: ProceduralTextureSet, craft: Village
     roughness: 0.72,
     metalness: 0.06,
   });
-  const kilimMat = new THREE.MeshStandardMaterial({ map: textures.kilim, roughness: 0.92, metalness: 0.0 });
+  const kilimMat = new THREE.MeshStandardMaterial({
+    map: textures.kilim,
+    roughness: 0.92,
+    metalness: 0.0,
+  });
   const roofMat = new THREE.MeshStandardMaterial({
     map: textures.roof,
     normalMap: textures.roofNormal,
@@ -933,9 +961,9 @@ export function createMuhtarHouse(textures: ProceduralTextureSet, craft: Village
   doorPivot.add(doorMesh, knob);
   g.add(doorPivot);
 
-  face(doorPivot, craft.door, 1.54, 2.15, -.049, 1.075, .77, -Math.PI/2);
-  craft.plate(g, 'MUHTARLIK', 1.28, .32, -rw/2-.124, 2.52, 0, -Math.PI/2);
-  for (const x of [-1.66, 1.42]) craft.window(g, x, 1.88, rd/2+.124, 1.03, 1.22);
+  face(doorPivot, craft.door, 1.54, 2.15, -0.049, 1.075, 0.77, -Math.PI / 2);
+  craft.plate(g, 'MUHTARLIK', 1.28, 0.32, -rw / 2 - 0.124, 2.52, 0, -Math.PI / 2);
+  for (const x of [-1.66, 1.42]) craft.window(g, x, 1.88, rd / 2 + 0.124, 1.03, 1.22);
 
   const desk = new THREE.Group();
   desk.position.set(1.2, 0.16, -0.2);
@@ -964,7 +992,12 @@ export function createMuhtarHouse(textures: ProceduralTextureSet, craft: Village
   lampStand.position.set(1.4, 1.19, -0.95);
   const lampShade = new THREE.Mesh(
     new THREE.ConeGeometry(0.22, 0.2, 12, 1, true),
-    new THREE.MeshStandardMaterial({ color: 0xe3cf9e, emissive: 0x996528, emissiveIntensity: 0.75, side: THREE.DoubleSide }),
+    new THREE.MeshStandardMaterial({
+      color: 0xe3cf9e,
+      emissive: 0x996528,
+      emissiveIntensity: 0.75,
+      side: THREE.DoubleSide,
+    }),
   );
   lampShade.position.set(1.4, 1.44, -0.95);
   const deskLampLight = new THREE.PointLight(0xffad58, 4.8, 9.5, 1.6);
@@ -1016,7 +1049,14 @@ export function createMuhtarHouse(textures: ProceduralTextureSet, craft: Village
 
   bakeStaticChildrenByMaterial(
     g,
-    new Set<THREE.Object3D>([doorPivot, deskLampLight, camphorJar, notePaper, crashFolder, wallPhotoFrame]),
+    new Set<THREE.Object3D>([
+      doorPivot,
+      deskLampLight,
+      camphorJar,
+      notePaper,
+      crashFolder,
+      wallPhotoFrame,
+    ]),
   );
 
   return {
@@ -1110,7 +1150,7 @@ export function createKaraBasma(): KaraBasmaRefs {
   };
 }
 
-export function createUtilityPole(textures: ProceduralTextureSet): {
+export function createUtilityPole(textures: VillageTextures): {
   group: THREE.Group;
   wireAttachY: number;
 } {
@@ -1144,7 +1184,7 @@ export function createUtilityPole(textures: ProceduralTextureSet): {
   return { group: g, wireAttachY: poleH - 0.4 };
 }
 
-export function createFirewoodStack(textures: ProceduralTextureSet): THREE.Group {
+export function createFirewoodStack(textures: VillageTextures): THREE.Group {
   const g = new THREE.Group();
   const { darkTimberMat: barkMat, cutWoodMat: cutMat } = getSharedVillageMaterials(textures);
 
@@ -1176,25 +1216,21 @@ export function createFirewoodStack(textures: ProceduralTextureSet): THREE.Group
   return g;
 }
 
-export function createVillageBench(textures: ProceduralTextureSet): THREE.Group {
+export function createVillageBench(craft: VillageCraft): THREE.Group {
   const g = new THREE.Group();
-  const { stoneMat, darkTimberMat: woodMat } = getSharedVillageMaterials(textures);
-
-  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.42, 0.44), stoneMat);
-  legL.position.set(-0.62, 0.21, 0);
-  const legR = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.42, 0.44), stoneMat);
-  legR.position.set(0.62, 0.21, 0);
-  const plank1 = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.07, 0.2), woodMat);
-  plank1.position.set(0, 0.45, -0.11);
-  const plank2 = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.07, 0.2), woodMat);
-  plank2.position.set(0, 0.45, 0.11);
-  g.add(legL, legR, plank1, plank2);
+  for (const s of [-1, 1]) {
+    block(g, craft.limestone, 0.24, 0.31, 0.46, s * 0.64, 0.155, 0, 0.6);
+    block(g, craft.wood, 0.15, 0.094, 0.49, s * 0.64, 0.356, 0);
+    block(g, craft.wood, 1.78, 0.074, 0.205, 0, 0.439, s * 0.119);
+    for (const x of [-0.64, 0.64]) block(g, craft.metal, 0.019, 0.006, 0.019, x, 0.478, s * 0.119);
+  }
+  block(g, craft.wood, 1.45, 0.092, 0.084, 0, 0.3, 0);
   bakeStaticChildrenByMaterial(g);
   return g;
 }
 
 export function createStoneCourtyardWall(
-  textures: ProceduralTextureSet,
+  textures: VillageTextures,
   craft: VillageCraft,
   length: number,
   withGate = false,
@@ -1203,18 +1239,30 @@ export function createStoneCourtyardWall(
   const { timberMat } = getSharedVillageMaterials(textures);
   const { masonry, limestone } = craft;
   const coping = (len: number, center: number) => {
-    const count = Math.ceil(len/.86), width = len/count;
-    for (let i=0;i<count;i++) block(g,limestone,.66,.12,width-.015,0,1.20+(i%3)*.006,center-len/2+(i+.5)*width,.8);
+    const count = Math.ceil(len / 0.86),
+      width = len / count;
+    for (let i = 0; i < count; i++)
+      block(
+        g,
+        limestone,
+        0.66,
+        0.12,
+        width - 0.015,
+        0,
+        1.2 + (i % 3) * 0.006,
+        center - len / 2 + (i + 0.5) * width,
+        0.8,
+      );
   };
   if (!withGate) {
-    block(g, masonry, .55, 1.23, length, 0, .535, 0, 2.2);
-    coping(length+.08, 0);
+    block(g, masonry, 0.55, 1.23, length, 0, 0.535, 0, 2.2);
+    coping(length + 0.08, 0);
   } else {
     const segLen = (length - 1.4) / 2;
-    for (const dir of [-1,1]) {
-      const z = dir*(.7+segLen/2);
-      block(g, masonry, .55, 1.23, segLen, 0, .535, z, 2.2);
-      coping(segLen+.04, z);
+    for (const dir of [-1, 1]) {
+      const z = dir * (0.7 + segLen / 2);
+      block(g, masonry, 0.55, 1.23, segLen, 0, 0.535, z, 2.2);
+      coping(segLen + 0.04, z);
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.48, 0.22), timberMat);
       post.position.set(0, 0.74, dir * 0.72);
       g.add(post);
@@ -1222,8 +1270,8 @@ export function createStoneCourtyardWall(
 
     // Half-ajar weathered wooden gate leaf
     const gate = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.08, 1.28), timberMat);
-    gate.position.set(0.62, 0.62, -.64);
-    gate.rotation.y = Math.PI / 2 - .06;
+    gate.position.set(0.62, 0.62, -0.64);
+    gate.rotation.y = Math.PI / 2 - 0.06;
     g.add(gate);
   }
 
@@ -1231,18 +1279,27 @@ export function createStoneCourtyardWall(
   return g;
 }
 
-export function createClayJug(): THREE.Group {
+export function createClayJug(t: VillageTextures): THREE.Group {
   const g = new THREE.Group();
-  const clayMat = new THREE.MeshStandardMaterial({ color: 0x8b4c33, roughness: 0.78, metalness: 0.04 });
+  const clayMat = new THREE.MeshStandardMaterial({
+    color: 0xa76d51,
+    map: t.clay,
+    roughness: 0.87,
+    metalness: 0.02,
+  });
   const pts = [
     new THREE.Vector2(0, 0),
     new THREE.Vector2(0.09, 0),
     new THREE.Vector2(0.15, 0.16),
     new THREE.Vector2(0.13, 0.28),
     new THREE.Vector2(0.05, 0.37),
-    new THREE.Vector2(0.065, 0.44),
+    new THREE.Vector2(0.057, 0.412),
+    new THREE.Vector2(0.068, 0.431),
+    new THREE.Vector2(0.066, 0.442),
+    new THREE.Vector2(0.051, 0.441),
+    new THREE.Vector2(0.045, 0.38),
   ];
-  const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 14), clayMat);
+  const body = new THREE.Mesh(new THREE.LatheGeometry(pts, 24), clayMat);
   const handleCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(0.06, 0.39, 0),
     new THREE.Vector3(0.16, 0.34, 0),
@@ -1260,7 +1317,7 @@ export interface ClinicRefs {
   autopsyBody: AutopsyBodyRefs;
 }
 
-export function createClinicBuilding(textures: ProceduralTextureSet, craft: VillageCraft): ClinicRefs {
+export function createClinicBuilding(textures: VillageTextures, craft: VillageCraft): ClinicRefs {
   const g = new THREE.Group();
   const plasterMat = new THREE.MeshStandardMaterial({
     map: textures.plaster,
@@ -1330,7 +1387,7 @@ export function createClinicBuilding(textures: ProceduralTextureSet, craft: Vill
   westTop.position.set(-rw / 2, 2.3 + (rh - 2.3) / 2, 0);
   g.add(eastW, northW, southW, westL, westR, westTop);
 
-  craft.plate(g, 'SAĞLIK OCAĞI', 1.64, .41, -rw/2-.124, 2.75, 0, -Math.PI/2);
+  craft.plate(g, 'SAĞLIK OCAĞI', 1.64, 0.41, -rw / 2 - 0.124, 2.75, 0, -Math.PI / 2);
 
   const doorPivot = new THREE.Group();
   doorPivot.position.set(-rw / 2, 0.16, -0.78);
@@ -1383,7 +1440,7 @@ export interface MillAndBridgeRefs {
   lanternLight: THREE.PointLight;
 }
 
-export function createWatermillAndBridge(textures: ProceduralTextureSet): MillAndBridgeRefs {
+export function createWatermillAndBridge(textures: VillageTextures): MillAndBridgeRefs {
   const stoneMat = new THREE.MeshStandardMaterial({
     map: textures.stone,
     normalMap: textures.stoneNormal,
@@ -1531,7 +1588,7 @@ export interface CemeteryCryptRefs {
   vaultLight: THREE.PointLight;
 }
 
-export function createCemeteryHillAndCrypt(textures: ProceduralTextureSet): CemeteryCryptRefs {
+export function createCemeteryHillAndCrypt(textures: VillageTextures): CemeteryCryptRefs {
   const group = new THREE.Group();
   const stoneMat = new THREE.MeshStandardMaterial({
     map: textures.stone,
@@ -1630,7 +1687,10 @@ export function createCemeteryHillAndCrypt(textures: ProceduralTextureSet): Ceme
   crypt.add(vaultLight);
 
   group.add(crypt);
-  bakeStaticChildrenByMaterial(group, new Set<THREE.Object3D>([doorPivot, autopsyBody.group, vaultLight]));
+  bakeStaticChildrenByMaterial(
+    group,
+    new Set<THREE.Object3D>([doorPivot, autopsyBody.group, vaultLight]),
+  );
   return { group, doorPivot, autopsyBody, vaultLight };
 }
 
@@ -1640,7 +1700,7 @@ export interface WreckedMinibusRefs {
   manifestPaper: THREE.Group;
 }
 
-export function createWreckedMinibus(textures: ProceduralTextureSet): WreckedMinibusRefs {
+export function createWreckedMinibus(textures: VillageTextures): WreckedMinibusRefs {
   const group = new THREE.Group();
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb7b2a4, roughness: 0.58, metalness: 0.32 });
   const rustMat = new THREE.MeshStandardMaterial({ color: 0x4b2f21, roughness: 0.9, metalness: 0.25 });
