@@ -506,10 +506,10 @@ export function createMosqueAndGasilhane(
     roughness: 0.72,
     metalness: 0.08,
   });
-  // Gasilhane: aged lime plaster over a cool stone floor, as in the archive photograph.
+  // Gasilhane: weathered earthen plaster over a cool stone floor.
   const gasilWallMat = new THREE.MeshStandardMaterial({
-    map: textures.wornPlaster, normalMap: textures.wornPlasterNormal,
-    normalScale: new THREE.Vector2(0.55, 0.55), roughness: 0.95,
+    map: textures.earthenPlaster, normalMap: textures.wornPlasterNormal,
+    normalScale: new THREE.Vector2(0.4, 0.4), roughness: 0.95,
   });
   const gasilFloorMat = new THREE.MeshStandardMaterial({
     map: textures.flagstone, normalMap: textures.flagstoneNormal,
@@ -545,12 +545,12 @@ export function createMosqueAndGasilhane(
 
   // Prayer hall: the east wall has an actual opening, rather than a solid box.
   block(mosqueGroup, timberMat, 6.8, 0.16, 4.6, 0, 0.08, 0, 1.8);
-  block(mosqueGroup, plasterMat, 0.18, 4.4, 4.6, -3.31, 2.2, 0, 2.2);
+  block(mosqueGroup, stoneMat, 0.18, 4.4, 4.6, -3.31, 2.2, 0, 2.2);
   for (const side of [-1, 1]) {
-    block(mosqueGroup, plasterMat, 6.8, 4.4, 0.18, 0, 2.2, side * 2.21, 2.2);
-    block(mosqueGroup, plasterMat, 0.18, 4.4, 1.55, 3.31, 2.2, side * 1.525, 2.2);
+    block(mosqueGroup, stoneMat, 6.8, 4.4, 0.18, 0, 2.2, side * 2.21, 2.2);
+    block(mosqueGroup, stoneMat, 0.18, 4.4, 1.55, 3.31, 2.2, side * 1.525, 2.2);
   }
-  block(mosqueGroup, plasterMat, 0.18, 2.1, 1.5, 3.31, 3.35, 0, 2.2);
+  block(mosqueGroup, stoneMat, 0.18, 2.1, 1.5, 3.31, 3.35, 0, 2.2);
   block(mosqueGroup, craft.kilim, 5.8, 0.035, 3.6, 0, 0.18, 0);
   const mosqueDoorPivot = new THREE.Group();
   mosqueDoorPivot.position.set(3.4, 0.16, -0.75);
@@ -584,12 +584,12 @@ export function createMosqueAndGasilhane(
   minaret.position.set(3.2, 0, -2.05);
   const minPlinth = new THREE.Mesh(new THREE.CylinderGeometry(0.72, 0.85, 3.2, 8), stoneMat);
   minPlinth.position.y = 1.6;
-  const minShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.58, 6.8, 12), plasterMat);
+  const minShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.58, 6.8, 12), stoneMat);
   minShaft.position.y = 6.5;
   const minBalcony = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.52, 0.55, 12), stoneMat);
   minBalcony.position.y = 9.9;
   const minUpper = new THREE.CylinderGeometry(0.36, 0.4, 2.2, 12);
-  const minUpperMesh = new THREE.Mesh(minUpper, plasterMat);
+  const minUpperMesh = new THREE.Mesh(minUpper, stoneMat);
   minUpperMesh.position.y = 11.2;
   const minCap = new THREE.Mesh(new THREE.ConeGeometry(0.44, 2.1, 12), roofMat);
   minCap.position.y = 13.3;
@@ -614,7 +614,7 @@ export function createMosqueAndGasilhane(
   const ceiling = new THREE.Mesh(new THREE.BoxGeometry(rw + 0.3, 0.22, rd + 0.3), plasterMat);
   ceiling.position.y = rh + 0.11;
   gasilGroup.add(ceiling);
-  pitchedRoof(gasilGroup, kiremitMat, kiremitMat, rw + 0.86, rd + 0.82, rh + 0.2, 1.3, 1.52);
+  pitchedRoof(gasilGroup, kiremitMat, kiremitMat, rw + 0.86, rd + 0.82, rh + 0.2, 0.48, 1.52);
   block(gasilGroup, timberMat, rw + 0.81, 0.14, rd + 0.77, 0, rh + 0.16, 0);
 
   // Exterior Stone Entry Step & Rain Gutter Downspout on Gasilhane
@@ -667,7 +667,7 @@ export function createMosqueAndGasilhane(
   doorKnobIn.position.set(-0.08, 1.05, 1.38);
   doorPivot.add(doorMesh, doorKnob, doorKnobIn);
   gasilGroup.add(doorPivot);
-  craft.gasilEntry(gasilGroup, doorPivot, rw, rd, rh);
+  craft.gasilEntry(gasilGroup, doorPivot, rw, rd, rh, gasilWallMat);
 
   const westLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.3), gasilWallMat);
   westLeft.position.set(-rw / 2, rh / 2, -2.05);

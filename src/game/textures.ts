@@ -130,6 +130,7 @@ export function loadVillageTextures(maxAnisotropy: number, compact: boolean) {
     stone: load('fieldstone', 2),
     stoneNormal: linear('fieldstone-normal', 2),
     plaster: load('limewash', 2),
+    earthenPlaster: load('kerpic', 2),
     plasterNormal: linear('limewash-normal', 2),
     roof: load('pantile', 2),
     roofNormal: linear('pantile-normal', 2),

@@ -102,6 +102,7 @@ for i, n in enumerate(
         "gasil-siva",
         "testi",
         "yalak-su",
+        "kerpic",
     ]
 ):
     a = np.asarray(Image.open(v / (n + ".webp")).convert("RGB").resize((120, 120), Image.Resampling.LANCZOS))

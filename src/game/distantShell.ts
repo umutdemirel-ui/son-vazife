@@ -12,6 +12,7 @@ const swatches = [
   'gasil-siva',
   'testi',
   'yalak-su',
+  'kerpic',
 ];
 export function shellMaterial(tile: THREE.Texture) {
   const material = new THREE.MeshBasicMaterial({ map: tile, vertexColors: true });

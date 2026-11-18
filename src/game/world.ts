@@ -1,5 +1,5 @@
 import { buildHome, type Home } from './homes';
-import { CEMETERY, CEMETERY_GRAVES, MOSQUE_GRAVES } from './cemetery';
+import { CEMETERY, CEMETERY_GRAVES, MOSQUE_GRAVES, VILLAGE_GRAVES } from './cemetery';
 import { receivingBay, STRETCHERS } from './funerary';
 import { NightArt, watcherFigure } from './nightArt';
 import { OUTER_HOMES, type Outpost } from './valley';
@@ -37,7 +37,6 @@ import {
   createMosqueAndGasilhane,
   createMuhtarHouse,
   createSisGozcusu,
-  createStoneCourtyardWall,
   createStreetLamp,
   createUtilityPole,
   createVillageBench,
@@ -141,10 +140,10 @@ export function buildVillageWorld(
   const itemMeshes: Record<string, THREE.Object3D> = {};
 
   // 1. Lighting Rig (Warm/Cool contrast + FogExp2)
-  const hemiLight = new THREE.HemisphereLight(0xc1cdd1, 0x827d73, 1.28);
+  const hemiLight = new THREE.HemisphereLight(0xb0bac5, 0x796b58, 1.18);
   scene.add(hemiLight);
 
-  const sunKeyLight = new THREE.DirectionalLight(0xe1ccb7, 1.35);
+  const sunKeyLight = new THREE.DirectionalLight(0xe6c19d, 1.15);
   sunKeyLight.position.set(18, 26, 22);
   sunKeyLight.castShadow = true;
   sunKeyLight.shadow.mapSize.set(1024, 1024);
@@ -269,6 +268,33 @@ export function buildVillageWorld(
   for (const st of MOSQUE_GRAVES)
     colliders.push(houseFootprint(-10.6 + st.x, -4.2 + st.z, 0.55, 1.45, st.rot));
 
+  // The old village burial ground reaches into the square. Each marker has
+  // an individually sampled foundation and the same solid footprint as its art.
+  const villageBurial = new THREE.Group();
+  const steleMat = new THREE.MeshStandardMaterial({ color: 0xaaa99b, roughness: 0.96 });
+  const steleGeo = new THREE.BoxGeometry(0.36, 1, 0.14);
+  const graveBaseGeo = new THREE.BoxGeometry(0.56, 0.14, 1.35);
+  disposables.push(steleMat, steleGeo, graveBaseGeo);
+  for (const grave of VILLAGE_GRAVES) {
+    const marker = new THREE.Group();
+    marker.position.set(grave.x, groundHeightAt(grave.x, grave.z), grave.z);
+    marker.rotation.y = grave.rot;
+    const base = new THREE.Mesh(graveBaseGeo, steleMat);
+    base.position.y = 0.07;
+    const head = new THREE.Mesh(steleGeo, steleMat);
+    head.scale.y = grave.h;
+    head.position.set(0, 0.14 + grave.h / 2, -0.55);
+    head.rotation.z = grave.rot * 0.3;
+    marker.add(base, head);
+    villageBurial.add(marker);
+    colliders.push(houseFootprint(grave.x, grave.z, 0.56, 1.35, grave.rot));
+  }
+  bakeStaticChildrenByMaterial(villageBurial);
+  cells.add(scene, villageBurial, 35, 55);
+  disposables.push({ dispose: () => villageBurial.traverse(o => {
+    if (o instanceof THREE.Mesh && o.geometry !== steleGeo && o.geometry !== graveBaseGeo) o.geometry.dispose();
+  }) });
+
   // 4. Walk-in Abandoned Village House (Eski Köy Evi) at (-10.8, y, -10.5)
   const abandonedPos = new THREE.Vector3(-10.8, groundHeightAt(-10.8, -10.5), -10.5);
   const abandoned = createAbandonedHouse(textures, craft);
@@ -379,14 +405,14 @@ export function buildVillageWorld(
     h: number;
     style: HouseStyle;
   }[] = [
-    { x: 10.6, z: 2.0, rotY: -Math.PI / 2, w: 6.2, d: 5.4, h: 4.3, style: 'cumba' },
-    { x: -11.2, z: 18.0, rotY: Math.PI / 2, w: 5.6, d: 4.8, h: 3.9, style: 'himis' },
-    { x: 11.4, z: -8.6, rotY: -Math.PI / 2 + 0.08, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
-    { x: -13.0, z: -20.5, rotY: Math.PI / 2 - 0.12, w: 6.0, d: 5.2, h: 4.1, style: 'cumba' },
-    { x: 19.5, z: 13.0, rotY: -Math.PI * 0.6, w: 6.4, d: 5.4, h: 4.2, style: 'tas' },
-    { x: -19.2, z: -3.5, rotY: Math.PI * 0.45, w: 5.8, d: 5.0, h: 4.0, style: 'himis' },
-    { x: 18.2, z: -34.5, rotY: -Math.PI * 0.25, w: 6.0, d: 5.2, h: 4.1, style: 'himis' },
-    { x: -16.8, z: -35.5, rotY: Math.PI * 0.35, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
+    { x: 12.5, z: 2.0, rotY: -Math.PI / 2, w: 6.2, d: 5.4, h: 4.3, style: 'cumba' },
+    { x: -10.6, z: 21.5, rotY: Math.PI / 2, w: 5.6, d: 4.8, h: 3.9, style: 'himis' },
+    { x: 13.0, z: -8.6, rotY: -Math.PI / 2 + 0.08, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
+    { x: -14.0, z: -21.5, rotY: Math.PI / 2 - 0.12, w: 6.0, d: 5.2, h: 4.1, style: 'cumba' },
+    { x: 21.0, z: 12.0, rotY: -Math.PI * 0.6, w: 6.4, d: 5.4, h: 4.2, style: 'tas' },
+    { x: -20.0, z: -5.5, rotY: Math.PI * 0.45, w: 5.8, d: 5.0, h: 4.0, style: 'himis' },
+    { x: 17.5, z: -36.5, rotY: -Math.PI * 0.25, w: 6.0, d: 5.2, h: 4.1, style: 'himis' },
+    { x: -15.5, z: -37.5, rotY: Math.PI * 0.35, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
   ];
   OUTER_HOMES.forEach(([x, z, rotY], i) =>
     houseConfigs.push({
@@ -421,30 +447,6 @@ export function buildVillageWorld(
     roughness: 0.9,
   });
   disposables.push(stoneWallMat);
-  [
-    { x: -4.4, z: 14.8, len: 7.4, rot: 0, gate: false },
-    { x: 4.6, z: -5.5, len: 8.6, rot: 0, gate: true },
-    { x: 5.2, z: 4.8, len: 4.2, rot: 0, gate: false },
-  ].forEach((sw) => {
-    const wallGroup = createStoneCourtyardWall(textures, craft, sw.len, sw.gate);
-    wallGroup.position.set(sw.x, groundHeightAt(sw.x, sw.z), sw.z);
-    wallGroup.rotation.y = sw.rot;
-    cells.add(scene, wallGroup, 26, 45);
-    if (!sw.gate) {
-      colliders.push({
-        minX: sw.x - 0.35,
-        maxX: sw.x + 0.35,
-        minZ: sw.z - sw.len / 2,
-        maxZ: sw.z + sw.len / 2,
-      });
-    } else {
-      colliders.push(
-        { minX: sw.x - 0.35, maxX: sw.x + 0.35, minZ: sw.z - sw.len / 2, maxZ: sw.z - 0.7 },
-        { minX: sw.x - 0.35, maxX: sw.x + 0.35, minZ: sw.z + 0.7, maxZ: sw.z + sw.len / 2 },
-      );
-    }
-  });
-
   // Village Storytelling Micro-Props & District Signposts
   [
     { x: -10.4, z: 9.65, rot: 0 },
@@ -522,6 +524,27 @@ export function buildVillageWorld(
   cells.add(scene, fountain, 32, 55);
   colliders.push({ minX: 4.0, maxX: 5.6, minZ: 11.2, maxZ: 13.8 });
 
+  // A low open stone well, separate from the usable fountain and its evidence.
+  const well = new THREE.Group();
+  const wellX = -3.1, wellZ = -10.5;
+  well.position.set(wellX, groundHeightAt(wellX, wellZ), wellZ);
+  const wellGeo = new THREE.CylinderGeometry(0.92, 0.97, 0.82, 12, 1, true);
+  const wellTopGeo = new THREE.TorusGeometry(0.77, 0.17, 8, 12);
+  const wellDarkGeo = new THREE.CircleGeometry(0.68, 12);
+  const wellWood = new THREE.MeshStandardMaterial({ color: 0x4e3e2e, roughness: 0.98 });
+  const wellDark = new THREE.MeshBasicMaterial({ color: 0x151713 });
+  const wall = new THREE.Mesh(wellGeo, stoneWallMat); wall.position.y = 0.41;
+  const rim = new THREE.Mesh(wellTopGeo, stoneWallMat); rim.rotation.x = Math.PI / 2; rim.position.y = 0.83;
+  const hole = new THREE.Mesh(wellDarkGeo, wellDark); hole.rotation.x = -Math.PI / 2; hole.position.y = 0.67;
+  well.add(wall, rim, hole);
+  const postGeo = new THREE.BoxGeometry(0.12, 1.45, 0.12);
+  for (const x of [-0.85, 0.85]) { const post = new THREE.Mesh(postGeo, wellWood); post.position.set(x, 1.1, 0); well.add(post); }
+  const crossGeo = new THREE.CylinderGeometry(0.09, 0.09, 1.85, 8);
+  const cross = new THREE.Mesh(crossGeo, wellWood); cross.rotation.z = Math.PI / 2; cross.position.y = 1.75; well.add(cross);
+  cells.add(scene, well, 28, 45);
+  colliders.push({ minX: wellX - 0.94, maxX: wellX + 0.94, minZ: wellZ - 0.94, maxZ: wellZ + 0.94 });
+  disposables.push(wellGeo, wellTopGeo, wellDarkGeo, postGeo, crossGeo, wellWood, wellDark);
+
   // 9. Exterior Yard Drain near Gasilhane (Rule 2 Trap)
   const yardDrainGroup = new THREE.Group();
   const ydX = -5.4;
@@ -563,13 +586,9 @@ export function buildVillageWorld(
     streetLights.push({ light: sl.light, bulbMat: sl.bulbMat, baseIntensity: lp.base });
   });
 
-  const poleCoords = [
-    { x: -4.15, z: 21.5, rot: 0.1 },
-    { x: -4.3, z: 9.6, rot: -0.05 },
-    { x: -4.3, z: -2.8, rot: 0.08 },
-    { x: 4.25, z: -11.2, rot: -0.1 },
-    { x: 4.3, z: -22.2, rot: 0.05 },
-  ];
+  // The square is an older hamlet, not a modern avenue of utility poles.
+  // Wires remain available at the distant exchange, not across the central view.
+  const poleCoords: { x: number; z: number; rot: number }[] = [];
   const poleTops: THREE.Vector3[] = [];
   poleCoords.forEach((pc) => {
     const { group, wireAttachY } = createUtilityPole(textures);

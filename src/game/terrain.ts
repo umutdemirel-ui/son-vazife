@@ -1,4 +1,4 @@
-import { CEMETERY } from './cemetery';
+import { CEMETERY, VILLAGE_GRAVES } from './cemetery';
 import { CORE_LANES, OUTER_LANES, OUTER_HOMES, OUTPOSTS, OUTPOST_IDS, reservedGround } from './valley';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -21,7 +21,7 @@ function valleyHeight(x: number, z: number): number {
       ? (Math.sin(x * 0.085 + z * 0.06) * 1.15 + Math.cos(x * 0.045 - z * 0.075) * 1.45) *
         Math.min(1, (edgeDist - 2) / 18)
       : 0;
-  const mountain = 8.5 * (1 - Math.exp(-Math.pow(edgeDist / 37, 1.7))) + ridgeDetail;
+  const mountain = 18 * (1 - Math.exp(-Math.pow(edgeDist / 48, 1.8))) + ridgeDetail * 1.5;
 
   // Gentle natural undulation along the village roads
   const gentleSlope = Math.sin(z * 0.055) * 0.14 + Math.cos(x * 0.065) * 0.08;
@@ -150,7 +150,7 @@ export function buildMountainTerrainAndForest(
     normalScale: new THREE.Vector2(0.85, 0.85),
     roughness: 0.94,
     metalness: 0.02,
-    color: 0xadb5a3,
+    color: 0xb2a58c,
     roughnessMap: textures.groundRoughness,
   });
   const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
@@ -183,7 +183,7 @@ export function buildMountainTerrainAndForest(
     normalMap: textures.roadNormal,
     normalScale: new THREE.Vector2(0.62, 0.62),
     roughnessMap: textures.roadRoughness,
-    color: 0xd5d3cc,
+    color: 0xb8a990,
     roughness: 0.88,
     metalness: 0.025,
     vertexColors: true,
@@ -255,8 +255,9 @@ export function buildMountainTerrainAndForest(
     for (let i = 0; i < p.count; i++) {
       const lz = p.getZ(i);
       const lateral = p.getX(i);
+      const widthVariation = 0.87 + 0.13 * Math.sin(lz * 0.35 + cx * 0.1);
       const lx =
-        lateral + Math.pow((2 * Math.abs(lateral)) / width, 3) * 0.13 * Math.sin(lz * 1.7 + lateral * 2);
+        lateral * widthVariation + Math.pow((2 * Math.abs(lateral)) / width, 3) * 0.13 * Math.sin(lz * 1.7 + lateral * 2);
       const wx = cx + lx * cosA + lz * sinA;
       const wz = cz - lx * sinA + lz * cosA;
       p.setX(i, wx);
@@ -328,8 +329,8 @@ export function buildMountainTerrainAndForest(
       if (side === -1 && ((rz > 1 && rz < 10.5) || (rz > -13.5 && rz < -7.5) || (rz > -34 && rz < -26)))
         continue;
       if (side === 1 && ((rz > 10.5 && rz < 22) || (rz > -29 && rz < -15))) continue;
-      if (rand() < 0.24 || (side < 0 && Math.abs(rz - 14) < 0.65)) continue;
-      const cx = center + side * 2.68 + (rand() - 0.5) * 0.14;
+      if (rand() < 0.64 || (side < 0 && Math.abs(rz - 14) < 0.65)) continue;
+      const cx = center + side * 2.68 + (rand() - 0.5) * 0.75;
       const cz = rz + (rand() - 0.5) * 0.16;
       curbEntries.push({
         x: cx,
@@ -376,7 +377,7 @@ export function buildMountainTerrainAndForest(
     const radius = 26 + rand() * 98;
     const tx = Math.cos(angle) * radius;
     const tz = Math.sin(angle) * radius;
-    if (reservedGround(tx, tz)) continue;
+    if (reservedGround(tx, tz) || VILLAGE_GRAVES.some(g => Math.hypot(tx - g.x, tz - g.z) < 2.2)) continue;
     // Keep the original districts and connecting roads clear of trees
     if (Math.abs(tx) < 16.5 && tz > -46 && tz < 38) continue;
     if (Math.hypot(tx - 26, tz + 28) < 11.5) continue; // Clinic pad
@@ -401,10 +402,8 @@ export function buildMountainTerrainAndForest(
 
   for (const [x, z] of [
     [15, 7],
-    [-16, 14],
     [-16.4, -14],
     [14.9, -12.8],
-    [-18, 24],
     [4, -43],
   ]) {
     treeCoords.push({

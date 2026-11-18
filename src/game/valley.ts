@@ -120,7 +120,7 @@ export const OUTER_LANES: readonly Lane[] = [
   [-41, 24, -47, 31, 2.9],
   [-47, 31, -43, 47, 2.9],
 ];
-export const OUTER_HOMES = [
+export const LEGACY_OUTER_HOMES = [
   // A closer, staggered street frontage frames the muddy north–south lane,
   // while leaving the surveyed routes and the entrances unobstructed.
   [-7.6, -43, Math.PI / 2],
@@ -137,6 +137,13 @@ export const OUTER_HOMES = [
   [-37, 53, 2.8],
   [-58, 31, 1.3],
   [-40, 16, 0.6],
+] as const;
+export const OUTER_HOMES = [
+  [-9.0, -45, 1.38], [10.2, -42, -1.38],
+  [-9.0, 32, 1.40], [10.0, 31, -1.35],
+  [34, -49, 0.35], [47, -42, -1.48], [64, -29, -1.3],
+  [46, -12, 1.38], [61, 3, -1.35], [38, 30, 2.42],
+  [24, 50, 2.9], [-37, 55, 2.7], [-60, 31, 1.25], [-41, 17, 0.52],
 ] as const;
 export const RELAY = { x: -46, z: 27.8 };
 export function clearedForRoad(x: number, z: number, lanes: readonly Lane[]) {

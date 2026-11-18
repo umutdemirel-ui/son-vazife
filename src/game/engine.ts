@@ -1,4 +1,5 @@
 import { insideHome } from './homes';
+import { migrateOldHomePosition } from './homeMigration';
 import { atEscapePoint, isEvening, survivalDay } from './survival';
 import {
   FIELD_NOTES,
@@ -1070,10 +1071,13 @@ export class SonVazifeEngine {
     this.act = save.act;
     this.survivalSeconds = save.survivalSeconds ?? 0;
     this.caughtCount = save.caughtCount ?? 0;
+    const restoredPosition = save.villageRevision === 1
+      ? save.playerPos
+      : migrateOldHomePosition(save.playerPos.x, save.playerPos.z, this.world.homes);
     this.playerPos.set(
-      save.playerPos.x,
-      groundHeightAt(save.playerPos.x, save.playerPos.z),
-      save.playerPos.z,
+      restoredPosition.x,
+      groundHeightAt(restoredPosition.x, restoredPosition.z),
+      restoredPosition.z,
     );
     this.yaw = save.playerPos.yaw;
     this.targetYaw = save.playerPos.yaw;
@@ -1218,6 +1222,7 @@ export class SonVazifeEngine {
     const meta = this.getObjectiveText();
     const payload: SaveGamePayload = {
       version: 2,
+      villageRevision: 1,
       survivalSeconds: this.survivalSeconds,
       caughtCount: this.caughtCount,
       openHomes: this.world.homes.flatMap((home, i) => home.open ? [i] : []),

@@ -41,7 +41,21 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   for (const side of [-1, 1])
     block(root, finish, flank, height, wall, side * (opening / 2 + flank / 2), height / 2, d / 2, 2.2);
   block(root, finish, opening, height - 2.18, wall, 0, (height + 2.18) / 2, d / 2, 2.2);
-  pitchedRoof(root, craft.tile, finish, w + 0.5, d + 0.5, height, 0.85 + (number % 3) * 0.1, Math.max(0.45, w * (spec.style === 'tas' ? 0.12 : 0.22)));
+  // Most facades have the low stone storey and timber-framed upper silhouette
+  // of an old Anatolian hamlet. The upper storey is a sealed visual shell;
+  // the existing ground floor and its door remain fully walkable.
+  const upper = number % 3 !== 0;
+  const roofY = upper ? height + 1.55 : height;
+  if (upper) {
+    block(root, finish, w - 0.08, 1.55, d - 0.08, 0, height + 0.775, 0, 2.2);
+    block(root, craft.wood, w + 0.12, 0.13, 0.13, 0, height + 0.08, d / 2, 2.2);
+    for (const side of [-1, 1]) {
+      block(root, craft.wood, 0.11, 1.55, 0.10, side * (w / 2 - 0.16), height + 0.775, d / 2, 2.2);
+      craft.window(root, side * w * 0.24, height + 0.82, d / 2 + 0.04, 0.72, 0.92);
+    }
+  }
+  pitchedRoof(root, craft.tile, finish, w + 0.5, d + 0.5, roofY, 0.68 + (number % 3) * 0.08, Math.max(0.45, w * (spec.style === 'tas' ? 0.12 : 0.22)));
+  block(root, craft.masonry, 0.42, 0.85, 0.42, -w * 0.27, roofY + 0.46, -d * 0.18, 1.0);
   // Modest thresholds and stone foundations give each street facade depth.
   block(root, craft.masonry, w + 0.1, 0.22, 0.15, 0, 0.11, -d / 2 - 0.02, 2.2);
   for (const side of [-1, 1]) {

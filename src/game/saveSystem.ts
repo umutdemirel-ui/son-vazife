@@ -11,6 +11,7 @@ const SAVE_STORAGE_KEY = 'son_vazife_save_v2';
 
 export interface SaveGamePayload {
   version: 2;
+  villageRevision?: 1;
   survivalSeconds?: number;
   puzzleSeed?: number;
   caughtCount?: number;
@@ -86,6 +87,7 @@ export function readAutoSave(): SaveGamePayload | null {
     const parsed = JSON.parse(raw) as Partial<SaveGamePayload>;
     if (
       parsed.version !== 2 ||
+      (parsed.villageRevision !== undefined && parsed.villageRevision !== 1) ||
       typeof parsed.act !== 'number' ||
       !Number.isInteger(parsed.act) ||
       parsed.act < 1 ||

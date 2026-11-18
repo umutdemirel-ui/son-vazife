@@ -394,7 +394,7 @@ export class VillageCraft {
   }
 
   /** All trim is outside the split +X wall. The oak leaf stays on the original hinge. */
-  gasilEntry(parent: Parent, hinge: THREE.Group, w: number, d: number, h: number) {
+  gasilEntry(parent: Parent, hinge: THREE.Group, w: number, d: number, h: number, earthenWall: Mat) {
     const entry = facade(parent, w / 2 + 0.125, 0, Math.PI / 2);
     // A split projection, not a decal across the doorway. Source x=201..264 is the leaf.
     const panel = (
@@ -406,8 +406,9 @@ export class VillageCraft {
       z: number,
       crop: number[],
       yaw = 0,
+      material: Mat = this.entryFinish,
     ) => {
-      const p = face(parent, this.entryFinish, w, h, x, y, z, yaw),
+      const p = face(parent, material, w, h, x, y, z, yaw),
         uv = p.geometry.attributes.uv;
       for (let i = 0; i < uv.count; i++)
         uv.setXY(
@@ -418,14 +419,14 @@ export class VillageCraft {
       return p;
     };
     const jamb = (d - 1.6) / 2;
-    panel(entry, jamb, h, -0.8 - jamb / 2, h / 2, 0.012, [53, 91, 201, 245]);
-    panel(entry, jamb, h, 0.8 + jamb / 2, h / 2, 0.012, [264, 91, 448, 245]);
-    panel(entry, 1.6, h - 2.35, 0, (h + 2.35) / 2, 0.012, [201, 91, 264, 119]);
+    panel(entry, jamb, h, -0.8 - jamb / 2, h / 2, 0.012, [53, 91, 201, 245], 0, earthenWall);
+    panel(entry, jamb, h, 0.8 + jamb / 2, h / 2, 0.012, [264, 91, 448, 245], 0, earthenWall);
+    panel(entry, 1.6, h - 2.35, 0, (h + 2.35) / 2, 0.012, [201, 91, 264, 119], 0, earthenWall);
     for (const sign of [-1, 1]) block(entry, this.wood, 0.1, 2.31, 0.135, sign * 0.85, 1.16, 0.02);
     block(entry, this.wood, 1.93, 0.13, 0.16, 0, 2.38, 0.048);
     this.plate(entry, 'GASİLHANE', 1.28, 0.3, 0, 2.77, 0.035);
     const flank = facade(parent, 0, d / 2 + 0.145);
-    block(flank, this.lime[0], w + 0.2, h, 0.065, 0, h / 2, 0);
+    block(flank, earthenWall, w + 0.2, h, 0.065, 0, h / 2, 0, 2.2);
     block(flank, this.masonry, w + 0.22, 0.95, 0.115, 0, 0.45, 0.027, 2.25);
     for (const x of [-1.7, 0.63]) {
       this.window(flank, x, 2.18, 0.037, 0.9, 1.03);
