@@ -46,3 +46,16 @@ export function pushOutsideBox(p: { x: number; z: number }, c: BoxCollider, r: n
   p.x += f ? moveX * f.cos + moveZ * f.sin : moveX;
   p.z += f ? -moveX * f.sin + moveZ * f.cos : moveZ;
 }
+
+/** Place unrotated local wall boxes relative to their building anchor. */
+export function translateColliders(anchor: { x: number; z: number }, boxes: readonly BoxCollider[]): BoxCollider[] {
+  return boxes.map((box) => {
+    if (box.frame) throw new Error('translateColliders expects unframed local boxes');
+    return {
+      minX: anchor.x + box.minX,
+      maxX: anchor.x + box.maxX,
+      minZ: anchor.z + box.minZ,
+      maxZ: anchor.z + box.maxZ,
+    };
+  });
+}

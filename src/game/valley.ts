@@ -3,9 +3,9 @@ import type { DistrictId } from './types';
 /** Metres, north = -Z. Collision, clearing, wayfinding and the notebook share this survey. */
 export const VALLEY = { x1: -72, x2: 76, z1: -78, z2: 62 } as const;
 export const OUTPOSTS = {
-  school: { x: 46, z: -60, w: 11.4, d: 5.9, door: 1.29, y: 1.8, name: 'Sarı Mektep' },
-  station: { x: 59, z: 28, w: 8.9, d: 4.9, door: 1.19, y: 1.1, name: 'Kuzdağ İstasyonu' },
-  exchange: { x: -54, z: 43, w: 5.6, d: 4.8, door: 1.55, y: 1.55, name: 'Sırt Santrali' },
+  school: { x: 43, z: -65, w: 11.4, d: 5.9, door: 1.29, y: 1.8, name: 'Sarı Mektep' },
+  station: { x: 60, z: 43, w: 8.9, d: 4.9, door: 1.19, y: 1.1, name: 'Kuzdağ İstasyonu' },
+  exchange: { x: -56, z: 51, w: 5.6, d: 4.8, door: 1.55, y: 1.55, name: 'Sırt Santrali' },
 } as const;
 export const OUTPOST_IDS = Object.keys(OUTPOSTS) as (keyof typeof OUTPOSTS)[];
 export type Outpost = keyof typeof OUTPOSTS;
@@ -98,25 +98,28 @@ export const OUTER_LANES: readonly Lane[] = [
   [33, -22.5, 34, -35, 3.1],
   [34, -35, 32, -42, 3.1],
   [32, -42, 46, -53, 3.1],
-  [46, -53, 46, -56.95, 2.4],
+  [46, -53, 43, -58, 3.1],
+  [43, -58, 43, -61.95, 2.4],
   // Old post road: school, east hamlet, station and southern crossing. Avoid the wreck itself.
   [46, -53, 57, -44, 3.1],
   [57, -44, 54, -20, 3.1],
   [54, -20, 49, 1, 3.1],
   [49, 1, 44, 22, 3.1],
-  [44, 22, 55, 34, 3.1],
-  [55, 34, 59, 34, 3.1],
-  [59, 34, 59, 30.52, 2.3],
+  [44, 22, 50, 32, 3.1],
+  [50, 32, 53, 47, 3.1],
+  [53, 47, 60, 49, 3.1],
+  [60, 49, 60, 45.52, 2.3],
   [24, 19.7, 24.6, 23.8, 3.3],
   [24.6, 23.8, 31, 24.8, 3.3],
   [31, 24.8, 44, 22, 3.3],
-  [55, 34, 29, 42, 2.9],
+  [53, 47, 29, 42, 2.9],
   [29, 42, 0, 40, 2.9],
   [0, 40, -18, 39, 3.1],
   [-18, 39, -30, 39, 3.1],
   [-30, 39, -43, 47, 3.1],
-  [-43, 47, -54, 48, 3.1],
-  [-54, 48, -54, 45.45, 2.3],
+  [-43, 47, -48, 54, 3.1],
+  [-48, 54, -56, 56, 3.1],
+  [-56, 56, -56, 53.45, 2.3],
   // Mill service road meets the relay cabinet before climbing to the exchange.
   [-30, 8, -30, 14, 2.9],
   [-30, 14, -41, 24, 2.9],

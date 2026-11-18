@@ -277,19 +277,19 @@ try {
   assert.equal(await val('act'), 6);
   const pageSites = [
     ['night_tag', -9.5, 7.04],
-    ['night_roll', 43.2, -60.42],
-    ['night_bell', 47.42, -55.65],
-    ['night_bag', 48.36, -60.87],
-    ['night_ticket', 56.71, 27.82],
-    ['night_signal', 64.75, 33.04],
-    ['night_spool', 61.5, 27.85],
+    ['night_roll', 40.2, -65.42],
+    ['night_bell', 44.42, -60.65],
+    ['night_bag', 45.36, -65.87],
+    ['night_ticket', 57.71, 42.82],
+    ['night_signal', 65.75, 48.04],
+    ['night_spool', 62.5, 42.85],
     ['night_relay', -46, 29.35],
-    ['night_line', -54, 42.52],
-    ['night_register', 47.1, -59.0],
+    ['night_line', -56, 50.52],
+    ['night_register', 44.1, -64.0],
     ['night_memorial', -30.8, -29.9],
-    ['night_verdict', 59, 27.8],
-    ['night_drawing', 48.1, -60.33],
-    ['night_echo', -52.35, 44.3],
+    ['night_verdict', 60, 42.8],
+    ['night_drawing', 45.1, -65.33],
+    ['night_echo', -54.35, 52.3],
     ['night_seal', -28.9, -29.9],
     ['night_call', -8.85, 7.42],
   ];
@@ -315,10 +315,10 @@ try {
   }
   let beforeCall;
   const notes = [
-    ['seyir_tahta', 46.15, -61.07],
-    ['seyir_peron', 55.68, 31.95],
-    ['seyir_abone', -55.2, 46.77],
-    ['seyir_sef', 62.2, 33.38],
+    ['seyir_tahta', 43.15, -66.07],
+    ['seyir_peron', 56.68, 46.95],
+    ['seyir_abone', -57.2, 54.77],
+    ['seyir_sef', 63.2, 48.38],
   ];
   const study = async (n) => {
     await use(...notes[n]);
@@ -379,7 +379,7 @@ try {
   const escape = async () =>
     page.evaluate(() => {
       const e = window.fixture;
-      e.playerPos.set(59, 1.1, 34);
+      e.playerPos.set(60, 1.1, 49);
       e.playerVel.set(0, 0, 0);
       e.updateSimulation(0.05);
     });

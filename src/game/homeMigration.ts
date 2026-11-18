@@ -42,3 +42,18 @@ export function migrateOldHomePosition(x: number, z: number, homes: Pick<Home, '
   }
   return { x, z };
 }
+
+/** Translate saves from the former remote rooms and station platform into their new sites. */
+export function migrateOutpostPosition(x: number, z: number) {
+  const old = [
+    { x: 46, z: -60, halfW: 5.7, minZ: -2.95, maxZ: 3.65, dx: -3, dz: -5 },
+    { x: 59, z: 28, halfW: 7, minZ: -2.45, maxZ: 8, dx: 1, dz: 15 },
+    { x: -54, z: 43, halfW: 2.8, minZ: -2.4, maxZ: 3.1, dx: -2, dz: 8 },
+  ];
+  for (const b of old) {
+    if (Math.abs(x - b.x) < b.halfW && z - b.z > b.minZ && z - b.z < b.maxZ) {
+      return { x: x + b.dx, z: z + b.dz };
+    }
+  }
+  return { x, z };
+}

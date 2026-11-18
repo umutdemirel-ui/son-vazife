@@ -7,7 +7,7 @@ import { buildOutposts } from './outposts';
 import { bakeStaticChildrenByMaterial } from './meshBatch';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { houseFootprint, type BoxCollider } from './collision';
+import { houseFootprint, translateColliders, type BoxCollider } from './collision';
 import { ResidentVisual } from './residentVisual';
 import { VillageCraft, type HouseStyle } from './villageCraft';
 import { AutopsyBodyRefs, createAutopsyCadaverOverlay } from './autopsy';
@@ -247,20 +247,19 @@ export function buildVillageWorld(
   cells.add(scene, transportBed, 30, 50);
   colliders.push({ minX: -5.425, maxX: -3.375, minZ: 3.3, maxZ: 4.1 });
 
-  colliders.push(
-    { minX: -14.1, maxX: -6.9, minZ: 2.55, maxZ: 3.05 }, // Gasil North
-    { minX: -14.1, maxX: -6.9, minZ: 8.95, maxZ: 9.45 }, // Gasil South
-    { minX: -14.15, maxX: -13.65, minZ: 2.6, maxZ: 9.4 }, // Gasil West
-    { minX: -7.35, maxX: -6.85, minZ: 2.6, maxZ: 5.2 }, // Gasil East-North
-    { minX: -7.35, maxX: -6.85, minZ: 6.8, maxZ: 9.4 }, // Gasil East-South
-    { minX: -11.75, maxX: -9.25, minZ: 5.35, maxZ: 6.65 }, // Marble Tenesir Slab
-    { minX: -14.0, maxX: -13.8, minZ: -2.1, maxZ: 2.6 }, // Mosque west
-    { minX: -14.0, maxX: -7.0, minZ: -2.1, maxZ: -1.9 }, // Mosque north
-    { minX: -14.0, maxX: -7.0, minZ: 2.5, maxZ: 2.7 }, // Mosque south
-    { minX: -7.3, maxX: -7.0, minZ: -2.0, maxZ: -0.45 },
-    { minX: -7.3, maxX: -7.0, minZ: 1.05, maxZ: 2.6 },
-  );
-
+  colliders.push(...translateColliders(gasilPos, [
+    { minX: -3.6, maxX: 3.6, minZ: -3.45, maxZ: -2.95 }, // Gasil North
+    { minX: -3.6, maxX: 3.6, minZ: 2.95, maxZ: 3.45 }, // Gasil South
+    { minX: -3.65, maxX: -3.15, minZ: -3.4, maxZ: 3.4 }, // Gasil West
+    { minX: 3.15, maxX: 3.65, minZ: -3.4, maxZ: -0.8 }, // Gasil East-North
+    { minX: 3.15, maxX: 3.65, minZ: 0.8, maxZ: 3.4 }, // Gasil East-South
+    { minX: -1.25, maxX: 1.25, minZ: -0.65, maxZ: 0.65 }, // Marble Tenesir Slab
+    { minX: -3.5, maxX: -3.3, minZ: -8.1, maxZ: -3.4 }, // Mosque west
+    { minX: -3.5, maxX: 3.5, minZ: -8.1, maxZ: -7.9 }, // Mosque north
+    { minX: -3.5, maxX: 3.5, minZ: -3.5, maxZ: -3.3 }, // Mosque south
+    { minX: 3.2, maxX: 3.5, minZ: -8.0, maxZ: -6.45 },
+    { minX: 3.2, maxX: 3.5, minZ: -4.95, maxZ: -3.4 },
+  ]));
   // Mosque Graveyard beside Mosque
   const graveyard = createGraveyardCluster(textures);
   graveyard.position.set(-10.6, groundHeightAt(-10.6, -4.2), -4.2);
@@ -301,46 +300,43 @@ export function buildVillageWorld(
   abandoned.group.position.copy(abandonedPos);
   cells.add(scene, abandoned.group, 28, 49);
 
-  colliders.push(
-    { minX: -13.95, maxX: -7.65, minZ: -13.5, maxZ: -13.0 },
-    { minX: -13.95, maxX: -7.65, minZ: -8.0, maxZ: -7.5 },
-    { minX: -14.0, maxX: -13.5, minZ: -13.5, maxZ: -7.5 },
-    { minX: -8.05, maxX: -7.55, minZ: -13.5, maxZ: -11.3 },
-    { minX: -8.05, maxX: -7.55, minZ: -9.7, maxZ: -7.5 },
-    { minX: -12.7, maxX: -11.5, minZ: -10.9, maxZ: -9.3 },
-  );
-
+  colliders.push(...translateColliders(abandonedPos, [
+    { minX: -3.15, maxX: 3.15, minZ: -3.0, maxZ: -2.5 },
+    { minX: -3.15, maxX: 3.15, minZ: 2.5, maxZ: 3.0 },
+    { minX: -3.2, maxX: -2.7, minZ: -3.0, maxZ: 3.0 },
+    { minX: 2.75, maxX: 3.25, minZ: -3.0, maxZ: -0.8 },
+    { minX: 2.75, maxX: 3.25, minZ: 0.8, maxZ: 3.0 },
+    { minX: -1.9, maxX: -0.7, minZ: -0.4, maxZ: 1.2 },
+  ]));
   // 5. Muhtar's House at (10.5, y, -18.0)
   const muhtarPos = new THREE.Vector3(10.5, groundHeightAt(10.5, -18.0), -18.0);
   const muhtar = createMuhtarHouse(textures, craft);
   muhtar.group.position.copy(muhtarPos);
   cells.add(scene, muhtar.group, 28, 49);
 
-  colliders.push(
-    { minX: 7.1, maxX: 13.9, minZ: -21.25, maxZ: -20.75 },
-    { minX: 7.1, maxX: 13.9, minZ: -15.25, maxZ: -14.75 },
-    { minX: 13.45, maxX: 13.95, minZ: -21.2, maxZ: -14.8 },
-    { minX: 7.05, maxX: 7.55, minZ: -21.2, maxZ: -18.8 },
-    { minX: 7.05, maxX: 7.55, minZ: -17.2, maxZ: -14.8 },
-    { minX: 11.1, maxX: 12.4, minZ: -19.3, maxZ: -17.1 },
-  );
-
+  colliders.push(...translateColliders(muhtarPos, [
+    { minX: -3.4, maxX: 3.4, minZ: -3.25, maxZ: -2.75 },
+    { minX: -3.4, maxX: 3.4, minZ: 2.75, maxZ: 3.25 },
+    { minX: 2.95, maxX: 3.45, minZ: -3.2, maxZ: 3.2 },
+    { minX: -3.45, maxX: -2.95, minZ: -3.2, maxZ: -0.8 },
+    { minX: -3.45, maxX: -2.95, minZ: 0.8, maxZ: 3.2 },
+    { minX: 0.6, maxX: 1.9, minZ: -1.3, maxZ: 0.9 },
+  ]));
   // 5b. Sağlık Ocağı (District II: East Clinic) at (26.0, y, -28.0)
   const clinicPos = new THREE.Vector3(26.0, groundHeightAt(26.0, -28.0), -28.0);
   const clinic = createClinicBuilding(textures, craft, nightArt);
   clinic.group.position.copy(clinicPos);
   cells.add(scene, clinic.group, 26, 48);
 
-  colliders.push(
-    { minX: 22.1, maxX: 29.9, minZ: -31.5, maxZ: -31.05 }, // Clinic North
-    { minX: 22.1, maxX: 29.9, minZ: -24.95, maxZ: -24.5 }, // Clinic South
-    { minX: 29.45, maxX: 29.95, minZ: -31.4, maxZ: -24.6 }, // Clinic East
-    { minX: 22.05, maxX: 22.55, minZ: -31.4, maxZ: -28.8 }, // Clinic West-North
-    { minX: 22.05, maxX: 22.55, minZ: -27.2, maxZ: -24.6 }, // Clinic West-South
-    { minX: 25.25, maxX: 27.55, minZ: -28.55, maxZ: -27.45 }, // Autopsy table
-    { minX: 25.4, maxX: 27.6, minZ: -31.1, maxZ: -30.5 }, // Medical shelf
-  );
-
+  colliders.push(...translateColliders(clinicPos, [
+    { minX: -3.9, maxX: 3.9, minZ: -3.5, maxZ: -3.05 }, // Clinic North
+    { minX: -3.9, maxX: 3.9, minZ: 3.05, maxZ: 3.5 }, // Clinic South
+    { minX: 3.45, maxX: 3.95, minZ: -3.4, maxZ: 3.4 }, // Clinic East
+    { minX: -3.95, maxX: -3.45, minZ: -3.4, maxZ: -0.8 }, // Clinic West-North
+    { minX: -3.95, maxX: -3.45, minZ: 0.8, maxZ: 3.4 }, // Clinic West-South
+    { minX: -0.75, maxX: 1.55, minZ: -0.55, maxZ: 0.55 }, // Autopsy table
+    { minX: -0.6, maxX: 1.6, minZ: -3.1, maxZ: -2.5 }, // Medical shelf
+  ]));
   // 5c. Dere Köprüsü & Eski Su Değirmeni (District III: West Stream & Mill)
   const millAndBridge = createWatermillAndBridge(textures);
   const bridgePos = new THREE.Vector3(-24.0, 0.05, 8.0);
@@ -377,17 +373,16 @@ export function buildVillageWorld(
   }
 
   // Crypt local center (1.6, 0, -3.2) => world (-32.4, y, -39.2), cw=4.6, cd=4.8
-  colliders.push(
-    { minX: -40.35, maxX: -27.7, minZ: -42.75, maxZ: -42.25 }, // Outer North fence
-    { minX: -40.45, maxX: -39.95, minZ: -42.5, maxZ: -29.5 }, // Outer West fence
-    { minX: -34.8, maxX: -30.0, minZ: -41.8, maxZ: -41.4 }, // Crypt Back North
-    { minX: -34.9, maxX: -34.5, minZ: -41.65, maxZ: -36.75 }, // Crypt West
-    { minX: -30.3, maxX: -29.9, minZ: -41.65, maxZ: -36.75 }, // Crypt East
-    { minX: -34.8, maxX: -33.15, minZ: -37.0, maxZ: -36.6 }, // Crypt South-West
-    { minX: -31.65, maxX: -30.0, minZ: -37.0, maxZ: -36.6 }, // Crypt South-East
-    { minX: -33.55, maxX: -31.25, minZ: -40.08, maxZ: -39.02 }, // Basalt slab
-  );
-
+  colliders.push(...translateColliders(cemPos, [
+    { minX: -6.35, maxX: 6.3, minZ: -6.75, maxZ: -6.25 }, // Outer North fence
+    { minX: -6.45, maxX: -5.95, minZ: -6.5, maxZ: 6.5 }, // Outer West fence
+    { minX: -0.8, maxX: 4.0, minZ: -5.8, maxZ: -5.4 }, // Crypt Back North
+    { minX: -0.9, maxX: -0.5, minZ: -5.65, maxZ: -0.75 }, // Crypt West
+    { minX: 3.7, maxX: 4.1, minZ: -5.65, maxZ: -0.75 }, // Crypt East
+    { minX: -0.8, maxX: 0.85, minZ: -1.0, maxZ: -0.6 }, // Crypt South-West
+    { minX: 2.35, maxX: 4.0, minZ: -1.0, maxZ: -0.6 }, // Crypt South-East
+    { minX: 0.45, maxX: 2.75, minZ: -4.08, maxZ: -3.02 }, // Basalt slab
+  ]));
   // 5e. Viraj Kaza Alanı (District V: Southeast Wrecked Minibus) at (28.0, y, 20.0)
   const crashPos = new THREE.Vector3(28.0, groundHeightAt(28.0, 20.0), 20.0);
   const crashSite = createWreckedMinibus(textures);

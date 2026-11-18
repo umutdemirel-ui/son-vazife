@@ -1,5 +1,5 @@
 import { insideHome } from './homes';
-import { migrateOldHomePosition } from './homeMigration';
+import { migrateOldHomePosition, migrateOutpostPosition } from './homeMigration';
 import { atEscapePoint, isEvening, survivalDay } from './survival';
 import {
   FIELD_NOTES,
@@ -1071,9 +1071,11 @@ export class SonVazifeEngine {
     this.act = save.act;
     this.survivalSeconds = save.survivalSeconds ?? 0;
     this.caughtCount = save.caughtCount ?? 0;
-    const restoredPosition = save.villageRevision === 2
+    const homePosition = save.villageRevision === 2 || save.villageRevision === 3
       ? save.playerPos
       : migrateOldHomePosition(save.playerPos.x, save.playerPos.z, this.world.homes, save.villageRevision);
+    const restoredPosition = save.villageRevision === 3
+      ? homePosition : migrateOutpostPosition(homePosition.x, homePosition.z);
     this.playerPos.set(
       restoredPosition.x,
       groundHeightAt(restoredPosition.x, restoredPosition.z),
@@ -1138,7 +1140,7 @@ export class SonVazifeEngine {
     }
     // A pre-rebuild outdoor save may now intersect a moved wall or grave. Resolve
     // after restoring door states, so resuming never traps a player in new geometry.
-    if (save.villageRevision !== 2) {
+    if (save.villageRevision !== 3) {
       this.resolveCollisions(this.playerPos);
       this.playerPos.y = groundHeightAt(this.playerPos.x, this.playerPos.z);
     }
@@ -1228,7 +1230,7 @@ export class SonVazifeEngine {
     const meta = this.getObjectiveText();
     const payload: SaveGamePayload = {
       version: 2,
-      villageRevision: 2,
+      villageRevision: 3,
       survivalSeconds: this.survivalSeconds,
       caughtCount: this.caughtCount,
       openHomes: this.world.homes.flatMap((home, i) => home.open ? [i] : []),

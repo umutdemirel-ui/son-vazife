@@ -7,8 +7,8 @@ test('survival days advance only after a complete active day and the exit is bou
   assert.equal(survivalDay(0), 1);
   assert.equal(survivalDay(SECONDS_PER_DAY - 0.1), 1);
   assert.equal(survivalDay(SECONDS_PER_DAY), 2);
-  assert.equal(atEscapePoint(59, 34), true);
-  assert.equal(atEscapePoint(55, 34), false);
+  assert.equal(atEscapePoint(60, 49), true);
+  assert.equal(atEscapePoint(56, 49), false);
 });
 
 test('malformed saved positions and survival values are rejected', () => {

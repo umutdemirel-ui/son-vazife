@@ -238,8 +238,8 @@ export function buildOutposts(
     g.add(visual);
   }
   art.near('gece-esyasi', -10.5, 6, 12);
-  art.near('gece-esyasi', 46, -60, 26);
-  art.near('gece-esyasi', 59, 28, 25);
+  art.near('gece-esyasi', OUTPOSTS.school.x, OUTPOSTS.school.z, 26);
+  art.near('gece-esyasi', OUTPOSTS.station.x, OUTPOSTS.station.z, 25);
   const board = new THREE.Group();
   block(board, craft.wood, 4.05, 1.32, 0.08, 0, 0.66, 0);
   block(board, ink, 3.91, 1.2, 0.03, 0, 0.66, 0.048);
