@@ -19,13 +19,14 @@ from scipy.spatial import cKDTree
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE.parents[1] / "public/assets/residents"
+REFERENCE = HERE.parent / "survival/reference"
 FACES = json.loads((HERE / "face-relief.json").read_text())
 # Crop in the coordinate system used by the tailoring profiles.
 LEFT, TOP, PANEL_W, PANEL_H = 90, 25, 211, 540
 
 
 def reference(name):
-    return Image.open(HERE / "reference" / f"{name}.jpg").convert("RGB")
+    return Image.open(REFERENCE / f"{name}.jpg").convert("RGB")
 
 
 def patch_back(name, front, cfg):
@@ -100,7 +101,7 @@ def pad_silhouette(image):
 
 def atlas(name, cfg):
     front = reference(name)
-    rear_path = HERE / "reference" / f"{name}-back.jpg"
+    rear_path = REFERENCE / f"{name}-back.jpg"
     rear = reference(name + "-back") if rear_path.exists() else patch_back(name, front, cfg)
     front = pad_silhouette(front)
     if rear_path.exists():

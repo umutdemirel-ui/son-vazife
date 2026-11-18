@@ -175,6 +175,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 {hud.actTitle}
               </p>
               <h2>{hud.locationName}</h2>
+              <p>Gün {hud.survivalDay} · Dayanıklılık {Math.max(0, 3 - hud.survivalHits)}/3</p>
               <p>{hud.objectiveText}</p>
               {(hud.stamina < 98 || hud.isCrouching || hud.isHiding || hud.isZooming) && (
                 <div className="village-state">

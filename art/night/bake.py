@@ -19,6 +19,16 @@ TAU = 2 * math.pi
 
 
 def plate(key):
+    revised = HERE.parent / "survival/reference" / (key + ".jpg")
+    if key in {
+        "mektep",
+        "istasyon",
+        "karabasma",
+        "karabasma-back",
+        "sis-gozcusu",
+        "sis-gozcusu-back",
+    }:
+        return Image.open(revised).convert("RGB")
     return Image.open(HERE / "reference" / (key + ".jpg")).convert("RGB")
 
 
@@ -167,12 +177,23 @@ WARDROBE = {
 }
 
 
-def bleed_costume(im):
+def bleed_costume(im, neutral=False):
     # These four fitting photos have neutral studio sweeps. Hand/hem gaps would otherwise
     # project strips of grey onto the closed geometry, especially as mip levels blend.
     rgb = np.asarray(im)
     hi, lo = rgb.max(axis=2), rgb.min(axis=2)
-    cloth = ndimage.binary_erosion((hi - lo > 10) | (hi < 96), iterations=2)
+    if neutral:
+        # The cooler studio plate is nearly monochrome: saturation alone would
+        # mistake the pale hood for background and replace it with brown cloth.
+        a = rgb.astype(float)
+        left = np.median(a[:, :40], axis=1)[:, None, :]
+        right = np.median(a[:, -40:], axis=1)[:, None, :]
+        t = np.linspace(0, 1, im.width)[None, :, None]
+        background = left * (1 - t) + right * t
+        cloth = ndimage.binary_fill_holes(np.linalg.norm(a - background, axis=2) > 23)
+        cloth = ndimage.binary_opening(cloth, iterations=2)
+    else:
+        cloth = ndimage.binary_erosion((hi - lo > 10) | (hi < 96), iterations=2)
     dist, nearest = ndimage.distance_transform_edt(~cloth, return_indices=True)
     pixels = rgb[tuple(nearest)]
     return Image.fromarray(
@@ -190,7 +211,7 @@ def watcher(key, small):
     # Crop away the unoccupied sides so the entire texture budget goes to the costume.
     for i, im in enumerate((front, back)):
         atlas.paste(
-            bleed_costume(im)
+            bleed_costume(im, key == "sis-gozcusu")
             .crop(
                 (round(28 / 160 * im.width), 0, round(132 / 160 * im.width), im.height)
             )

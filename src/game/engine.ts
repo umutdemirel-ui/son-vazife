@@ -1,3 +1,4 @@
+import { atEscapePoint, survivalDay } from './survival';
 import {
   FIELD_NOTES,
   nightStealthPrompt,
@@ -376,6 +377,8 @@ export class SonVazifeEngine {
   private finalCall: 'report' | 'farewell' | undefined;
   private karaCatchCooldown = 0;
   private caughtCount = 0;
+  private survivalSeconds = 0;
+  private survivalSaveClock = 0;
   private endingReason = '';
 
   // UI Sync
@@ -724,6 +727,8 @@ export class SonVazifeEngine {
     this.finalCall = undefined;
     this.karaCatchCooldown = 0;
     this.caughtCount = 0;
+    this.survivalSeconds = 0;
+    this.survivalSaveClock = 0;
     this.endingReason = '';
     this.isNotebookOpen = false;
     this.captionText = null;
@@ -1002,6 +1007,8 @@ export class SonVazifeEngine {
     this.resetStoryState();
 
     this.act = save.act;
+    this.survivalSeconds = save.survivalSeconds ?? 0;
+    this.caughtCount = save.caughtCount ?? 0;
     this.playerPos.set(
       save.playerPos.x,
       groundHeightAt(save.playerPos.x, save.playerPos.z),
@@ -1115,10 +1122,6 @@ export class SonVazifeEngine {
     this.camera.position.set(this.playerPos.x, this.playerPos.y + PLAYER_EYE_HEIGHT, this.playerPos.z);
     this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
     this.screen = 'playing';
-    if (this.finalCall && this.hasEntry('night_call')) {
-      this.triggerEnding();
-      return;
-    }
     this.showCaption('Kaldığın yerden devam ediliyor...', 3.8);
     this.requestPointerLockSafe();
     this.pushHudState(true);
@@ -1135,6 +1138,8 @@ export class SonVazifeEngine {
     const meta = this.getObjectiveText();
     const payload: SaveGamePayload = {
       version: 2,
+      survivalSeconds: this.survivalSeconds,
+      caughtCount: this.caughtCount,
       finalCall: this.finalCall,
       windowActive: this.windowAnomalyActive,
       windowResolved: this.windowAnomalyResolved,
@@ -1921,7 +1926,9 @@ export class SonVazifeEngine {
     this.syncVisualMeshes();
     this.triggerAutoSave(true);
     if (id === 'night_call') {
-      this.triggerEnding();
+      this.showCaption('Hat açıldı. İstasyondaki son perona ulaş ve köyden kaç.', 7);
+      this.requestPointerLockSafe();
+      this.pushHudState(true);
       return true;
     }
     if (id === 'night_line') this.audio.playTelephone();
@@ -2426,7 +2433,7 @@ export class SonVazifeEngine {
     ) {
       this.screen = 'ending_truth';
       this.endingReason =
-        'Hem halk inanışlarına sadık kaldın hem de üç cenaze dosyasını mühürleyip Katip Kenan’ın Boğanak komplosunu açığa çıkardın. Şafakta jandarma köye ulaştı; Hacı Arif de, 22:42’de yitip giden ruhun da huzura erdi.';
+        'Hem halk inanışlarına sadık kaldın hem de üç cenaze dosyasını mühürleyip Katip Kenan’ın Boğanak komplosunu açığa çıkardın. Son perondan köyü terk ettin. Şafakta jandarma köye ulaştı; Hacı Arif de, 22:42’de yitip giden ruhun da huzura erdi.';
       this.audio.playDawnSereneChord();
       this.dreadLevel = 0;
       this.scene.background = new THREE.Color(0x2d3a4b);
@@ -2437,7 +2444,7 @@ export class SonVazifeEngine {
     } else if (this.violations <= 1) {
       this.screen = 'ending_peace';
       this.endingReason =
-        'Halk inanışlarına ve son vazifene sadık kaldın. Yağmur dindi, doğudan sabah ezanı yükseldi.';
+        'Son perondan köyü terk ettin. Halk inanışlarına ve son vazifene sadık kaldın. Yağmur dindi, doğudan sabah ezanı yükseldi.';
       this.audio.playDawnSereneChord();
       this.dreadLevel = 0;
       this.scene.background = new THREE.Color(0x2a3544);
@@ -2969,6 +2976,22 @@ export class SonVazifeEngine {
     if (this.screen !== 'playing') return;
 
     if (this.registryCaseId || this.nightPage) return;
+    if (!this.isOverlayBlockingMove()) {
+      const oldDay = survivalDay(this.survivalSeconds);
+      this.survivalSeconds += dt;
+      this.survivalSaveClock += dt;
+      if (survivalDay(this.survivalSeconds) !== oldDay) {
+        this.showCaption(`${survivalDay(this.survivalSeconds)}. gün: Sis hâlâ dağılmadı. Hayatta kal.`, 5);
+      }
+      if (this.survivalSaveClock >= 30) {
+        this.survivalSaveClock = 0;
+        this.triggerAutoSave(false);
+      }
+      if (this.finalCall && atEscapePoint(this.playerPos.x, this.playerPos.z)) {
+        this.triggerEnding();
+        return;
+      }
+    }
 
     // 2. NPC Patrols (zero-GC index loop)
     for (let i = 0; i < this.npcKeys.length; i++) {
@@ -3440,6 +3463,7 @@ export class SonVazifeEngine {
               );
               this.candleLit = false;
               this.handCandle.root.visible = false;
+              this.triggerAutoSave(false);
             }
           }
         }
@@ -3713,6 +3737,7 @@ export class SonVazifeEngine {
                                 ? 'Viraj Kaza Alanı'
                                 : 'Kuzdağ Köy Meydanı';
 
+    if (this.finalCall) return { actTitle: 'SON YOL · KAÇIŞ', objective: 'İstasyondaki son perona ulaş ve köyden kaç.', location };
     if (this.act >= 6) {
       const next = this.nextNight() ?? 'night_call';
       return { actTitle: NIGHT_TITLES[PAGES[next].act], objective: PAGES[next].objective, location };
@@ -3856,6 +3881,8 @@ export class SonVazifeEngine {
 
     this.onHudUpdate({
       screen: this.screen,
+      survivalDay: survivalDay(this.survivalSeconds),
+      survivalHits: this.caughtCount,
       act: this.act,
       actTitle: meta.actTitle,
       objectiveText: meta.objective,

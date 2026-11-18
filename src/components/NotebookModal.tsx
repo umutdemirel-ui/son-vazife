@@ -1,3 +1,4 @@
+import { ESCAPE_POINT } from '../game/survival';
 import { VALLEY, LANDMARKS as MAP_LANDMARKS, CORE_LANES, OUTER_LANES } from '../game/valley';
 import React, { useState } from 'react';
 import {
@@ -555,6 +556,12 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                   );
                 })}
 
+                {clues.some((clue) => clue.id === 'night_call' && clue.discovered) && (
+                  <g transform={`translate(${toSvgX(ESCAPE_POINT.x)}, ${toSvgY(ESCAPE_POINT.z)})`}>
+                    <circle r="9" fill="none" stroke="#9e241b" strokeWidth="2" strokeDasharray="3 2" />
+                    <text y="-13" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#9e241b">KAÇIŞ</text>
+                  </g>
+                )}
                 {/* Live Player Marker */}
                 <g transform={`translate(${toSvgX(playerMapPos.x)}, ${toSvgY(playerMapPos.z)})`}>
                   <path
@@ -587,7 +594,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                 );
               })}
               <p className="text-[11px] text-[#5c4730] pt-1">
-                Kırmızı ok bulunduğun yeri ve baktığın yönü gösterir. Sağlık ocağından mektebe, virajdan
+                Kırmızı ok bulunduğun yeri ve baktığın yönü gösterir. Son telefonun ardından kaçış noktası peronda işaretlenir. Sağlık ocağından mektebe, virajdan
                 istasyona, değirmenden sırt santraline yol çıkar.
               </p>
             </div>

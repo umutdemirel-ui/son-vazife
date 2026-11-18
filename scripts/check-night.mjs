@@ -361,11 +361,21 @@ try {
       assert.equal(await val('act'), 7);
     }
   }
-  assert.equal(await val('screen'), 'ending_truth');
+  const escape = async () =>
+    page.evaluate(() => {
+      const e = window.fixture;
+      e.playerPos.set(59, 1.1, 34);
+      e.playerVel.set(0, 0, 0);
+      e.updateSimulation(0.05);
+    });
+  assert.equal(await val('screen'), 'playing');
   // The final choice and existing violation-based endings survive a page reload.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await btn('Devam et').click();
-  await page.waitForFunction(() => window.fixture?.screen === 'ending_truth');
+  await page.waitForFunction(() => window.fixture?.assetsReady);
+  assert.equal(await val('screen'), 'playing');
+  await escape();
+  assert.equal(await val('screen'), 'ending_truth');
   for (const [violations, which, ending] of [
     [0, 1, 'ending_peace'],
     [3, 0, 'ending_twist'],
@@ -378,6 +388,8 @@ try {
     await use(...pageSites.at(-1));
     await btn(which ? /İsimleri söylemeden/ : /Mühürlü dosyaları/).click();
     await btn('Ahizeyi bırak').click();
+    assert.equal(await val('screen'), 'playing');
+    await escape();
     assert.equal(await val('screen'), ending);
   }
   // Isolate one encounter from the saved ending: patrol -> pursuit -> crouched darkness, then a catch.

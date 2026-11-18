@@ -50,7 +50,7 @@ HOUSES = {
 
 def build(name, cfg):
     (L, R), stations, (rx, rr, ry, l, r, ty), (cx, cz), details, flanks = cfg
-    photo = Image.open(REF / (("tas-ev" if name == "tas" else name) + ".jpg")).convert("RGB")
+    photo = Image.open(REF.parents[1] / "survival/reference" / (("tas-ev" if name == "tas" else name) + ".jpg")).convert("RGB")
     H = photo.height * 500 / photo.width
     # Projection plate in the upper 3/4; separate timber, stone and roof samples in the apron.
     atlas = Image.new("RGB", (1024, 1024))

@@ -19,6 +19,10 @@ Türkçe, tek oyunculu bir tarayıcı korku oyunu. Önsöz ve sekiz bölüm boyu
 
 Önsöz, köy ilerlemesi ve tercihler bu tarayıcıda saklanır. **Devam et** son kaydı açar. Menü ve önsöz WebGL gerektirmez; üç boyutlu keşif WebGL 2 gerektirir. Sesler Web Audio ile ilk kullanıcı etkileşiminden sonra üretilir.
 
+### Hayatta kalma ve kaçış
+
+Köyde geçirdiğin her **10 dakikalık aktif oyun simülasyonu** bir hayatta kalma günü sayılır. Defter, diyalog ve duraklatma sırasında sayaç ilerlemez. Kara Basma ve Sis Gözcüsü üç kez yakalarsa gece sona erer; ilk iki karşılaşma kaydedilir. Son telefonu yanıtladıktan sonra defter haritasında işaretlenen **istasyon peronuna** yürüyerek köyden çıkabilirsin. Kaçışı ne kadar geciktireceğin sana kalmış; süre bir puan sayacıdır, yeni bir gün/gece döngüsü veya kaynak sistemi henüz değildir.
+
 ### Mektep yolu ve son peron
 
 Kuzdağ’ın haritası sekiz bölgeyi gösterir. Sağlık ocağından mektebe çıkabilir, doğu yolundan istasyona inebilir veya dereyi geçip santral sırtına ulaşabilirsin. Bu üç binaya girilir; aralarındaki on yeni hane ise sokakları oluşturur. Oynanabilir haritanın sınırları **85 × 88 m’den 148 × 140 m’ye** genişledi.
@@ -29,7 +33,7 @@ Geceleri Kara Basma ve Sis Gözcüsü yollarda devriye gezer. Açıkta görünü
 
 ### Düşük sistemde oynamak
 
-**Ayarlar → Görüntü kalitesi → Asgari** seçip köye gir. Zayıf cihazlarda Otomatik de bu profili seçebilir. Yakındaki evler ve eşyalar üç boyutlu, tanıklar animasyonludur; kazanç uzak ayrıntılardan, daha küçük dokulardan ve daha az çizimden gelir. Yüksek çözünürlüklü paket Asgari oturumda indirilmez. [Ölçümler, test cihazı ve sınırlar](docs/performans.md).
+**Ayarlar → Görüntü kalitesi → Asgari** seçip köye gir. Zayıf cihazlarda Otomatik de bu profili seçebilir. Yakındaki evler ve eşyalar üç boyutlu, tanıklar animasyonludur; kazanç uzak ayrıntılardan, daha küçük dokulardan ve daha az çizimden gelir. Yüksek çözünürlüklü paket Asgari oturumda indirilmez. [Ölçümler, test cihazı ve sınırlar](docs/performans.md). [Güvenlik incelemesi ve açık kalan bağımlılık bildirimi](docs/guvenlik.md).
 
 ## Çalıştırmak
 

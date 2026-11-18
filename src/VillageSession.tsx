@@ -31,6 +31,8 @@ import {
 
 const INITIAL_HUD: GameHudState = {
   screen: 'title',
+  survivalDay: 1,
+  survivalHits: 0,
   act: 1,
   actTitle: 'BÖLÜM I · İLK OTOPSİ VE HAZIRLIK',
   objectiveText: '',

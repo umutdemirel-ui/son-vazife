@@ -4,18 +4,26 @@ Buradaki dosyalar çalışma kaynaklarıdır. Oyuncunun tarayıcısı Python, y�
 
 ## Köy sakinleri
 
-- `residents/reference/`: Bu oyun için üretilmiş kurmaca karakter referansları; arşiv fotoğrafı değildir. `face-relief.json` bu referanslardan çevrimdışı çıkarılan yüz derinlik örnekleridir (MediaPipe Face Mesh). Ölçüler, genişliği 390 piksele indirgenmiş ön görünümlere göredir.
+- `residents/reference/` eski kurmaca karakter referanslarıdır; güncel ön/arka giysi plakaları `survival/reference/` içindedir. Bunlar arşiv fotoğrafı değildir. `face-relief.json` bu referanslardan çevrimdışı çıkarılan yüz derinlik örnekleridir (MediaPipe Face Mesh). Ölçüler, genişliği 390 piksele indirgenmiş ön görünümlere göredir.
 - `residents/profiles.py`: Her kişinin baş, gövde, kol, bacak ve giysi kesitleri; boyu, eklem konumları ve adım süresi. Ön ve arka yüzeyler ayrı dokulanır. Hasan ve Şerife'nin arka referansları vardır; Kenan ve İdris'in arka panelleri kendi kumaş örneklerinden ve ceket kıvrımlarından yapılır.
 - `residents/bake.py`: Kapalı hacimli tek bir gövde ağı, ağırlıklı iskelet, `Idle` ve `Walk` döngülerini `public/assets/residents/<id>.glb` içine yazar. Yüzler ve giysiler aynı yerel atlasta; gövde metre cinsinden, taban `y=0`, ileri yön `+Z`. Oyunda fener, baston, dosya ve kürek `HandR` / `HandL` kemiklerine takılır. Diyalog hedefi bu kemiklere değil devriye köküne bağlıdır.
 
 ## Çevre ve eşyalar
 
-- `environment/reference/`: Bu oyun için üretilmiş kurmaca cephe ve malzeme referanslarıdır, gerçek yapıların taraması değildir. Bunlar oyuncuya gönderilmez.
+- `environment/reference/`: Önceki kurmaca cephe ve malzeme referanslarıdır; üç evin güncel plakaları `survival/reference/` içindedir. Bunlar gerçek yapıların taraması değildir. Bunlar oyuncuya gönderilmez.
 - `environment/houses.py`: Üç ev tipinin ölçülmüş cephe kesitleri. Derinlik alanından cumba, girintili pencere/kapı, kepenk, yan ve arka duvarlar çıkar; çatı dört eğim, saçak, kiremit dudağı, mahya ve bacadan oluşur. Her hanede bir indeksli GLB yüzeyi. Numaralar, birinci hanenin kilimi ve çarpışma kabuğu dünyada ayrıca yerleşir.
 - `environment/fountain.py`: Oyuk kemer, tek tek kesme taşlar ve içi boş su yalağı. Oyun pirinç musluğu, suyu, emaye kitabeyi ve eşya noktalarını ekler. `supplies.py` kapaklı ibriğin gövde kesitlerini, kıvrık kulp ve içi boş ağzını; defterin cilt/sayfalarını, üç kat bez ve yuvarlatılmış sabunu modeller. Dört eşya `emanet.glb` içinde bir atlası paylaşır ama ayrı toplanabilir.
 - `environment/meshkit.py` metre ölçeğinde, +Z ön cepheli, JPEG atlaslı, indeksli statik glTF yazar. Tam ve küçük paketler aynı yerleşime oturur. Küçük pakette eşya eğrileri daha az üçgene sahiptir.
 - `environment/cc0/`: Depoda önceden bulunan CC0 kaynakları, artık `public/` dışında. `grade.py` ilk renk düzenlemesini; `surfaces.py` meşe, kireç, seramik, iç kapı, su, uzak yüzey atlası ve hafif çözünürlükleri hazırlar. Taş, pencere, kapı ve karaçamın önceki yerel görselleri de kullanılır. Renk dokuları sRGB, normal/pürüz verisi doğrusaldır. Gasilhanenin kapı boşluğu üç ayrı duvar panelidir; boyalı kapı yüzü menteşe üzerinde açılır.
 - `environment/dressing.mjs` kullanılan on CC0 dekoru daha küçük, bağımsız glTF'lere dönüştürür. Sundurma fenerinin tüm sahneyi yeniden çizdiren kırılma geçişini kaldırır. `residents/compact.mjs` düşük bellek için tanıkların daha küçük kopyalarını hazırlar; konuşma hedefleri, el kemikleri ve iki animasyon korunur.
+
+## Arşiv paleti · ilk malzeme geçişi
+
+`survival/reference/` içindeki üç kare yüzey referansı, girişteki köy, gasilhane ve mezarlık görsellerinin toprak, yıpranmış sıva ve ıslak taş paletinden oluşturuldu. `survival/materials.py` bunlardan 768 px renk, 512 px normal ve 384 px kompakt renk dokusu hazırlar. Köy yolları yeni toprağı, gasilhane duvarları yeni sıvayı ve gasilhane zemini yeni taş dokusunu kullanır. Cumbalı, hımış ve taş evin cephe dokuları ile dört köy sakininin ön/arka giysi plakaları aynı palete göre yenilendi; mevcut ölçülü geometri, iskelet ve etkileşimler korunarak tam ve kompakt GLB’ler yeniden üretildi. Mektep ve istasyon cepheleri ile iki takipçinin giysi dokuları da aynı palete uyarlandı. Sis Gözcüsü’nün nötr renkli başlığının kenarları atlas üretiminde siluet maskesiyle korunur. Santral, cenazeler ve Peron Şefi mevcut modellerini kullanır. Önceki model ve malzemeler, diğer sahnelerin çalışması için depoda korunur.
+
+```sh
+PYTHONPATH=... python art/survival/materials.py  # numpy, scipy ve Pillow
+```
 
 ## Gece nöbeti
 

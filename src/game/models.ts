@@ -512,6 +512,15 @@ export function createMosqueAndGasilhane(
     roughness: 0.72,
     metalness: 0.08,
   });
+  // Gasilhane: aged lime plaster over a cool stone floor, as in the archive photograph.
+  const gasilWallMat = new THREE.MeshStandardMaterial({
+    map: textures.wornPlaster, normalMap: textures.wornPlasterNormal,
+    normalScale: new THREE.Vector2(0.55, 0.55), roughness: 0.95,
+  });
+  const gasilFloorMat = new THREE.MeshStandardMaterial({
+    map: textures.flagstone, normalMap: textures.flagstoneNormal,
+    normalScale: new THREE.Vector2(0.65, 0.65), roughness: 0.87,
+  });
   const marbleMat = new THREE.MeshStandardMaterial({
     map: textures.marble,
     normalMap: textures.marbleNormal,
@@ -595,7 +604,7 @@ export function createMosqueAndGasilhane(
   const rd = 6.4;
   const rh = 3.4;
 
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.16, rd), tileMat);
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.16, rd), gasilFloorMat);
   floor.position.y = 0.08;
   floor.receiveShadow = true;
   gasilGroup.add(floor);
@@ -628,19 +637,19 @@ export function createMosqueAndGasilhane(
   porchLanternLight.position.set(rw / 2 + 0.49, 2.3, 1.18);
   gasilGroup.add(lanternBracket, lanternGlass, porchLanternLight);
 
-  const northWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), tileMat);
+  const northWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
   northWall.position.set(0, rh / 2, -rd / 2);
   northWall.receiveShadow = true;
-  const southWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), tileMat);
+  const southWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
   southWall.position.set(0, rh / 2, rd / 2);
   southWall.receiveShadow = true;
   gasilGroup.add(northWall, southWall);
 
-  const eastLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), tileMat);
+  const eastLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
   eastLeft.position.set(rw / 2, rh / 2, -2.0);
-  const eastRight = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), tileMat);
+  const eastRight = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
   eastRight.position.set(rw / 2, rh / 2, 2.0);
-  const eastHeader = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.35, 1.6), tileMat);
+  const eastHeader = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.35, 1.6), gasilWallMat);
   eastHeader.position.set(rw / 2, 2.35 + (rh - 2.35) / 2, 0);
   gasilGroup.add(eastLeft, eastRight, eastHeader);
 
@@ -658,13 +667,13 @@ export function createMosqueAndGasilhane(
   gasilGroup.add(doorPivot);
   craft.gasilEntry(gasilGroup, doorPivot, rw, rd, rh);
 
-  const westLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.3), tileMat);
+  const westLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.3), gasilWallMat);
   westLeft.position.set(-rw / 2, rh / 2, -2.05);
-  const westRight = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.3), tileMat);
+  const westRight = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.3), gasilWallMat);
   westRight.position.set(-rw / 2, rh / 2, 2.05);
-  const westBelow = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.55, 1.8), tileMat);
+  const westBelow = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.55, 1.8), gasilWallMat);
   westBelow.position.set(-rw / 2, 0.775, 0);
-  const westAbove = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.65, 1.8), tileMat);
+  const westAbove = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.65, 1.8), gasilWallMat);
   westAbove.position.set(-rw / 2, 2.65 + (rh - 2.65) / 2, 0);
   gasilGroup.add(westLeft, westRight, westBelow, westAbove);
 

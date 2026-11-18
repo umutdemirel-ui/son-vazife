@@ -2,7 +2,11 @@
 
 **Oynamak için:** Önce **Ayarlar → Görüntü kalitesi → Otomatik** seçilebilir. Zayıf bir cihazda doğrudan **Asgari** seçip köye girmek, yüksek çözünürlüklü varlıkları hiç indirmemenin yoludur. Ziyaret sırasında çizim kalitesi değişir; doku/model paketi bir sonraki köye girişte değişir. Menü, evraklar ve HUD, 3B sahnenin iç çözünürlüğünden bağımsızdır.
 
-## Sekiz bölümlü gece nöbeti · güncel ölçüm
+## Arşiv paleti ve kaçış · son ölçüm
+
+Aynı SwiftShader test ortamında yeni malzemelerle: Otomatik/Asgari, sabit 384 × 240. Medyan / p90: meydan **79,0 / 90,0 ms**, çeşme **70,8 / 87,8 ms**, gasilhane **101,9 / 120,7 ms**; sırasıyla 74, 40 ve 62 çizim. Önceki gasilhane 61 çizimdi; taş zemin ve ayrı duvar malzemesi bir çizim ekledi. Başlangıç rotası 30 istek / 2.265.901 bayt. Uyarlanan 288 × 180 döngüsünde 12,5 kare gönderimi/sn; gerçek cihaz FPS garantisi değildir. Isıtılmış gece rotasında peron 88,2 / 98,2 ms, döngü 11,6 gönderim/sn; 38 istek / 2.972.381 bayt tüm gece modelleri önceden yüklendiğinden açılış trafiği değildir. [Başlangıç](perf/palet-auto.json) · [gece](perf/palet-gece.json).
+
+## Sekiz bölümlü gece nöbeti · önceki ölçüm
 
 Aşağıda tarif edilen aynı SwiftShader ortamında, aynı yöntemle alındı. **Otomatik → Asgari**, sabit bakış 384 × 240; süre simülasyon, çizim ve bir pikselin geri okunmasını içerir. Medyan / p90 milisaniye:
 
@@ -21,7 +25,7 @@ Aşağıda tarif edilen aynı SwiftShader ortamında, aynı yöntemle alındı. 
 - **Serbest döngü:** 288 × 180'e uyarlanan çizicide meydanda 12,4, gece peronunda 10,7 kare gönderimi/sn. Bunlar donanım FPS'i veya asgari FPS vaadi değildir. Gece kamera deneyi ölçümden **önce** on küçük gece modelinin tamamını hazırlar; bu koşudaki 36 istek / 2.917.625 bayt açılış trafiği değildir. `public/` içeriği artık 16,2 MiB'dır.
 - Ham çıktılar: [güncel başlangıç](perf/nobet-auto.json), [760 piksel](perf/nobet-760.json), [gece rotası](perf/nobet-gece.json).
 
-**Oynanış ve varlık denetimi:** `scripts/check-night.mjs` gerçek tarayıcıda üç dosyayı, eski v2 kaydını, mektep–istasyon–santral zincirini, yanlış zil ve santral sırasını, takip/saklanmayı ve üç sonu sınar. Yolculuğu kısaltmak için bakış noktalarını taşır; duvarları, kapı eşiklerini, hedef ışınlarını, E tuşunu, diyalogları ve kayıt ekranlarını gerçek oyun üzerinden kullanır. İkinci koşuda on gece GLB isteğinin tamamı engellendi ve rota yine tamamlandı. Üretim paketinde **Devam et → harita → son telefon** akışı ayrıca denendi. Dağıtılan 48 GLB, Khronos doğrulayıcısında hata/uyarı vermedi.
+**Oynanış ve varlık denetimi:** `scripts/check-night.mjs` gerçek tarayıcıda üç dosyayı, eski v2 kaydını, mektep–istasyon–santral zincirini, yanlış zil ve santral sırasını, takip/saklanmayı ve üç sonu sınar. Yolculuğu kısaltmak için bakış noktalarını ve son kaçış noktasını taşır; duvarları, kapı eşiklerini, hedef ışınlarını, E tuşunu, diyalogları ve kayıt ekranlarını gerçek oyun üzerinden kullanır. İkinci koşuda on gece GLB isteğinin tamamı engellendi ve rota yine tamamlandı. Üretim paketinde **Devam et → harita → son telefon** akışı ayrıca denendi. Dağıtılan 48 GLB, Khronos doğrulayıcısında hata/uyarı vermedi.
 
 ## Önceki atölye sürümü: `89c6e62` → `448109f`
 

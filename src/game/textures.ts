@@ -125,7 +125,7 @@ export function loadVillageTextures(maxAnisotropy: number, compact: boolean) {
   const mistSprite = finalizeColorTex(cMist, 1, 1, 1);
 
   const ground = load('forest-floor', 64),
-    road = load('lane-cobble');
+    road = load('mud-road');
   return {
     stone: load('fieldstone', 2),
     stoneNormal: linear('fieldstone-normal', 2),
@@ -144,8 +144,12 @@ export function loadVillageTextures(maxAnisotropy: number, compact: boolean) {
     groundNormal: linear('forest-floor-normal', 64),
     groundRoughness: linear('forest-floor-rough', 64),
     road,
-    roadNormal: linear('lane-cobble-normal'),
-    roadRoughness: linear('lane-cobble-rough'),
+    roadNormal: linear('mud-road-normal'),
+    roadRoughness: null,
+    wornPlaster: load('worn-plaster', 2),
+    wornPlasterNormal: linear('worn-plaster-normal', 2),
+    flagstone: load('wet-flagstone', 3),
+    flagstoneNormal: linear('wet-flagstone-normal', 3),
     board: load('mese'),
     clay: load('testi'),
     water: load('yalak-su'),

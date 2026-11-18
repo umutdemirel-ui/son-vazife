@@ -148,6 +148,8 @@ export interface SaveSummary {
 }
 
 export interface GameHudState {
+  survivalDay: number;
+  survivalHits: number;
   screen: GameScreen;
   act: GameAct;
   actTitle: string;

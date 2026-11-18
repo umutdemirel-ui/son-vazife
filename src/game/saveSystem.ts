@@ -11,6 +11,8 @@ const SAVE_STORAGE_KEY = 'son_vazife_save_v2';
 
 export interface SaveGamePayload {
   version: 2;
+  survivalSeconds?: number;
+  caughtCount?: number;
   finalCall?: 'report' | 'farewell';
   windowActive?: boolean;
   windowResolved?: boolean;
@@ -64,10 +66,15 @@ export function writeAutoSave(payload: SaveGamePayload): boolean {
   }
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+const stringList = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.length <= 1000 && value.every((entry) => typeof entry === 'string');
+
 export function readAutoSave(): SaveGamePayload | null {
   try {
     const raw = window.localStorage.getItem(SAVE_STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw || raw.length > 1_000_000) return null;
     const parsed = JSON.parse(raw) as Partial<SaveGamePayload>;
     if (
       parsed.version !== 2 ||
@@ -75,7 +82,37 @@ export function readAutoSave(): SaveGamePayload | null {
       !Number.isInteger(parsed.act) ||
       parsed.act < 1 ||
       parsed.act > 8 ||
-      !parsed.playerPos
+      !isRecord(parsed) ||
+      !parsed.playerPos ||
+      ![parsed.playerPos.x, parsed.playerPos.z, parsed.playerPos.yaw, parsed.playerPos.pitch].every(
+        Number.isFinite,
+      ) ||
+      Math.abs(parsed.playerPos.x) > 1000 ||
+      Math.abs(parsed.playerPos.z) > 1000 ||
+      (parsed.survivalSeconds !== undefined &&
+        (!Number.isFinite(parsed.survivalSeconds) ||
+          parsed.survivalSeconds < 0 ||
+          parsed.survivalSeconds > 315360000)) ||
+      (parsed.caughtCount !== undefined &&
+        (!Number.isInteger(parsed.caughtCount) || parsed.caughtCount < 0 || parsed.caughtCount > 2)) ||
+      [
+        'inventoryCollected',
+        'rulesViolated',
+        'cluesDiscovered',
+        'discoveredDistricts',
+        'glossaryUnlocked',
+      ].some((key) => {
+        const value = parsed[key as keyof SaveGamePayload];
+        return value !== undefined && !stringList(value);
+      }) ||
+      (parsed.npcFlags !== undefined &&
+        (!isRecord(parsed.npcFlags) ||
+          Object.values(parsed.npcFlags).some((flags) => !stringList(flags)))) ||
+      (parsed.npcTrust !== undefined &&
+        (!isRecord(parsed.npcTrust) ||
+          Object.values(parsed.npcTrust).some((n) => typeof n !== 'number' || !Number.isFinite(n)))) ||
+      (parsed.autopsyCases !== undefined && !isRecord(parsed.autopsyCases)) ||
+      (parsed.playerGlossaryNotes !== undefined && !Array.isArray(parsed.playerGlossaryNotes))
     ) {
       return null;
     }
