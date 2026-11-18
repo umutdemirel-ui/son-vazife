@@ -152,7 +152,7 @@ export class NightPatrol {
     const dist = Math.hypot(player.x - p.x, player.z - p.z);
     const chasing =
       exposed &&
-      dist < (this.pursuing ? 12 : 8.5) &&
+      dist < (this.pursuing ? 15 : 10) &&
       !wallBetween(p.x, p.z, player.x, player.z, boxes, 0.22);
     if ((this.pursuing && !chasing) || this.stranded > 0.8) {
       let min = Infinity,
@@ -173,7 +173,7 @@ export class NightPatrol {
       dz = (chasing ? player.z : z) - p.z,
       d = Math.hypot(dx, dz);
     if (!chasing && d < 0.3) this.next = (this.next + 1) % route.length;
-    const step = Math.min(d, dt * (chasing ? 2.35 : this.actor === 0 ? 1.37 : 1.03));
+    const step = Math.min(d, dt * (chasing ? 3.35 : this.actor === 0 ? 1.55 : 1.22));
     if (d > 0.015) {
       const oldX = p.x,
         oldZ = p.z;

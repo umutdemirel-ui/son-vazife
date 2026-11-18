@@ -1,4 +1,4 @@
-import { buildHome, FamilyArt, type Home } from './homes';
+import { buildHome, type Home } from './homes';
 import { CEMETERY, CEMETERY_GRAVES, MOSQUE_GRAVES } from './cemetery';
 import { receivingBay, STRETCHERS } from './funerary';
 import { NightArt, watcherFigure } from './nightArt';
@@ -71,8 +71,6 @@ export interface VirtualPointLight {
 export interface WorldHandles {
   colliders: BoxCollider[];
   homes: Home[];
-  updateFamilies: (dt: number) => void;
-  specialFamilies: { family: THREE.Group[]; bounds: { minX: number; maxX: number; minZ: number; maxZ: number } }[];
   outpostDoors: Record<Outpost, { pivot: THREE.Group; open: boolean; collider: BoxCollider }>;
   interactables: InteractableTarget[];
   interactableMeshes: THREE.Object3D[];
@@ -388,15 +386,11 @@ export function buildVillageWorld(
     }),
   );
   const homes: Home[] = [];
-  const familyArt = new FamilyArt(allocation !== 'full', residentReady);
-  disposables.push(familyArt);
   houseConfigs.forEach((hc, i) => {
-    const { home, walls } = buildHome(hc, i + 1, groundHeightAt(hc.x, hc.z), craft, familyArt);
+    const { home, walls } = buildHome(hc, i + 1, groundHeightAt(hc.x, hc.z), craft);
     homes.push(home);
-    const familyRoots = new Set<THREE.Object3D>(home.family);
     const houseGeometries = new Set<THREE.BufferGeometry>();
     const collectHouse = (node: THREE.Object3D) => {
-      if (familyRoots.has(node)) return;
       if (node instanceof THREE.Mesh) houseGeometries.add(node.geometry);
       node.children.forEach(collectHouse);
     };
@@ -404,24 +398,6 @@ export function buildVillageWorld(
     disposables.push({ dispose: () => houseGeometries.forEach(g => g.dispose()) });
     cells.add(scene, home.root, 34, 58);
     colliders.push(...walls);
-  });
-
-  // Two story houses keep their authored interiors and puzzle props, but have families too.
-  const specialFamilies = [
-    { bounds: { minX: -13.8, maxX: -7.8, minZ: -13.3, maxZ: -7.7 }, ground: abandonedPos.y + 0.16,
-      spots: [[-13.0, -8.55], [-11.0, -8.55], [-8.8, -8.55]] },
-    { bounds: { minX: 7.3, maxX: 13.7, minZ: -21.0, maxZ: -15.0 }, ground: muhtarPos.y + 0.16,
-      spots: [[8.25, -20.1], [9.6, -20.1], [12.8, -15.9]] },
-  ].map((house, i) => {
-    const family = house.spots.map(([x, z], member) => {
-      const person = familyArt.figure(23 + i, member);
-      person.position.set(x, house.ground, z);
-      person.visible = false;
-      cells.add(scene, person, 20, 30);
-      colliders.push(houseFootprint(x, z, member === 2 ? 0.34 : 0.44, member === 2 ? 0.34 : 0.44, 0));
-      return person;
-    });
-    return { bounds: house.bounds, family };
   });
 
   const stoneWallMat = new THREE.MeshStandardMaterial({
@@ -679,14 +655,7 @@ export function buildVillageWorld(
 
   homes.forEach((home, i) => {
     registerTarget(`home_door_${i}`, new THREE.Vector3(0.72, 1.05, 0), [1.4, 2.1, 0.3], 2.7, home.door);
-    home.family.forEach((person, member) =>
-      registerTarget(`family_${i}_${member}`, new THREE.Vector3(0, 1.0, 0), [0.55, 1.8, 0.55], 2.5, person),
-    );
   });
-
-  specialFamilies.forEach((house, i) => house.family.forEach((person, member) =>
-    registerTarget(`family_${homes.length + i}_${member}`, new THREE.Vector3(0, 1.0, 0), [0.55, 1.8, 0.55], 2.5, person),
-  ));
 
   registerTarget(
     'item_defter',
@@ -1202,8 +1171,6 @@ export function buildVillageWorld(
   return {
     colliders,
     homes,
-    updateFamilies: dt => familyArt.update(dt),
-    specialFamilies,
     outpostDoors,
     interactables,
     interactableMeshes,

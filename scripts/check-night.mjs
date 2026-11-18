@@ -89,6 +89,12 @@ try {
     });
   };
   await helpers();
+  const reload = async () => {
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await btn('Devam et').click();
+    await btn('Duraklat').waitFor();
+    await helpers();
+  };
   // Check the whole survey with the real colliders, not just teleports to destinations.
   const obstructed = await page.evaluate(async () => {
     const { CORE_LANES, OUTER_LANES } = await import('/src/game/valley.ts'),
@@ -200,7 +206,11 @@ try {
   await use(...slab);
   await form('case_arif');
   await use(...slab);
-  await use(...slab);
+  for (let i = 0; i < 2; i++) await use(...slab);
+  assert.equal((await saved()).ritual.washStage, 2);
+  await reload();
+  assert.equal(await val('washStage'), 2);
+  for (let i = 0; i < 2; i++) await use(...slab);
   assert.ok((await saved()).ritual.wash);
   await use('gasil_shutter', -12.9, 6.85);
   await use('gasil_drain', -11.7, 7.49);
@@ -228,9 +238,7 @@ try {
   await form('case_unknown');
   await doorway('muhtar_door', 5.75, -18, 'x', 1);
   await use('item_kafur', 9.66, -18.36);
-  await use(...slab);
-  await use(...slab);
-  await use(...slab);
+  for (let i = 0; i < 5; i++) await use(...slab);
   assert.equal(await val('act'), 6);
   assert.equal(await val('screen'), 'playing');
   assert.deepEqual(
@@ -258,12 +266,6 @@ try {
     s.cluesDiscovered = s.cluesDiscovered.filter((id) => id !== 'clue_kenan_confession');
     localStorage.setItem('son_vazife_save_v2', JSON.stringify(s));
   });
-  const reload = async () => {
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await btn('Devam et').click();
-    await btn('Duraklat').waitFor();
-    await helpers();
-  };
   await reload();
   assert.equal(await val('act'), 6);
   const pageSites = [
@@ -342,12 +344,12 @@ try {
     await dialog.waitFor();
     assert.equal(await val('nightPage'), id);
     const info = await page.evaluate(
-      async (id) => (await import('/src/game/nightWatch.ts')).PAGES[id],
+      async (id) => (await import('/src/game/nightWatch.ts')).nightPageFor(id, fixture.puzzleSeed),
       id,
     );
     const pick = async (n) => dialog.getByRole('button', { name: info.choices[n], exact: true }).click();
     if (info.kind === 'sequence') {
-      for (let n = 0; n < 3; n++) await pick(0);
+      for (let n = 0; n < 3; n++) await pick(n === 0 ? (info.answer[0] + 1) % info.choices.length : info.answer[n]);
       await btn(info.action).click();
       await dialog.getByRole('alert').waitFor();
       assert.ok(!(await saved()).cluesDiscovered.includes(id));
@@ -408,6 +410,7 @@ try {
         e.updateSimulation(0.05);
       };
     sim();
+    e.caughtCount = 0; e.karaCatchCooldown = 0;
     e.playerPos.set(1, 0, -15);
     e.playerVel.set(0, 0, 0);
     actor.position.set(1, 0, -18);

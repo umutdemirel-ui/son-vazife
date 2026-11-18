@@ -12,6 +12,7 @@ const SAVE_STORAGE_KEY = 'son_vazife_save_v2';
 export interface SaveGamePayload {
   version: 2;
   survivalSeconds?: number;
+  puzzleSeed?: number;
   caughtCount?: number;
   openHomes?: number[];
   closedOutposts?: string[];
@@ -45,6 +46,8 @@ export interface SaveGamePayload {
   ritual: {
     prep: boolean;
     wash: boolean;
+    washStage?: number;
+    rinseStage?: number;
     dirtyReady: boolean;
     dirtyDrained: boolean;
     bulbOut: boolean;
@@ -92,10 +95,13 @@ export function readAutoSave(): SaveGamePayload | null {
       ) ||
       Math.abs(parsed.playerPos.x) > 1000 ||
       Math.abs(parsed.playerPos.z) > 1000 ||
+      (parsed.puzzleSeed !== undefined && (!Number.isInteger(parsed.puzzleSeed) || parsed.puzzleSeed < 0 || parsed.puzzleSeed > 3)) ||
       (parsed.survivalSeconds !== undefined &&
         (!Number.isFinite(parsed.survivalSeconds) ||
           parsed.survivalSeconds < 0 ||
           parsed.survivalSeconds > 315360000)) ||
+      (parsed.ritual?.washStage !== undefined && (!Number.isInteger(parsed.ritual.washStage) || parsed.ritual.washStage < 0 || parsed.ritual.washStage > 4)) ||
+      (parsed.ritual?.rinseStage !== undefined && (!Number.isInteger(parsed.ritual.rinseStage) || parsed.ritual.rinseStage < 0 || parsed.ritual.rinseStage > 3)) ||
       (parsed.mosqueDoorOpen !== undefined && typeof parsed.mosqueDoorOpen !== 'boolean') ||
       (parsed.closedOutposts !== undefined &&
         (!stringList(parsed.closedOutposts) || parsed.closedOutposts.some(id => !['school', 'station', 'exchange'].includes(id)))) ||

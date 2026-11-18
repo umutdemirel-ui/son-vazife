@@ -736,6 +736,17 @@ export function createMosqueAndGasilhane(
   drainGroup.add(drainRim, drainHole, grateBar1, grateBar2);
   gasilGroup.add(drainGroup);
 
+  // Folded linens and wash vessels sit on the upper shelves without narrowing the aisle.
+  block(gasilGroup, craft.wood, 1.25, 0.08, 0.36, 2.35, 1.78, -rd / 2 + 0.28, 1);
+  for (let i = 0; i < 3; i++)
+    block(gasilGroup, craft.limestone, 0.35, 0.075, 0.22, 1.99 + i * 0.34, 1.86, -rd / 2 + 0.28);
+  block(gasilGroup, craft.wood, 1.1, 0.08, 0.35, 2.35, 2.25, -rd / 2 + 0.28, 1);
+  for (let i = 0; i < 3; i++) {
+    const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.24, 10), i === 1 ? brassMat : craft.limestone);
+    jar.position.set(2.02 + i * 0.31, 2.41, -rd / 2 + 0.28);
+    gasilGroup.add(jar);
+  }
+
   // Cupboards with actual inset doors. The row of candleholders sits on the LOW cabinet.
   for (const [x, y, w, h, depth] of [
     [-1.5, 2.35, 1.8, 1.1, 0.48],

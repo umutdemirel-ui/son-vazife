@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import { Bell, BookMarked, Cable, Check, CircleDot, Phone, RotateCcw, Ticket } from 'lucide-react';
-import { NIGHT_ORDER, PAGES, type NightId } from '../game/nightWatch';
+import { NIGHT_ORDER, nightPageFor, type NightId } from '../game/nightWatch';
 import { MenuDialog } from './MenuDialog';
 
 export function NightRecord({
   id,
   filed,
+  seed,
   onClose,
   onFile,
   onKey,
 }: {
   id: NightId;
   filed: boolean;
+  seed: number;
   onClose: () => void;
   onFile: (v: number[]) => boolean;
   onKey: (v: number) => void;
 }) {
-  const page = PAGES[id],
+  const page = nightPageFor(id, seed),
     seq = page.kind === 'sequence',
     size = page.answer?.length ?? 1;
   const [input, setInput] = useState<number[]>([]),
@@ -134,7 +136,7 @@ export function NightRecord({
               )}
               {error && (
                 <p role="alert" className="night-error">
-                  {page.hint ?? 'Kayıt uyuşmadı. İşareti yeniden dene.'}
+                  Kayıt uyuşmadı. Önceki belgeleri karşılaştırıp yeniden dene.
                 </p>
               )}
               <button

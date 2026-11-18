@@ -285,3 +285,19 @@ test('cemetery foundations and grave footprints remain grounded on one level', a
   for (const x of [-9, 0, 9]) for (const z of [-9, 0, 9])
     assert.equal(groundHeightAt(CEMETERY.x + x, CEMETERY.z + z), level);
 });
+
+test('bell and exchange sequences vary by saved seed, with evidence in separate records', async () => {
+  const { nightPageFor, correctPage } = await import('../src/game/nightWatch');
+  const bells = new Set<string>(), lines = new Set<string>();
+  for (let seed = 0; seed < 4; seed++) {
+    const bell = nightPageFor('night_bell', seed).answer!;
+    const line = nightPageFor('night_line', seed).answer!;
+    bells.add(bell.join('')); lines.add(line.join(''));
+    assert.ok(correctPage('night_bell', bell, seed));
+    assert.ok(correctPage('night_line', line, seed));
+    assert.match(nightPageFor('night_tag', seed).entry, /işaret/);
+    assert.match(nightPageFor('night_roll', seed).entry, /anahtar/);
+  }
+  assert.equal(bells.size, 4);
+  assert.equal(lines.size, 4);
+});

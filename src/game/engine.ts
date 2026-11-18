@@ -1,11 +1,11 @@
 import { insideHome } from './homes';
-import { familyName, familyTestimony } from './families';
 import { ScareClock } from './scares';
 import { atEscapePoint, isEvening, survivalDay } from './survival';
 import {
   FIELD_NOTES,
   nightStealthPrompt,
   correctPage,
+  nightPageFor,
   isNightId,
   nextNightPage,
   nightAct,
@@ -316,6 +316,10 @@ export class SonVazifeEngine {
   // Ritual flags
   private stepPrepDone = false;
   private stepWashDone = false;
+  private washStage = 0;
+  private rinseStage = 0;
+  private washingHand!: THREE.Group;
+  private washAnim = 0;
   private dirtyBasinReady = false;
   private dirtyBasinDrained = false;
   private gasilBulbOut = false;
@@ -380,6 +384,7 @@ export class SonVazifeEngine {
   private readonly karaPatrol = new NightPatrol(0);
   private readonly mistPatrol = new NightPatrol(1);
   private nightPage: NightId | null = null;
+  private puzzleSeed = 0;
   private finalCall: 'report' | 'farewell' | undefined;
   private karaCatchCooldown = 0;
   private caughtCount = 0;
@@ -644,11 +649,20 @@ export class SonVazifeEngine {
     );
   }
 
+  private updatePuzzleClues() {
+    for (const id of ['night_tag', 'night_roll', 'night_spool'] as const) {
+      const clue = this.clues.find(c => c.id === id);
+      if (clue) clue.body = nightPageFor(id, this.puzzleSeed).entry;
+    }
+  }
+
   private resetStoryState(): void {
     this.act = 1;
     this.inventory = INITIAL_INVENTORY.map((i) => ({ ...i }));
     this.rules = INITIAL_RULES.map((r) => ({ ...r }));
+    this.puzzleSeed = Math.floor(Math.random() * 4);
     this.clues = INITIAL_CLUES.map((c) => ({ ...c }));
+    this.updatePuzzleClues();
     this.glossaryEntries = INITIAL_GLOSSARY_ENTRIES.map((g) => ({ ...g }));
     this.playerGlossaryNotes = [];
     this.autopsyCases = createInitialAutopsyCases();
@@ -705,6 +719,10 @@ export class SonVazifeEngine {
 
     this.stepPrepDone = false;
     this.stepWashDone = false;
+    this.washStage = 0;
+    this.rinseStage = 0;
+    this.washAnim = 0;
+    if (this.washingHand) this.washingHand.visible = false;
     this.dirtyBasinReady = false;
     this.dirtyBasinDrained = false;
     this.gasilBulbOut = false;
@@ -874,6 +892,16 @@ export class SonVazifeEngine {
     this.handCandle.light.visible = true;
     this.camera.add(this.handCandle.root);
     this.camera.add(this.handCandle.light);
+    // A small first-person gloved hand and cloth make the separate washing actions visible.
+    this.washingHand = new THREE.Group();
+    const sleeve = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.3, 4, 8), new THREE.MeshStandardMaterial({ color: 0x4a4540, roughness: 1 }));
+    sleeve.rotation.z = -0.85; sleeve.position.set(0.2, -0.2, 0);
+    const palm = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshStandardMaterial({ color: 0xc2b5a1, roughness: 0.95 }));
+    palm.scale.set(1.0, 0.65, 1.2);
+    const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.045, 0.15), new THREE.MeshStandardMaterial({ color: 0xb9b29e, roughness: 1 }));
+    cloth.position.set(0, -0.07, 0);
+    this.washingHand.add(sleeve, palm, cloth); this.washingHand.position.set(0.2, -0.3, -0.65);
+    this.washingHand.visible = false; this.camera.add(this.washingHand);
 
     this.syncQualityTierFromSettings();
     this.syncVisualMeshes();
@@ -1021,6 +1049,8 @@ export class SonVazifeEngine {
     this.audio.init();
     this.resetStoryState();
 
+    this.puzzleSeed = save.puzzleSeed ?? 0;
+    this.updatePuzzleClues();
     this.act = save.act;
     this.survivalSeconds = save.survivalSeconds ?? 0;
     this.caughtCount = save.caughtCount ?? 0;
@@ -1089,6 +1119,8 @@ export class SonVazifeEngine {
     if (save.ritual) {
       this.stepPrepDone = Boolean(save.ritual.prep);
       this.stepWashDone = Boolean(save.ritual.wash);
+      this.washStage = this.stepWashDone ? 4 : (save.ritual.washStage ?? 0);
+      this.rinseStage = save.ritual.finalCamphor ? 3 : (save.ritual.rinseStage ?? 0);
       this.dirtyBasinReady = Boolean(save.ritual.dirtyReady);
       this.dirtyBasinDrained = Boolean(save.ritual.dirtyDrained);
       this.gasilBulbOut = Boolean(save.ritual.bulbOut);
@@ -1174,6 +1206,7 @@ export class SonVazifeEngine {
       mosqueDoorOpen: this.mosqueDoorOpen,
       closedOutposts: OUTPOST_IDS.filter(id => !this.world.outpostDoors[id].open),
       finalCall: this.finalCall,
+      puzzleSeed: this.puzzleSeed,
       windowActive: this.windowAnomalyActive,
       windowResolved: this.windowAnomalyResolved,
       savedAt: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
@@ -1208,6 +1241,8 @@ export class SonVazifeEngine {
       ritual: {
         prep: this.stepPrepDone,
         wash: this.stepWashDone,
+        washStage: this.washStage,
+        rinseStage: this.rinseStage,
         dirtyReady: this.dirtyBasinReady,
         dirtyDrained: this.dirtyBasinDrained,
         bulbOut: this.gasilBulbOut,
@@ -1304,6 +1339,10 @@ export class SonVazifeEngine {
       return;
     if (!this.inventory.find((i) => i.id === 'defter')?.collected && this.act === 1) {
       this.showCaption('Henüz gassalın mumunu ve defterini almadın.', 2.8);
+      return;
+    }
+    if (!this.candleLit && this.candleOil <= 0) {
+      this.showCaption('Mum yağı bitti. Gasilhanede sabır mumunun yanındaki yağdan doldurabilirsin.', 4);
       return;
     }
     this.candleLit = !this.candleLit;
@@ -1947,7 +1986,7 @@ export class SonVazifeEngine {
       this.act < 6 ||
       !id ||
       id !== this.nextNight() ||
-      !correctPage(id, input)
+      !correctPage(id, input, this.puzzleSeed)
     )
       return false;
     this.clues.find((c) => c.id === id)!.discovered = true;
@@ -1968,7 +2007,7 @@ export class SonVazifeEngine {
     else if (id === 'night_bell') this.audio.playFloorboardCreak(0.85);
     else if (id === 'night_spool') this.audio.playWhisper(0.8);
     else this.audio.playPaperFlip();
-    this.showCaption(PAGES[id].entry, 6);
+    this.showCaption(nightPageFor(id, this.puzzleSeed).entry, 6);
     this.requestPointerLockSafe();
     this.pushHudState(true);
     return true;
@@ -1985,15 +2024,6 @@ export class SonVazifeEngine {
     if (id.startsWith('home_door_')) {
       const home = this.world.homes[Number(id.slice('home_door_'.length))];
       return home ? `[E] Ev kapısını ${home.open ? 'kapat' : 'aç'}` : null;
-    }
-    if (id.startsWith('family_')) {
-      const [, house, person] = id.split('_');
-      const h = Number(house), p = Number(person), home = this.world.homes[h];
-      const special = this.world.specialFamilies[h - this.world.homes.length];
-      const b = special?.bounds;
-      const inside = home ? insideHome(home, this.playerPos.x, this.playerPos.z)
-        : !!b && this.playerPos.x > b.minX && this.playerPos.x < b.maxX && this.playerPos.z > b.minZ && this.playerPos.z < b.maxZ;
-      return inside && p >= 0 && p < 3 ? `[E] ${familyName(h, p)} ile konuş` : null;
     }
     if (isNightId(id)) {
       if (this.act < 6 || (id !== this.nextNight() && !this.hasEntry(id))) return null;
@@ -2071,7 +2101,7 @@ export class SonVazifeEngine {
         }
         if (this.act === 2) {
           if (!this.stepPrepDone) return '[E] Örtüyü (Setr-i Avret) Ser ve Suyu Hazırla';
-          if (!this.stepWashDone) return '[E] Sabunlu Ilık Suyla Yıka (Sağdan Sola)';
+          if (!this.stepWashDone) return `[E] ${['Yüzü ve elleri temizle', 'Sağ tarafı sabunla', 'Sol tarafı sabunla', 'Temiz suyla durula'][this.washStage]}`;
           if (this.windowAnomalyActive && !this.shutterClosed) return 'Önce pencere kepengini kapat!';
           if (!this.dirtyBasinDrained) return 'Önce kirli su leğenini iç gidere boşalt';
           return 'Bekçi Hasan’dan Sağlık Ocağı Anahtarını alıp Şoför Mahmut’u incele';
@@ -2102,7 +2132,7 @@ export class SonVazifeEngine {
           ? '[E] Kirli Suyu Avlu Oluğuna Dök'
           : null;
       case 'vigil_candle':
-        return this.act >= 2 && !this.vigilLit ? '[E] Başucunda Sabır Mumunu Yak' : null;
+        return this.act < 2 ? null : !this.vigilLit ? '[E] Başucunda Sabır Mumunu Yak' : this.candleOil < 100 ? '[E] Gaz lambası haznesinden mum yağını doldur' : null;
       case 'clue_serife_letter':
         return this.act >= 3 ? '[E] Şerife Nine’nin Mektubunu Oku' : null;
       case 'clue_mill_ledger':
@@ -2148,13 +2178,6 @@ export class SonVazifeEngine {
       this.triggerAutoSave(false);
       this.audio.playDoorCreak();
       this.pushHudState(true);
-      return;
-    }
-    if (id.startsWith('family_')) {
-      const [, house, person] = id.split('_');
-      const h = Number(house), p = Number(person);
-      this.showCaption(`${familyName(h, p)}: ${familyTestimony(h, p, this.act)}`, 6);
-      this.audio.playDialogueBlip();
       return;
     }
     if (isNightId(id)) {
@@ -2332,6 +2355,13 @@ export class SonVazifeEngine {
         this.audio.playCandleToggle(true);
         this.syncVisualMeshes();
         this.showCaption('Başucunda Sabır Mumu yakıldı. Şimdi gecikmeden köye çıkabilirsin.', 4.5);
+        this.triggerAutoSave(false);
+        this.pushHudState(true);
+      } else if (this.act >= 2 && this.candleOil < 100) {
+        this.candleOil = 100;
+        this.audio.playPickup();
+        this.showCaption('Gasilhanedeki yedek yağla mumunu doldurdun.', 3.5);
+        this.triggerAutoSave(false);
         this.pushHudState(true);
       }
       return;
@@ -2433,6 +2463,15 @@ export class SonVazifeEngine {
           this.syncVisualMeshes();
           this.showCaption('Setr-i avret örtüsü serildi, ılık su hazırlandı.', 3.6);
         } else if (!this.stepWashDone) {
+          this.washStage++;
+          this.washAnim = 1.1;
+          this.audio.playWaterPour();
+          if (this.washStage < 4) {
+            this.showCaption(['Yüz ve eller özenle temizlendi.', 'Sağ taraf yıkandı; şimdi sol tarafa geç.', 'Sol taraf yıkandı; temiz suyla durula.'][this.washStage - 1], 3.5);
+            this.triggerAutoSave(false);
+            this.pushHudState(true);
+            return;
+          }
           this.stepWashDone = true;
           this.dirtyBasinReady = true;
           this.audio.playWaterPour();
@@ -2472,8 +2511,16 @@ export class SonVazifeEngine {
         }
 
         if (!this.stepFinalCamphorDone) {
-          this.stepFinalCamphorDone = true;
+          this.rinseStage++;
+          this.washAnim = 1.1;
           this.audio.playWaterPour();
+          if (this.rinseStage < 3) {
+            this.showCaption(`${this.rinseStage}. durulama tamamlandı; devam etmek için yeniden uygula.`, 3.5);
+            this.triggerAutoSave(false);
+            this.pushHudState(true);
+            return;
+          }
+          this.stepFinalCamphorDone = true;
           this.showCaption(
             'Kafurlu suyla üç kez son durulama yapıldı. Şimdi havlu ve gülsuyu ile kurula.',
             4.2,
@@ -2758,6 +2805,8 @@ export class SonVazifeEngine {
       return;
     }
 
+    // Prevent browser shortcuts such as Ctrl+W where the browser permits it.
+    if (this.screen === 'playing' && (e.ctrlKey || e.code === 'ControlLeft' || e.code === 'ControlRight')) e.preventDefault();
     const wasDown = Boolean(this.keys[e.code]);
     this.keys[e.code] = true;
 
@@ -3103,25 +3152,9 @@ export class SonVazifeEngine {
       }
     }
 
-    // Doors retain their hinge and family members breathe subtly while at home.
-    this.world.homes.forEach((home, i) => {
+    this.world.homes.forEach(home => {
       home.door.rotation.y = THREE.MathUtils.damp(home.door.rotation.y, home.open ? -Math.PI * 0.52 : 0, 7, dt);
-      const occupied = insideHome(home, this.playerPos.x, this.playerPos.z);
-      home.family.forEach((person, j) => {
-        person.visible = occupied;
-        if (occupied) person.rotation.y = Math.PI + Math.sin(this.elapsedTime * 0.8 + i + j) * 0.035;
-      });
     });
-
-    this.world.specialFamilies.forEach((home, i) => {
-      const b = home.bounds;
-      const occupied = this.playerPos.x > b.minX && this.playerPos.x < b.maxX && this.playerPos.z > b.minZ && this.playerPos.z < b.maxZ;
-      home.family.forEach((person, j) => {
-        person.visible = occupied;
-        if (occupied) person.rotation.y = Math.PI + Math.sin(this.elapsedTime * 0.8 + i + j) * 0.035;
-      });
-    });
-    this.world.updateFamilies(dt);
     this.world.gasil.mosqueDoorPivot.rotation.y = THREE.MathUtils.damp(
       this.world.gasil.mosqueDoorPivot.rotation.y, this.mosqueDoorOpen ? -Math.PI * 0.52 : 0, 7, dt,
     );
@@ -3222,7 +3255,7 @@ export class SonVazifeEngine {
 
     // 4. Inertial Player Movement, Crouch & Stamina
     const holdCrouch =
-      Boolean(this.keys['ControlLeft']) ||
+      Boolean(this.keys['ControlLeft']) || Boolean(this.keys['ControlRight']) ||
       (!this.controlSettings.crouchToggle && Boolean(this.keys['KeyC']));
     // The touch button always toggles. Hold/toggle preference only changes the keyboard binding.
     const crouching = this.crouchToggled || holdCrouch;
@@ -3405,9 +3438,21 @@ export class SonVazifeEngine {
     );
     this.world.gasil.shutterPivot.rotation.y = this.shutterAngle;
 
+    if (this.washAnim > 0) {
+      this.washAnim = Math.max(0, this.washAnim - dt);
+      this.washingHand.visible = this.washAnim > 0;
+      this.washingHand.position.x = 0.2 + Math.sin((1.1 - this.washAnim) * 12) * 0.14;
+      this.washingHand.position.y = -0.3 + Math.sin((1.1 - this.washAnim) * 6) * 0.035;
+    }
     // 6. Candle Flicker, Sway & Oil
     if (this.candleLit) {
-      this.candleOil = Math.max(8, this.candleOil - dt * 0.1);
+      this.candleOil = Math.max(0, this.candleOil - dt * 0.1);
+      if (this.candleOil === 0) {
+        this.candleLit = false;
+        this.handCandle.root.visible = false;
+        this.showCaption('Mum yağı bitti; karanlıkta kalacaksın.', 4);
+        this.pushHudState(true);
+      }
       const flicker =
         0.88 + Math.sin(this.elapsedTime * 19) * 0.08 + Math.sin(this.elapsedTime * 31) * 0.06;
       this.handCandle.light.intensity = 4.4 * flicker;
@@ -4069,6 +4114,7 @@ export class SonVazifeEngine {
       activeDialogue: this.getActiveDialogueState(),
       registryCaseId: this.registryCaseId,
       nightPage: this.nightPage,
+      puzzleSeed: this.puzzleSeed,
       activeAutopsyCaseId: this.activeAutopsyCaseId,
       activeAutopsyTool: this.activeAutopsyTool,
       activeAutopsyCameraAngle: this.activeAutopsyCameraAngle,
@@ -4108,6 +4154,9 @@ export class SonVazifeEngine {
     this.vertexLight.restore();
     this.envTarget?.dispose();
     this.postProcessing?.dispose();
+    this.washingHand.traverse(o => {
+      if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }
+    });
     this.world.dispose();
     this.assets.dispose();
     this.textures.disposeAll();

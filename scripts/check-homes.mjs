@@ -18,8 +18,22 @@ try {
   await page.getByRole('radio', { name: /Hacı Arif/ }).check();
   await btn('Kaydı iliştir').click(); await btn('Bekle').click(); await btn('Meydana çık').click();
   try { await btn('Duraklat').waitFor(); } catch (e) { console.error((await page.locator('body').innerText()).slice(-2000)); throw e; }
-  if (process.env.MISSING_RESIDENTS !== '1')
-    await page.waitForFunction(() => fixture.world.homes[0].family[0].children.length >= 2, { timeout: 45000 });
+  assert.equal(await page.evaluate(() => {
+    const event = new KeyboardEvent('keydown', {code: 'KeyW', ctrlKey: true, bubbles: true, cancelable: true});
+    window.dispatchEvent(event);
+    window.dispatchEvent(new KeyboardEvent('keyup', {code: 'KeyW', bubbles: true}));
+    return event.defaultPrevented;
+  }), true, 'Ctrl movement shortcuts should be canceled where supported');
+  assert.deepEqual(await page.evaluate(() => {
+    const e = fixture;
+    e.act = 2; e.candleOil = 0.001; e.candleLit = true;
+    e.updateSimulation(0.1);
+    const expired = !e.candleLit && e.candleOil === 0;
+    e.playerPos.set(-12, 0, 5); e.vigilLit = true; e.activeInteractId = 'vigil_candle'; e.handleInteract();
+    const refilled = e.candleOil === 100;
+    e.act = 1; e.vigilLit = false;
+    return [expired, refilled];
+  }), [true, true], 'candle fuel depletes and can be refilled');
   await page.evaluate(() => { fixture.scareClock.reset(); fixture.scareClock.remaining = 0.01; fixture.updateSimulation(0.05); });
   await page.locator('.village-scare').waitFor({ state: 'visible', timeout: 5000 });
   await page.evaluate(() => fixture.updateSimulation(1.5));
@@ -36,24 +50,8 @@ try {
       if (!h.open) failures.push([i, 'door did not open']);
       const opened = front.clone(); e.resolveCollisions(opened);
       if (opened.distanceTo(front) > 0.2) failures.push([i, 'doorway obstructed', opened.distanceTo(front)]);
-      for (let j = 0; j < 3; j++) {
-        e.playerPos.set(h.spec.x, h.ground, h.spec.z);
-        const id = `family_${i}_${j}`;
-        if (!e.getInteractLabel(id)) failures.push([i, 'family unavailable', j]);
-        e.activeInteractId = id; e.handleInteract();
-        if (!e.captionText?.includes(':')) failures.push([i, 'family has no dialogue', j]);
-      }
     }
-    if (e.world.specialFamilies.length !== 2) failures.push(['special', 'missing story households']);
-    for (const [i, h] of e.world.specialFamilies.entries()) {
-      for (const [j] of h.family.entries()) {
-        e.playerPos.set((h.bounds.minX + h.bounds.maxX) / 2, 0, (h.bounds.minZ + h.bounds.maxZ) / 2);
-        const id = `family_${e.world.homes.length + i}_${j}`;
-        if (!e.getInteractLabel(id)) failures.push(['special', i, 'family unavailable', j]);
-        e.activeInteractId = id; e.handleInteract();
-        if (!e.captionText?.includes(':')) failures.push(['special', i, 'no testimony', j]);
-      }
-    }
+    if (e.world.interactables.some(t => t.id.startsWith('family_'))) failures.push(['family NPC still present']);
     for (const id of ['school', 'station', 'exchange']) {
       const d = e.world.outpostDoors[id];
       e.activeInteractId = `outpost_door_${id}`; e.handleInteract();
@@ -90,23 +88,9 @@ try {
     return e.activeInteractId;
   });
   assert.equal(ray, 'home_door_0', 'real ray must reach the door');
-  const familyRay = await page.evaluate(async () => {
-    const e = window.fixture, h = e.world.homes[0], target = e.world.interactables.find(t => t.id === 'family_0_0');
-    h.open = true; e.playerPos.set(h.spec.x, h.ground, h.spec.z);
-    e.playerVel.set(0, 0, 0); e.keys = {};
-    e.updateSimulation(0.05); e.scene.updateMatrixWorld(true);
-    e.camera.position.copy(e.playerPos); e.camera.position.y += 1.66;
-    const v = target.mesh.getWorldPosition(e.playerPos.clone());
-    e.yaw = e.targetYaw = Math.atan2(e.playerPos.x - v.x, e.playerPos.z - v.z);
-    e.pitch = e.targetPitch = Math.atan2(v.y - e.camera.position.y, Math.hypot(v.x - e.playerPos.x, v.z - e.playerPos.z));
-    e.camera.rotation.set(e.pitch, e.yaw, 0, 'YXZ');
-    for (let i = 0; i < 3; i++) { e.elapsedTime += 0.07; e.updateSimulation(0.07); e.scene.updateMatrixWorld(true); }
-    return e.activeInteractId;
-  });
-  assert.equal(familyRay, 'family_0_0', 'real ray must reach a family member');
   await page.evaluate(() => { fixture.world.homes[0].open = true; fixture.world.outpostDoors.school.open = false; fixture.mosqueDoorOpen = true; fixture.triggerAutoSave(true); });
   await page.reload({ waitUntil: 'domcontentloaded' });
   await btn('Devam et').click(); await btn('Duraklat').waitFor();
   assert.deepEqual(await page.evaluate(() => [fixture.world.homes[0].open, fixture.world.outpostDoors.school.open, fixture.mosqueDoorOpen]), [true, false, true]);
-  console.log(`OK: ${result.count + 2} houses, 72 residents, doors, collisions and save restoration`);
+  console.log(`OK: ${result.count + 2} empty houses, doors, collisions and save restoration`);
 } finally { await browser.close(); }

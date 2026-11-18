@@ -77,6 +77,7 @@ const INITIAL_HUD: GameHudState = {
   activeDialogue: null,
   registryCaseId: null,
   nightPage: null,
+  puzzleSeed: 0,
   activeAutopsyCaseId: null,
   activeAutopsyTool: 'magnifier',
   activeAutopsyCameraAngle: 'overview',
@@ -170,6 +171,7 @@ export default function VillageSession({
         <NightRecord
           key={hud.nightPage}
           id={hud.nightPage}
+          seed={hud.puzzleSeed}
           filed={hud.clues.some((c) => c.id === hud.nightPage && c.discovered)}
           onClose={() => engineRef.current?.closeNightPage()}
           onFile={(v) => engineRef.current?.fileNightPage(v) ?? false}

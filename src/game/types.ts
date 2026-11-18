@@ -195,6 +195,7 @@ export interface GameHudState {
   saveNoticeText: string | null;
   activeDialogue: ActiveDialogueState | null;
   nightPage: NightId | null;
+  puzzleSeed: number;
   registryCaseId: AutopsyCaseId | null;
   activeAutopsyCaseId: AutopsyCaseId | null;
   activeAutopsyTool: AutopsyTool;

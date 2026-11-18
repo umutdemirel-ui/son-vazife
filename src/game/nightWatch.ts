@@ -89,9 +89,9 @@ export const PAGES: Record<NightId, Page> = {
     place: 'Sarı Mektep · Derslik rafı',
     objective: 'Dersliğe dön. Tahtanın sağındaki çantadan istasyon biletini çıkar.',
     prompt: 'Bez çantayı aç',
-    text: 'Bozuk paraların arasında ikiye katlanmış bir peron bileti var. Saat hanesinin üstünde tren mührü değil, küçük bir minibüs resmi duruyor. Eşikteki ayak izleri doğuya, kapalı istasyona dönmüş.',
+    text: 'Bozuk paraların arasında ikiye katlanmış bir peron bileti var. Saat hanesinin üstünde tren mührü değil, küçük bir minibüs resmi duruyor; kenarda iki çentik var. Eşikteki ayak izleri doğuya, kapalı istasyona dönmüş.',
     entry:
-      'Doğu istasyonunda aynı delik dizisi olan bir dipkoçan bulunmalı. Gişedeki cetveli karşılaştır.',
+      'Çantadaki bilette minibüs resmi ve iki çentik var. Gişedeki dipkoçanlarla karşılaştır.',
     kind: 'report',
     action: 'Peron biletini sakla',
   },
@@ -103,9 +103,9 @@ export const PAGES: Record<NightId, Page> = {
     objective:
       'Doğu yolunu güneye, kapalı istasyona kadar takip et. Gişe masasındaki dipkoçanları incele.',
     prompt: 'Gişe cetvelini karşılaştır',
-    text: '19.10 / Peron I: kömür vagonu, tek yuvarlak delik. 22.40 / Peron II: karayolu aktarması, iki çentik. 22.42 / Peron III: tarifede sefer yok; satırı farklı mürekkeple birisi sonradan doldurmuş. Çantadaki minibüs biletinin kenarında iki çentik var.',
+    text: '19.10 / Peron I: kömür vagonu, tek yuvarlak delik. 22.40 / Peron II: karayolu aktarması, iki çentik. 22.42 / Peron III: tarifede sefer yok; satırı farklı mürekkeple birisi sonradan doldurmuş. Dipkoçanı seçmeden önce çantadaki bilete tekrar bak.',
     entry:
-      'Minibüsün asıl aktarması 22.40, Peron II. 22.42 bir tren saati değil. Dışarıdaki işaret kolu yanlış peronu gösteriyor.',
+      'Gişe cetvelindeki saat ve peron satırları, çantadaki biletle karşılaştırılmalı.',
     kind: 'select',
     choices: ['I · Kömür vagonu', 'II · Karayolu aktarması', 'III · İlave sefer'],
     answer: [1],
@@ -251,8 +251,33 @@ export function nightAct(found: (id: NightId) => boolean): GameAct {
 export function isNightId(id: string): id is NightId {
   return Object.hasOwn(PAGES, id);
 }
-export function correctPage(id: NightId, input: readonly number[]) {
+/** A saved per-playthrough variant; the symbol is on the stretcher tag, its codebook is at school. */
+const bellPatterns = [[0, 1, 0], [1, 0, 1], [0, 0, 1], [1, 1, 0]] as const;
+const marks = ['daire', 'üçgen', 'kare', 'yıldız'] as const;
+const sequences = [[1, 2, 0], [2, 0, 1], [0, 1, 2], [1, 0, 2]] as const;
+export function nightPageFor(id: NightId, seed: number): Page {
+  const n = ((seed % 4) + 4) % 4;
   const page = PAGES[id];
+  if (id === 'night_tag') return { ...page,
+    text: `${page.text} Etiketin köşesine bir ${marks[n]} çizilmiş. Öğretmen bu işaretin hangi çağrıya ait olduğunu biliyordu.`,
+    entry: `Yolcunun etiketindeki işaret: ${marks[n]}. Mektepteki yoklama ve çağrı anahtarını bul.` };
+  if (id === 'night_roll') {
+    const table = marks.map((mark, i) => `${mark}: ${bellPatterns[i].map(v => v ? '—' : '•').join(' ')}`).join(' / ');
+    return { ...page, text: `Yoklamanın kenarında bir çağrı anahtarı var: ${table}. Altında “nokta kısa, çizgi uzun” yazıyor. Çağrıyı seçmek için yolcunun etiketindeki işareti hatırla.`,
+      entry: `Çağrı anahtarı: ${table}. Nokta kısa, çizgi uzun; etiketin işareti hangi satırın seçileceğini gösteriyor.` };
+  }
+  if (id === 'night_bell') return { ...page, answer: bellPatterns[n], hint: undefined };
+  if (id === 'night_spool') {
+    const labels = ['harici hat', 'gasilhane', 'viraj'];
+    const order = sequences[n].map(i => labels[i]).join(' → ');
+    return { ...page, text: `Bantta şef kesik kesik konuşuyor: “${order}.” Sonra “Sağlam kordon, eski düğün kuşağının rengi” diyor. Ardından avludaki zil duyuluyor.`,
+      entry: `Banttaki yer sırası: ${order}. Sağlam kordon eski düğün kuşağının renginde.` };
+  }
+  if (id === 'night_line') return { ...page, answer: sequences[n], hint: undefined };
+  return page;
+}
+export function correctPage(id: NightId, input: readonly number[], seed = 0) {
+  const page = nightPageFor(id, seed);
   if (page.kind === 'decision') return input.length === 1 && (input[0] === 0 || input[0] === 1);
   const expected = page.answer ?? [];
   return expected.length === input.length && expected.every((v, i) => v === input[i]);
