@@ -1,5 +1,10 @@
 # Kuzdağ: düşük sistem ölçümü
 
+## Sinematik atmosfer ölçümü
+
+Atmosfer, mevcut güneş ve yarımküre ışıklarını, sis shader'ını ve kaliteye bağlı gölge haritasını yeniden kullanır; gasilhane penceresi ve muhtarlık kapısı için iki küçük saydam zemin izdüşümü ekler, yeni gerçek zamanlı ışık veya gölge haritası eklemez. 18 Kasım 2026'da yazılım çizicili SwiftShader / Otomatik-Asgari ölçümünde 384 × 240 sabit örneklerde meydan **72,5 / 87,3 ms**, çeşme **71,2 / 86,5 ms**, gasilhane **94,5 / 100,8 ms** (medyan / p90); 80 / 70 / 69 çizim çağrısı görüldü. 288 × 180 uyarlanan serbest döngüde **10,7 kare gönderimi/sn** ölçüldü. CPU yazılım çizimi sonuçları gerçek GPU performansı veya FPS garantisi değildir; önceki çevre sürümüyle karşılaştırma farklı sahne yerleşimi nedeniyle yalnızca yaklaşık fikir verir.
+
+
 **Oynamak için:** Önce **Ayarlar → Görüntü kalitesi → Otomatik** seçilebilir. Zayıf bir cihazda doğrudan **Asgari** seçip köye girmek, yüksek çözünürlüklü varlıkları hiç indirmemenin yoludur. Ziyaret sırasında çizim kalitesi değişir; doku/model paketi bir sonraki köye girişte değişir. Menü, evraklar ve HUD, 3B sahnenin iç çözünürlüğünden bağımsızdır.
 
 ## Arşiv paleti ve kaçış · son ölçüm

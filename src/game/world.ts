@@ -103,6 +103,7 @@ export interface WorldHandles {
   }>;
   virtualLights: VirtualPointLight[];
   worldLightPool: THREE.PointLight[];
+  apertureLights: { window: THREE.MeshBasicMaterial; officeDoor: THREE.MeshBasicMaterial };
   sunKeyLight: THREE.DirectionalLight;
   hemiLight: THREE.HemisphereLight;
   moonMesh: THREE.Mesh;
@@ -282,6 +283,32 @@ export function buildVillageWorld(
   const muhtar = createMuhtarHouse(textures, craft);
   muhtar.group.position.copy(muhtarPos);
   cells.add(scene, muhtar.group, 28, 49);
+
+  // Two inexpensive floor projections suggest light entering actual openings.
+  // They cast no light or shadows, and never add another real-time light source.
+  const apertureGeometry = new THREE.PlaneGeometry(1.8, 1.25);
+  const pixels = new Uint8Array(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+    const edge = Math.min(x, y, 31 - x, 31 - y) / 6;
+    const i = (y * 32 + x) * 4;
+    pixels[i] = pixels[i + 1] = pixels[i + 2] = 255;
+    pixels[i + 3] = Math.round(255 * Math.min(1, edge));
+  }
+  const apertureTexture = new THREE.DataTexture(pixels, 32, 32, THREE.RGBAFormat);
+  apertureTexture.magFilter = THREE.LinearFilter;
+  apertureTexture.minFilter = THREE.LinearFilter;
+  apertureTexture.needsUpdate = true;
+  const windowLight = new THREE.MeshBasicMaterial({ map: apertureTexture, color: 0x9daab0, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+  const doorLight = new THREE.MeshBasicMaterial({ map: apertureTexture, color: 0xb6ad97, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+  const windowPatch = new THREE.Mesh(apertureGeometry, windowLight);
+  windowPatch.rotation.x = -Math.PI / 2;
+  windowPatch.position.set(-2.25, 0.166, 0);
+  gasil.group.add(windowPatch);
+  const doorPatch = new THREE.Mesh(apertureGeometry, doorLight);
+  doorPatch.rotation.x = -Math.PI / 2;
+  doorPatch.position.set(-2.35, 0.18, 0);
+  muhtar.group.add(doorPatch);
+  disposables.push(apertureGeometry, apertureTexture, windowLight, doorLight);
 
   colliders.push(...translateColliders(muhtarPos, [
     { minX: -3.4, maxX: 3.4, minZ: -3.25, maxZ: -2.75 },
@@ -1217,6 +1244,7 @@ export function buildVillageWorld(
     streetLights,
     virtualLights,
     worldLightPool,
+    apertureLights: { window: windowLight, officeDoor: doorLight },
     sunKeyLight,
     hemiLight,
     moonMesh,

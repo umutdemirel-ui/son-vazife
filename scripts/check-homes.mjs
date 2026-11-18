@@ -48,6 +48,20 @@ try {
     e.rules.find(r => r.id === 'rule_alone').violated = false;
     return [rose, upright, settled];
   }), [true, true, true], 'unattended body rises and the vigil calms it');
+  // Atmosphere responds continuously to time/weather and to real opening states.
+  const lighting = await page.evaluate(() => {
+    const e = window.fixture;
+    e.survivalSeconds = 150; e.act = 1; e.shutterClosed = false; e.muhtarDoorOpen = true;
+    for (let i = 0; i < 30; i++) e.updateEnvironmentVisuals(0.1, true, 0);
+    const daylight = e.world.sunKeyLight.intensity;
+    const openWindow = e.world.apertureLights.window.opacity, openDoor = e.world.apertureLights.officeDoor.opacity;
+    e.survivalSeconds = 450; e.act = 3; e.shutterClosed = true; e.muhtarDoorOpen = false; e.nextThunderTime = Infinity; e.stormFlashIntensity = 0;
+    for (let i = 0; i < 30; i++) e.updateEnvironmentVisuals(0.1, true, 0);
+    const result = [daylight > e.world.sunKeyLight.intensity, openWindow > 0.1, openDoor > 0.1, e.world.apertureLights.window.opacity < 0.001, e.world.apertureLights.officeDoor.opacity < 0.001];
+    e.survivalSeconds = 0; e.act = 1; e.shutterClosed = false; e.nextThunderTime = e.elapsedTime + 14;
+    return result;
+  });
+  assert.deepEqual(lighting, [true, true, true, true, true], 'continuous lighting and opening-controlled projections');
   const result = await page.evaluate(async () => {
     const { Vector3 } = await import('/node_modules/three/build/three.module.js');
     const e = window.fixture, failures = [];

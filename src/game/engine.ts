@@ -1,3 +1,4 @@
+import { atmosphereTargets } from './atmosphere';
 import { insideHome } from './homes';
 import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition, migrateMuhtarPosition } from './homeMigration';
 import { atEscapePoint, isEvening, survivalDay } from './survival';
@@ -88,7 +89,11 @@ const _autopsyCamPos = new THREE.Vector3();
 const _autopsyLookPos = new THREE.Vector3();
 
 const _duskFog = new THREE.Color(0x59656c);
-const _nightFog = new THREE.Color(0x212b30);
+const _nightFog = new THREE.Color(0x263137);
+const _weatherFog = new THREE.Color(0x404c51);
+const _dayKey = new THREE.Color(0xe6c9ac);
+const _nightKey = new THREE.Color(0x8da6ba);
+const _atmosphereColor = new THREE.Color();
 
 const PLAYER_EYE_HEIGHT = 1.66;
 const PLAYER_RADIUS = 0.42;
@@ -3794,42 +3799,29 @@ export class SonVazifeEngine {
   }
 
   private updateEnvironmentVisuals(dt: number, isIndoors: boolean, dangerProximity: number): void {
-    const dusk = !isEvening(this.survivalSeconds);
-    this.scene.environmentIntensity = dusk ? 0.16 : 0.045;
+    const rainLevel = this.act === 1 ? 0 : this.act >= 3 ? 1.0 : 0.45;
+    const a = atmosphereTargets(this.survivalSeconds, rainLevel, isIndoors, this.resolvedQualityTier === 'minimum', this.resolvedQualityTier === 'low');
+    const blend = 1 - Math.exp(-1.2 * dt);
+    this.scene.environmentIntensity = THREE.MathUtils.damp(this.scene.environmentIntensity, 0.05 + a.daylight * 0.11, 1.2, dt);
     const horizonTint = this.world.horizon.material.color;
-    horizonTint.setScalar(THREE.MathUtils.damp(horizonTint.r, dusk ? 0.65 : 0.14, 0.9, dt));
-    this.world.moonMesh.visible = !dusk;
-    const baseFogDensity = dusk ? 0.022 + Math.min(0.008, (this.act - 1) * 0.001) : 0.034 + Math.min(0.01, (this.act - 1) * 0.002);
-    const targetFogDensity =
-      this.resolvedQualityTier === 'minimum'
-        ? Math.max(baseFogDensity, 0.052)
-        : this.resolvedQualityTier === 'low'
-          ? Math.max(baseFogDensity, 0.034)
-          : baseFogDensity;
-
-    if (this.scene.background instanceof THREE.Color) {
-      this.scene.background.lerp(dusk ? _duskFog : _nightFog, 1 - Math.exp(-1.5 * dt));
-    }
-
+    horizonTint.setScalar(THREE.MathUtils.damp(horizonTint.r, 0.16 + a.daylight * 0.43 - rainLevel * 0.06, 1.2, dt));
+    this.world.moonMesh.visible = a.daylight < 0.45;
+    _atmosphereColor.copy(_nightFog).lerp(_duskFog, a.daylight).lerp(_weatherFog, rainLevel * 0.22);
+    if (this.scene.background instanceof THREE.Color) this.scene.background.lerp(_atmosphereColor, blend);
     if (this.scene.fog instanceof THREE.FogExp2 && this.scene.background instanceof THREE.Color) {
       this.scene.fog.color.copy(this.scene.background);
-      this.scene.fog.density = THREE.MathUtils.damp(this.scene.fog.density, targetFogDensity, 1.5, dt);
+      this.scene.fog.density = THREE.MathUtils.damp(this.scene.fog.density, a.fog, 1.2, dt);
     }
-
-    const targetKey = dusk ? Math.max(0.8, 1.35 - (this.act - 1) * 0.06) : 0.28 + this.stormFlashIntensity;
+    // Slow sun/moon direction changes use the existing tier-limited shadow map.
+    const skyAngle = this.survivalSeconds / 600 * Math.PI * 2;
+    this.world.sunKeyLight.position.set(18 + Math.cos(skyAngle) * 5, 23 + a.daylight * 5, 22 + Math.sin(skyAngle) * 5);
+    this.world.sunKeyLight.color.copy(_nightKey).lerp(_dayKey, a.daylight);
+    this.world.sunKeyLight.intensity = THREE.MathUtils.damp(this.world.sunKeyLight.intensity, a.key + this.stormFlashIntensity, 3, dt);
     const iblBoost = this.scene.environment === null ? 0.14 : 0;
-    this.world.sunKeyLight.intensity = THREE.MathUtils.damp(
-      this.world.sunKeyLight.intensity,
-      targetKey,
-      4,
-      dt,
-    );
-    this.world.hemiLight.intensity = THREE.MathUtils.damp(
-      this.world.hemiLight.intensity,
-      (dusk ? 1.3 : 0.42) + iblBoost,
-      2,
-      dt,
-    );
+    this.world.hemiLight.intensity = THREE.MathUtils.damp(this.world.hemiLight.intensity, a.ambient + iblBoost, 1.5, dt);
+    const aperture = this.world.apertureLights;
+    aperture.window.opacity = THREE.MathUtils.damp(aperture.window.opacity, this.shutterClosed ? 0 : a.aperture, 3, dt);
+    aperture.officeDoor.opacity = THREE.MathUtils.damp(aperture.officeDoor.opacity, this.muhtarDoorOpen ? a.aperture : 0, 3, dt);
 
     const mistSprites = this.world.mistSprites;
     for (let idx = 0; idx < mistSprites.length; idx++) {
@@ -3839,7 +3831,6 @@ export class SonVazifeEngine {
       sp.position.x = baseX + Math.sin(this.elapsedTime * 0.25 + idx) * 2.1;
     }
 
-    const rainLevel = this.act === 1 ? 0 : this.act >= 3 ? 1.0 : 0.45;
     this.world.rainPoints.visible = rainLevel > 0 && !isIndoors;
     this.world.rainUniforms.uTime.value = this.elapsedTime;
     this.world.rainUniforms.uPlayerPos.value.copy(this.camera.position);
