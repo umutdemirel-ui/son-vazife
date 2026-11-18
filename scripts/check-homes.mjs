@@ -60,6 +60,12 @@ try {
       if (!h.open) failures.push([i, 'door did not open']);
       const opened = front.clone(); e.resolveCollisions(opened);
       if (opened.distanceTo(front) > 0.2) failures.push([i, 'doorway obstructed', opened.distanceTo(front)]);
+      // Check both visible solid furnishings against the actual movement resolver.
+      for (const [x, z] of [[0, -h.spec.d / 2 + 0.65], [h.spec.w / 2 - 0.55, -h.spec.d / 2 + 0.45]]) {
+        const furniture = new Vector3(x, 0, z).applyAxisAngle(new Vector3(0, 1, 0), h.spec.rotY).add(h.root.position);
+        const resolved = furniture.clone(); e.resolveCollisions(resolved);
+        if (resolved.distanceTo(furniture) < 0.15) failures.push([i, 'furniture is not solid', x, z]);
+      }
     }
     if (e.world.interactables.some(t => t.id.startsWith('family_'))) failures.push(['family NPC still present']);
     for (const id of ['school', 'station', 'exchange']) {

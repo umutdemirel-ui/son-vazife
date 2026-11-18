@@ -17,3 +17,20 @@ test('local building walls follow a relocated anchor without changing their door
   assert.notDeepEqual(wallPoint, { x: 16.85, z: 28 });
   assert.equal(walls[0].minX, -3.4);
 });
+
+test('home furniture colliders rotate with the house and leave the entrance clear', async () => {
+  const { homeFurnitureColliders } = await import('../src/game/homes');
+  for (const rotY of [0, Math.PI / 2, -Math.PI / 3]) {
+    const spec = { x: 12, z: -8, rotY, w: 6, d: 5, h: 4, style: 'tas' as const };
+    const colliders = homeFurnitureColliders(spec);
+    const point = (x: number, z: number) => ({ x: spec.x + x * Math.cos(rotY) + z * Math.sin(rotY), z: spec.z - x * Math.sin(rotY) + z * Math.cos(rotY) });
+    for (const [x, z] of [[0, -spec.d / 2 + 0.65], [spec.w / 2 - 0.55, -spec.d / 2 + 0.45]]) {
+      const original = point(x, z), resolved = { ...original };
+      colliders.forEach(c => pushOutsideBox(resolved, c, 0.25));
+      assert.ok(Math.hypot(resolved.x - original.x, resolved.z - original.z) > 0.2);
+    }
+    const entrance = point(0, spec.d / 2), resolved = { ...entrance };
+    colliders.forEach(c => pushOutsideBox(resolved, c, 0.25));
+    assert.deepEqual(resolved, entrance);
+  }
+});

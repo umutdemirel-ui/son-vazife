@@ -27,6 +27,14 @@ export function insideHome(h: Home, x: number, z: number) {
 
 function flankWidth(w: number, opening: number) { return (w - opening) / 2; }
 
+/** Solid ground-level furniture; the rug and high shelf are deliberately passable. */
+export function homeFurnitureColliders(spec: HomeSpec): BoxCollider[] {
+  return [
+    homeCollider(spec, 0, -spec.d / 2 + 0.65, 1.2, 0.65),
+    homeCollider(spec, spec.w / 2 - 0.55, -spec.d / 2 + 0.45, 0.75, 0.42),
+  ];
+}
+
 /** Walk-in version of a village home. Walls and the leaf use the same survey as collision. */
 export function buildHome(spec: HomeSpec, number: number, ground: number, craft: VillageCraft) {
   const root = new THREE.Group(); root.position.set(spec.x, ground, spec.z); root.rotation.y = spec.rotY;
@@ -97,6 +105,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
     homeCollider(spec, 0, -d / 2, w, wall),
     homeCollider(spec, -w / 2, 0, wall, d), homeCollider(spec, w / 2, 0, wall, d),
     ...[-1, 1].map(side => homeCollider(spec, side * (opening / 2 + flank / 2), d / 2, flank, wall)),
+    ...homeFurnitureColliders(spec),
   ];
   return { home: { root, door, spec, ground, open: false, doorCollider: homeCollider(spec, 0, d / 2, opening, wall) } satisfies Home, walls };
 }
