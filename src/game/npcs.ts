@@ -55,6 +55,12 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
             unlockGlossaryIds: ['lore_bekci_shadows'],
           },
           {
+            id: 'ask_first_register',
+            label: 'Bu fişe bak. Arif Efendi’yi yirmi yıl önce de mi uğurladınız?',
+            nextNodeId: 'old_register',
+            requiredClueId: 'clue_first_ledger',
+          },
+          {
             id: 'ask_arif_autopsy',
             label: '[Adli Kanıt] Hacı Arif kalp krizinden ölmemiş — ciğerlerinde dere suyu ve zehir var.',
             nextNodeId: 'arif_reaction',
@@ -77,6 +83,14 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
             label: 'Şimdi gitmem gerek, gözün kulağın açık olsun.',
             nextNodeId: null,
           },
+        ],
+      },
+      old_register: {
+        id: 'old_register',
+        text: 'Tarihe değil, şu mühre bak. Benim mührüm; ama o satır benim yazım değil. Gece gelen cenazelerle ilgili soru sorma, evlat. Arif’in defterini sundurmada bıraktım.',
+        options: [
+          { id: 'register_return', label: 'Fişi cebine koy. Başka bir şey sor.', nextNodeId: 'root' },
+          { id: 'register_depart', label: 'Sundurmadaki defteri almaya git.', nextNodeId: null },
         ],
       },
       village_empty: {
@@ -155,7 +169,7 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
           },
           {
             id: 'ask_boganak',
-            label: '[Otopsi Bulgusu] Bedenlerde Boğanak zehri buldum — köyde kim toplar bunu?',
+            label: '[Mühürlü Dosya] Raporda Boğanak’tan söz ediliyor. Burada o otu kim tanır?',
             nextNodeId: 'boganak_story',
             requiredCompletedCase: 'case_arif',
             trustDelta: 8,
@@ -234,7 +248,7 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
           },
           {
             id: 'confront_mahmut',
-            label: '[Otopsi + Değirmen Kanıtı] Mahmut kazadan 85 dakika önce zehirlendi! El yazın değirmen defterinde!',
+            label: '[Rapor ve Değirmen Kaydı] Mahmut kazadan 85 dakika önce zehirlendi! El yazın değirmen defterinde!',
             nextNodeId: 'kenan_breakdown',
             requiredClueId: 'clue_mill_ledger',
             requiredCompletedCase: 'case_mahmut',

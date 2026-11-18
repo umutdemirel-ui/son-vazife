@@ -84,7 +84,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
         <div className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-[#7d6547]/50 pb-4 mb-4">
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-[#5c4730] font-semibold">
-              Hacı Arif Efendi · El Yazması & Adli Cetvel
+              Kuzdağ Gasilhanesi · Kayıt ve Saha Notları
             </p>
             <h2 className="font-hand text-4xl font-bold text-[#1f160d] mt-1">
               Gassalın Defteri
@@ -105,7 +105,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
             [
               { id: 'rules', label: 'Kurallar & Malzemeler' },
               { id: 'clues', label: `Belgeler (${discoveredClues.length}/${clues.length})` },
-              { id: 'autopsy', label: 'Otopsi Dosyaları' },
+              { id: 'autopsy', label: 'Cenaze Dosyaları' },
               {
                 id: 'glossary',
                 label: `İnanışlar Sözlüğü (${unlockedGlossaryCount + playerGlossaryNotes.length})`,
@@ -231,7 +231,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
         {tab === 'autopsy' && (
           <div className="space-y-4">
             <h3 className="font-display text-sm font-bold tracking-[0.18em] uppercase text-[#4b3824]">
-              Adli Otopsi Vaka Dosyaları
+              Cenaze Teslim Dosyaları
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {(Object.keys(autopsyCases) as AutopsyCaseId[]).map((cid) => {
@@ -256,7 +256,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                       </h4>
                       <div className="mt-2 space-y-1.5 text-xs text-[#3b2c1d]">
                         {zonesFound.length === 0 ? (
-                          <p className="italic text-[#6a5843]">Henüz muayene yapılmadı.</p>
+                          <p className="italic text-[#6a5843]">{c.completionMethod === 'registry' ? 'Teslim kaydı, dosyadaki belgeler karşılaştırılarak mühürlendi.' : 'Henüz muayene yapılmadı.'}</p>
                         ) : (
                           zonesFound.map((z) => (
                             <div key={z.zone} className="border-t border-[#8c7556]/25 pt-1">

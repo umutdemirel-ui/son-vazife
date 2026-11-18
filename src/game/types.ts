@@ -89,6 +89,7 @@ export interface AutopsyCaseState {
   locationLabel: string;
   unlocked: boolean;
   completed: boolean;
+  completionMethod?: 'registry' | 'forensic';
   selectedCause: string;
   selectedTime: string;
   diagnosisError: string | null;
@@ -186,6 +187,7 @@ export interface GameHudState {
   saveSummary: SaveSummary | null;
   saveNoticeText: string | null;
   activeDialogue: ActiveDialogueState | null;
+  registryCaseId: AutopsyCaseId | null;
   activeAutopsyCaseId: AutopsyCaseId | null;
   activeAutopsyTool: AutopsyTool;
   activeAutopsyCameraAngle: AutopsyCameraAngle;
@@ -229,7 +231,7 @@ export const INITIAL_RULES: FolkloreRule[] = [
     id: 'rule_ritual',
     number: 'V',
     title: 'Son Vazife Saygı ve Sırayla Yapılır',
-    text: 'Adli otopsi bulguları mühürlendikten sonra setr-i avret örtüsü, sağdan sola ılık su ve sabunla yıkama, kafurlu durulama, gülsuyu ve kefenleme sırayla yapılır.',
+    text: 'Cenaze teslim kaydı mühürlendikten sonra setr-i avret örtüsü, sağdan sola ılık su ve sabunla yıkama, kafurlu durulama, gülsuyu ve kefenleme sırayla yapılır.',
     violated: false,
   },
 ];
@@ -293,6 +295,13 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
 
 export const INITIAL_CLUES: ClueDocument[] = [
   {
+    id: 'clue_first_ledger',
+    title: 'İki Tarih, Tek İsim',
+    subtitle: 'İlk Nöbet · 071 Numaralı Teslim Fişi',
+    body: 'Hacı Arif Efendi, hane 06. Aynı isim hem 16 Kasım 1973’te hem 16 Kasım 1993’te cenaze defterine işlenmiş. Bugünkü fişte teslim edenin adı yazmıyor.',
+    discovered: false,
+  },
+  {
     id: 'clue_arif_autopsy',
     title: 'Vaka I Ön Raporu: Hacı Arif',
     subtitle: 'Gasilhane Teneşir İncelemesi',
@@ -315,9 +324,9 @@ export const INITIAL_CLUES: ClueDocument[] = [
   },
   {
     id: 'clue_mill_ledger',
-    title: 'Değirmenci Zehir Kaydı & Bilet',
+    title: 'Değirmenin Kazınmış Kaydı',
     subtitle: 'Eski Su Değirmeni · Un Sandığı',
-    body: 'Kayıt defterinde Katip Kenan’ın el yazısı: "Saat 21:00’de Şoför Mahmut’a demlenen çay içine iki tutam Boğanak katılacak; kaza raporu 22:40’a yazılacak."',
+    body: 'Sayfanın altında Katip Kenan’ın parafı var. “Mahmut — 21.15” satırını kazıyıp kenara “Viraj — 22.40” yazmış. Sayfanın arasından bir minibüs bileti düştü.',
     discovered: false,
   },
   {

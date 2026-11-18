@@ -77,6 +77,7 @@ export class CC0AssetLibrary {
   public async preloadAll(
     maxAnisotropy: number,
     onProgress?: (percent: number, ready: boolean) => void,
+    lightweight = false,
   ): Promise<void> {
     if (this.loadingPromise) return this.loadingPromise;
 
@@ -87,13 +88,6 @@ export class CC0AssetLibrary {
         this.progress = Math.min(99, Math.round((loaded / Math.max(1, total)) * 100));
         onProgress?.(this.progress, false);
       };
-      manager.onLoad = () => {
-        if (this.disposed) return;
-        this.progress = 100;
-        this.ready = true;
-        onProgress?.(100, true);
-        resolve();
-      };
       manager.onError = () => {
         // Fallback meshes stay active for any failed item; never block game start
       };
@@ -101,7 +95,10 @@ export class CC0AssetLibrary {
       const gltfLoader = new GLTFLoader(manager);
       const texLoader = new THREE.TextureLoader(manager);
 
-      const modelPromises = (Object.entries(MODEL_PATHS) as Array<[CC0ModelId, string]>).map(
+      const neededModels = (Object.entries(MODEL_PATHS) as Array<[CC0ModelId, string]>).filter(
+        ([id]) => !lightweight || id === 'lantern' || id === 'binder' || id === 'chair',
+      );
+      const modelPromises = neededModels.map(
         ([id, url]) =>
           new Promise<void>((res) => {
             gltfLoader.load(
@@ -168,8 +165,8 @@ export class CC0AssetLibrary {
           this.progress = 100;
           this.ready = true;
           onProgress?.(100, true);
-          resolve();
         }
+        resolve();
       });
     });
 

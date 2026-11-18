@@ -208,6 +208,27 @@ export class HorrorAudioEngine {
     osc.stop(t + 0.2);
   }
 
+  /** Two low, distant bell strokes. No abrupt jumps in level. */
+  public playTelephone(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime + 0.18;
+    for (const delay of [0, 0.28, 1.6, 1.88]) {
+      for (const hz of [473, 731]) {
+        const bell = this.ctx.createOscillator();
+        const envelope = this.ctx.createGain();
+        bell.type = 'sine';
+        bell.frequency.value = hz;
+        envelope.gain.setValueAtTime(0.0001, t + delay);
+        envelope.gain.exponentialRampToValueAtTime(0.027, t + delay + 0.04);
+        envelope.gain.exponentialRampToValueAtTime(0.0001, t + delay + 0.32);
+        bell.connect(envelope);
+        envelope.connect(this.masterGain);
+        bell.start(t + delay);
+        bell.stop(t + delay + 0.34);
+      }
+    }
+  }
+
   public playDoorCreak(): void {
     if (!this.ctx || !this.masterGain || this.muted) return;
     const t = this.ctx.currentTime;

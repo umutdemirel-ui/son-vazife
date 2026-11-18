@@ -89,6 +89,7 @@ export interface WorldHandles {
   sunKeyLight: THREE.DirectionalLight;
   hemiLight: THREE.HemisphereLight;
   moonMesh: THREE.Mesh;
+  horizon: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
   mistSprites: THREE.Sprite[];
   rainPoints: THREE.Points;
   rainGeo: THREE.BufferGeometry;
@@ -113,7 +114,7 @@ export function buildVillageWorld(
   const itemMeshes: Record<string, THREE.Object3D> = {};
 
   // 1. Lighting Rig (Warm/Cool contrast + FogExp2)
-  const hemiLight = new THREE.HemisphereLight(0x52657d, 0x262119, 0.72);
+  const hemiLight = new THREE.HemisphereLight(0xa4b4bc, 0x605343, 1.0);
   scene.add(hemiLight);
 
   const sunKeyLight = new THREE.DirectionalLight(0xc49c74, 1.35);
@@ -130,8 +131,26 @@ export function buildVillageWorld(
   sunKeyLight.shadow.normalBias = 0.02;
   scene.add(sunKeyLight);
 
-  scene.background = new THREE.Color(0x18202b);
-  scene.fog = new THREE.FogExp2(0x18202b, 0.029);
+  scene.background = new THREE.Color(0x59656c);
+  scene.fog = new THREE.FogExp2(0x59656c, 0.023);
+
+  // A camera-centred horizon retains the silhouettes of the surrounding valley,
+  // even on the low tier where distant geometry is clipped. No parallax on walking.
+  const skyMaterial = new THREE.MeshBasicMaterial({
+    side: THREE.BackSide, fog: false, depthWrite: false, depthTest: false, toneMapped: false,
+  });
+  const horizon = new THREE.Mesh(new THREE.SphereGeometry(59, 48, 18), skyMaterial);
+  horizon.renderOrder = -1000;
+  horizon.frustumCulled = false;
+  horizon.visible = false;
+  const skyPhoto = new THREE.TextureLoader().load('/assets/archive/horizon.jpg', () => { horizon.visible = true; });
+  skyPhoto.colorSpace = THREE.SRGBColorSpace;
+  skyPhoto.wrapS = THREE.MirroredRepeatWrapping;
+  skyPhoto.repeat.x = 2;
+  skyMaterial.map = skyPhoto;
+  skyMaterial.color.setScalar(0.65);
+  scene.add(horizon);
+  disposables.push(horizon.geometry, skyMaterial, skyPhoto);
 
   // Subtle distant Moon in sky
   const moonGeo = new THREE.CircleGeometry(2.8, 24);
@@ -805,6 +824,27 @@ export function buildVillageWorld(
     const cobblePack = cc0.getTexturePack('cobblestone');
     if (cobblePack) terrainHandle.applyCC0Road(cobblePack);
 
+    // Swap the village's procedural wall, wood and tile maps for the actual
+    // photographed materials. Keep the fallback on individual load failures.
+    const surfaces = new Map([
+      [textures.plaster, cc0.getTexturePack('clay_plaster')],
+      [textures.timber, cc0.getTexturePack('brown_planks')],
+      [textures.roof, cc0.getTexturePack('roof_tiles')],
+    ]);
+    scene.traverse(object => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const mat of materials) {
+        if (!(mat instanceof THREE.MeshStandardMaterial) || !(mat.map instanceof THREE.CanvasTexture)) continue;
+        const pack = surfaces.get(mat.map);
+        if (!pack) continue;
+        mat.map = pack.diffuse;
+        mat.normalMap = pack.normal;
+        mat.roughnessMap = pack.roughness;
+        mat.needsUpdate = true;
+      }
+    });
+
     // B. Attach rigged CC0 Soldier.glb to all 4 NPCs
     (Object.keys(npcs) as NpcId[]).forEach((npcId) => {
       attachCC0RigToNpc(npcs[npcId], cc0);
@@ -889,6 +929,7 @@ export function buildVillageWorld(
     sunKeyLight,
     hemiLight,
     moonMesh,
+    horizon,
     mistSprites,
     rainPoints,
     rainGeo,
