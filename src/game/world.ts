@@ -1,3 +1,7 @@
+import { receivingBay, STRETCHERS } from './funerary';
+import { NightArt, watcherFigure } from './nightArt';
+import { OUTER_HOMES } from './valley';
+import { buildOutposts } from './outposts';
 import { bakeStaticChildrenByMaterial } from './meshBatch';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -38,15 +42,11 @@ import {
   createWatermillAndBridge,
   createWreckedMinibus,
   GasilhaneRefs,
-  KaraBasmaRefs,
   MillAndBridgeRefs,
   MuhtarRefs,
   WreckedMinibusRefs,
 } from './models';
-import {
-  NpcRuntimeActor,
-  VILLAGE_NPCS,
-} from './npcs';
+import { NpcRuntimeActor, VILLAGE_NPCS } from './npcs';
 import { buildMountainTerrainAndForest, exteriorFloorAt, groundHeightAt } from './terrain';
 import { VillageTextures } from './textures';
 import { AutopsyCaseId, NpcId } from './types';
@@ -86,7 +86,12 @@ export interface WorldHandles {
     anchors: Record<AutopsyCaseId, { examAnchor: THREE.Object3D; flashAnchor: THREE.Object3D }>;
   };
   npcs: Record<NpcId, NpcRuntimeActor>;
-  karaBasma: KaraBasmaRefs;
+  karaBasma: ReturnType<typeof watcherFigure>;
+  nightArt: NightArt;
+  receiving: ReturnType<typeof receivingBay>;
+  keeper: ReturnType<typeof buildOutposts>['keeper'];
+  setSignal: (aligned: boolean) => void;
+  poseWatchers: (time: number, karaFollows: boolean, mistFollows: boolean) => void;
   sisGozcusu: THREE.Group;
   streetLights: Array<{
     light: THREE.PointLight;
@@ -123,6 +128,8 @@ export function buildVillageWorld(
   const disposables: Array<{ dispose: () => void }> = [];
   const craft = new VillageCraft(textures);
   const cells = new VisibilityCells();
+  const nightArt = new NightArt(allocation !== 'full', residentReady);
+  disposables.push(nightArt);
   disposables.push(craft);
   const colliders: BoxCollider[] = [];
   const interactables: InteractableTarget[] = [];
@@ -204,15 +211,24 @@ export function buildVillageWorld(
 
   // 3. Mosque & Gasilhane Complex at (-10.5, y, 6.0)
   const gasilPos = new THREE.Vector3(-10.5, groundHeightAt(-10.5, 6.0), 6.0);
-  const gasil = createMosqueAndGasilhane(textures, craft);
+  const gasil = createMosqueAndGasilhane(textures, craft, nightArt);
   gasil.group.position.copy(gasilPos);
   cells.add(scene, gasil.group, 34, 55);
 
   // Case I Forensic Overlay aligned directly onto Gasilhane Tenesir Slab
-  const gasilAutopsy = createAutopsyCadaverOverlay('case_arif', 0xa69c90, 0x3b362e, -0.885);
-  gasilAutopsy.group.position.set(0, 0.015, 0);
-  gasilAutopsy.group.visible = false;
+  const gasilAutopsy = createAutopsyCadaverOverlay('case_arif', nightArt, -0.862);
   gasil.deceasedGroup.add(gasilAutopsy.group);
+  nightArt.near('arif', gasilPos.x, gasilPos.z, 22);
+  nightArt.near('mahmut', 26, -28, 23);
+  nightArt.near('yolcu', -34, -36, 22);
+  const receiving = receivingBay(gasil.group, nightArt, craft);
+  for (const { x, z } of Object.values(STRETCHERS))
+    colliders.push({
+      minX: gasilPos.x + x - 1.08,
+      maxX: gasilPos.x + x + 1.08,
+      minZ: gasilPos.z + z - 0.36,
+      maxZ: gasilPos.z + z + 0.36,
+    });
 
   colliders.push(
     { minX: -14.1, maxX: -6.9, minZ: 2.55, maxZ: 3.05 }, // Gasil North
@@ -261,7 +277,7 @@ export function buildVillageWorld(
 
   // 5b. Sağlık Ocağı (District II: East Clinic) at (26.0, y, -28.0)
   const clinicPos = new THREE.Vector3(26.0, groundHeightAt(26.0, -28.0), -28.0);
-  const clinic = createClinicBuilding(textures, craft);
+  const clinic = createClinicBuilding(textures, craft, nightArt);
   clinic.group.position.copy(clinicPos);
   cells.add(scene, clinic.group, 26, 48);
 
@@ -301,7 +317,7 @@ export function buildVillageWorld(
 
   // 5d. Mezarlık Tepesi & Taş Mahzen (District IV: Northwest Cemetery Hill) at (-34.0, y, -36.0)
   const cemPos = new THREE.Vector3(-34.0, groundHeightAt(-34.0, -36.0), -36.0);
-  const cemetery = createCemeteryHillAndCrypt(textures);
+  const cemetery = createCemeteryHillAndCrypt(textures, nightArt);
   cemetery.group.position.copy(cemPos);
   cells.add(scene, cemetery.group, 26, 50);
 
@@ -343,6 +359,17 @@ export function buildVillageWorld(
     { x: 18.2, z: -34.5, rotY: -Math.PI * 0.25, w: 6.0, d: 5.2, h: 4.1, style: 'himis' },
     { x: -16.8, z: -35.5, rotY: Math.PI * 0.35, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
   ];
+  OUTER_HOMES.forEach(([x, z, rotY], i) =>
+    houseConfigs.push({
+      x,
+      z,
+      rotY,
+      w: 5.2 + (i % 3) * 0.4,
+      d: 4.3,
+      h: 3.9,
+      style: (['himis', 'tas', 'cumba'] as const)[i % 3],
+    }),
+  );
   houseConfigs.forEach((hc, i) => {
     const house = craft.house(hc.style, i + 1, hc.w, hc.d, hc.h);
     house.position.set(hc.x, groundHeightAt(hc.x, hc.z), hc.z);
@@ -487,6 +514,9 @@ export function buildVillageWorld(
     { x: 20.8, z: -29.5, rot: 0, base: 6.0 }, // Clinic courtyard
     { x: -19.5, z: 6.0, rot: Math.PI / 2, base: 5.2 }, // Bridge head
     { x: -26.5, z: -33.2, rot: 0.3, base: 4.8 }, // Cemetery hill approach
+    { x: 46.7, z: -54.2, rot: 0, base: 4.5 }, // Mektep yard
+    { x: 54.1, z: 32.3, rot: 1.15, base: 5.4 }, // Last platform
+    { x: -50.7, z: 46.8, rot: -0.52, base: 4.1 }, // Reach of the switchboard lamp
     { x: 22.0, z: 18.2, rot: -0.4, base: 5.0 }, // Crash bend approach
   ].forEach((lp) => {
     const sl = createStreetLamp();
@@ -588,6 +618,7 @@ export function buildVillageWorld(
     const proxy = new THREE.Mesh(hitGeo, hitMat);
     proxy.position.copy(worldPos);
     proxy.userData.interactId = id;
+    proxy.userData.targetIndex = interactables.length;
     proxy.layers.set(1);
     (parent ?? scene).add(proxy);
     disposables.push(hitGeo, hitMat);
@@ -766,6 +797,35 @@ export function buildVillageWorld(
     3.3,
   );
 
+  const { setSignal, keeper } = buildOutposts(
+    scene,
+    craft,
+    nightArt,
+    cells,
+    colliders,
+    registerTarget,
+    disposables,
+  );
+  for (const [id, at] of Object.entries(STRETCHERS))
+    registerTarget(
+      id === 'yolcu' ? 'night_tag' : 'receiving_mahmut',
+      new THREE.Vector3(gasilPos.x + at.x, gasilPos.y + 0.97, gasilPos.z + at.z),
+      [1.98, 0.52, 0.72],
+      2.65,
+    );
+
+  // A swung-open door must not leave its E hitbox in the middle of an empty doorway.
+  for (const [id, hinge] of [
+    ['gasil_door', gasil.doorPivot],
+    ['clinic_door', clinic.doorPivot],
+    ['abandoned_door', abandoned.doorPivot],
+    ['muhtar_door', muhtar.doorPivot],
+    ['mill_door', millAndBridge.doorPivot],
+    ['crypt_door', cemetery.doorPivot],
+  ] as const) {
+    const target = interactables.find((t) => t.id === id)!;
+    hinge.attach(target.mesh);
+  }
   // 14. Villager NPCs (4 interactive patrolling/standing residents)
   const residentLoader = new GLTFLoader();
   const npcs = {} as Record<NpcId, NpcRuntimeActor>;
@@ -798,12 +858,13 @@ export function buildVillageWorld(
   });
 
   // 15. Night Threats: Kara Basma & Sis Gözcüsü
-  const karaBasma = createKaraBasma();
+  const karaBasma = watcherFigure(nightArt, 'karabasma', createKaraBasma().root);
   karaBasma.root.position.set(1.5, groundHeightAt(1.5, -6), -6);
   karaBasma.root.visible = false;
   scene.add(karaBasma.root);
 
-  const sisGozcusu = createSisGozcusu();
+  const mistWatcher = watcherFigure(nightArt, 'sis-gozcusu', createSisGozcusu());
+  const sisGozcusu = mistWatcher.root;
   sisGozcusu.position.set(-22, groundHeightAt(-22, -16), -16);
   sisGozcusu.visible = false;
   scene.add(sisGozcusu);
@@ -999,7 +1060,7 @@ export function buildVillageWorld(
     }
     const placeProp = (
       id: DressingId,
-      height: number,
+      size: number,
       x: number,
       y: number,
       z: number,
@@ -1007,7 +1068,7 @@ export function buildVillageWorld(
       castShadow = true,
     ) => {
       if (id !== loaded) return;
-      const m = assets.dressing(id, height, castShadow);
+      const m = assets.dressing(id, size, castShadow);
       if (!m) return;
       m.position.set(x, y, z);
       m.rotation.y = rotY;
@@ -1016,6 +1077,7 @@ export function buildVillageWorld(
         obj.matrixAutoUpdate = false;
       });
       cells.add(scene, m, 14, 25);
+      return m;
     };
 
     // Lanterns on porches & bridge posts
@@ -1026,7 +1088,7 @@ export function buildVillageWorld(
 
     // Muhtar & Abandoned House interior furniture props
     placeProp('cabinet', 1.95, muhtarPos.x - 1.6, muhtarPos.y + 0.16, muhtarPos.z - 2.35, 0, true);
-    placeProp(
+    const scannedLamp = placeProp(
       'desk_lamp',
       0.46,
       muhtarPos.x + 1.45,
@@ -1035,7 +1097,8 @@ export function buildVillageWorld(
       -0.6,
       false,
     );
-    placeProp('binder', 0.08, muhtarPos.x + 0.85, muhtarPos.y + 0.99, muhtarPos.z - 0.15, 0.2, false);
+    if (scannedLamp) muhtar.deskLampFallback.visible = false;
+    placeProp('binder', 0.34, muhtarPos.x + 1.51, muhtarPos.y + 0.986, muhtarPos.z + 0.17, 0.2, false);
     placeProp(
       'chair',
       0.88,
@@ -1045,7 +1108,7 @@ export function buildVillageWorld(
       -1.3,
       false,
     );
-    placeProp('candleholders', 0.34, gasilPos.x - 2.5, gasilPos.y + 1.08, gasilPos.z - 2.75, 0.2, false);
+    placeProp('candleholders', 0.26, gasilPos.x + 1.5, gasilPos.y + 1.06, gasilPos.z - 2.8, 0.2, false);
 
     // Barrels & Crates around Mill & Courtyard
     placeProp('barrel', 0.92, millPos.x - 2.2, millPos.y + 0.16, millPos.z - 2.1, 0.3, true);
@@ -1093,6 +1156,14 @@ export function buildVillageWorld(
     },
     npcs,
     karaBasma,
+    nightArt,
+    receiving,
+    setSignal,
+    keeper,
+    poseWatchers: (t, kara, mist) => {
+      karaBasma.pose(t, kara);
+      mistWatcher.pose(t + 0.8, mist);
+    },
     sisGozcusu,
     streetLights,
     virtualLights,
@@ -1108,6 +1179,7 @@ export function buildVillageWorld(
     applyModel,
     updateDetail: (eye, tier) => {
       cells.update(eye, tier);
+      nightArt.approach(eye);
       shellFinish?.color.setScalar(0.64 * hemiLight.intensity + 0.22 * sunKeyLight.intensity);
     },
     dispose: () => {

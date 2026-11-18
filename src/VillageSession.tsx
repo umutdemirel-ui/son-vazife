@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AutopsyWorkbench } from './components/AutopsyWorkbench';
 import { DialogueOverlay } from './components/DialogueOverlay';
 import { DeliveryRegister } from './components/DeliveryRegister';
+import { NightRecord } from './components/NightRecord';
 import { GameHud } from './components/GameHud';
 import { NotebookModal } from './components/NotebookModal';
 import { LoadingVillage } from './components/LoadingVillage';
@@ -71,6 +72,7 @@ const INITIAL_HUD: GameHudState = {
   saveNoticeText: null,
   activeDialogue: null,
   registryCaseId: null,
+  nightPage: null,
   activeAutopsyCaseId: null,
   activeAutopsyTool: 'magnifier',
   activeAutopsyCameraAngle: 'overview',
@@ -157,6 +159,17 @@ export default function VillageSession({
           dialogue={hud.activeDialogue}
           onSelectOption={(optionId: string) => engineRef.current?.selectDialogueOption(optionId)}
           onClose={() => engineRef.current?.closeDialogue()}
+        />
+      )}
+
+      {hud.screen === 'playing' && hud.nightPage && (
+        <NightRecord
+          key={hud.nightPage}
+          id={hud.nightPage}
+          filed={hud.clues.some((c) => c.id === hud.nightPage && c.discovered)}
+          onClose={() => engineRef.current?.closeNightPage()}
+          onFile={(v) => engineRef.current?.fileNightPage(v) ?? false}
+          onKey={(v) => engineRef.current?.soundNightKey(v)}
         />
       )}
 

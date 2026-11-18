@@ -70,7 +70,7 @@ export const GameHud: React.FC<GameHudProps> = ({
 
   const overlayActive =
     hud.isNotebookOpen ||
-    Boolean(hud.registryCaseId) ||
+    Boolean(hud.registryCaseId || hud.nightPage) ||
     Boolean(hud.activeDialogue) ||
     Boolean(hud.activeAutopsyCaseId);
 
@@ -149,8 +149,7 @@ export const GameHud: React.FC<GameHudProps> = ({
           className="fixed inset-0 z-10 pointer-events-none transition-opacity duration-200"
           style={{
             opacity: Math.min(0.85, hud.dangerProximity * 0.9),
-            background:
-              'radial-gradient(circle at center, transparent 42%, rgba(8, 5, 6, 0.92) 100%)',
+            background: 'radial-gradient(circle at center, transparent 42%, rgba(8, 5, 6, 0.92) 100%)',
           }}
         />
       )}
@@ -167,7 +166,7 @@ export const GameHud: React.FC<GameHudProps> = ({
       )}
 
       {/* Low-Occlusion HUD Perimeter Overlay */}
-      {hud.screen === 'playing' && !hud.activeAutopsyCaseId && !hud.registryCaseId && (
+      {hud.screen === 'playing' && !hud.activeAutopsyCaseId && !hud.registryCaseId && !hud.nightPage && (
         <div className="fixed inset-0 z-20 pointer-events-none flex flex-col justify-between p-5">
           <div className="village-hud-top">
             <section className="village-objective">
@@ -180,11 +179,7 @@ export const GameHud: React.FC<GameHudProps> = ({
               {(hud.stamina < 98 || hud.isCrouching || hud.isHiding || hud.isZooming) && (
                 <div className="village-state">
                   {hud.stamina < 98 && <span>Nefes · %{hud.stamina}</span>}
-                  {hud.isHiding ? (
-                    <span>Saklanıyorsun</span>
-                  ) : (
-                    hud.isCrouching && <span>Eğildin</span>
-                  )}
+                  {hud.isHiding ? <span>Saklanıyorsun</span> : hud.isCrouching && <span>Eğildin</span>}
                   {hud.isZooming && <span>Odaklandın</span>}
                 </div>
               )}

@@ -29,7 +29,9 @@ export class HorrorAudioEngine {
       return;
     }
 
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
 
     const ctx = new AudioCtx();
@@ -226,6 +228,29 @@ export class HorrorAudioEngine {
         bell.start(t + delay);
         bell.stop(t + delay + 0.34);
       }
+    }
+  }
+
+  public playSchoolBell(long: boolean): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const ctx = this.ctx,
+      t = ctx.currentTime,
+      end = t + (long ? 0.95 : 0.34);
+    for (const [hz, level] of [
+      [516, 0.085],
+      [1304, 0.027],
+      [1811, 0.013],
+    ]) {
+      const tone = ctx.createOscillator(),
+        gain = ctx.createGain();
+      tone.frequency.value = hz;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(level, t + 0.013);
+      gain.gain.exponentialRampToValueAtTime(0.0001, end);
+      tone.connect(gain);
+      gain.connect(this.masterGain);
+      tone.start(t);
+      tone.stop(end + 0.02);
     }
   }
 

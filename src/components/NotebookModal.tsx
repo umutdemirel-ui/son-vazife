@@ -1,3 +1,4 @@
+import { VALLEY, LANDMARKS as MAP_LANDMARKS, CORE_LANES, OUTER_LANES } from '../game/valley';
 import React, { useState } from 'react';
 import {
   AutopsyCaseId,
@@ -28,20 +29,6 @@ interface NotebookModalProps {
 
 type NotebookTab = 'rules' | 'clues' | 'autopsy' | 'glossary' | 'map';
 type GlossaryFilter = 'all' | 'anomaly' | 'superstition' | 'notes';
-
-const MAP_LANDMARKS: Array<{
-  id: DistrictId;
-  name: string;
-  sub: string;
-  x: number;
-  z: number;
-}> = [
-  { id: 'square', name: 'Köy Meydanı & Gasilhane', sub: 'Cami · Çeşme · Muhtarlık', x: 0, z: 4 },
-  { id: 'clinic', name: 'Sağlık Ocağı', sub: 'Vaka II · Şoför Mahmut', x: 26, z: -28 },
-  { id: 'mill', name: 'Eski Su Değirmeni', sub: 'Dere Köprüsü · Boğanak', x: -36, z: 8 },
-  { id: 'cemetery', name: 'Mezarlık & Taş Mahzen', sub: 'Vaka III · Mezarcı İdris', x: -34, z: -36 },
-  { id: 'crash_site', name: 'Viraj Kaza Alanı', sub: '22:40 Minibüs Enkazı', x: 28, z: 20 },
-];
 
 export const NotebookModal: React.FC<NotebookModalProps> = ({
   rules,
@@ -74,8 +61,8 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
   };
 
   // Convert world coords x:[-48..42], z:[-52..44] -> SVG 0..420 x 0..320
-  const toSvgX = (wx: number) => ((wx + 48) / 90) * 420;
-  const toSvgY = (wz: number) => ((wz + 52) / 96) * 320;
+  const toSvgX = (wx: number) => 12 + ((wx - VALLEY.x1) / (VALLEY.x2 - VALLEY.x1)) * 396;
+  const toSvgY = (wz: number) => 12 + ((wz - VALLEY.z1) / (VALLEY.z2 - VALLEY.z1)) * 296;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-[#060709]/82">
@@ -86,9 +73,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
             <p className="text-xs uppercase tracking-[0.25em] text-[#5c4730] font-semibold">
               Kuzdağ Gasilhanesi · Kayıt ve Saha Notları
             </p>
-            <h2 className="font-hand text-4xl font-bold text-[#1f160d] mt-1">
-              Gassalın Defteri
-            </h2>
+            <h2 className="font-hand text-4xl font-bold text-[#1f160d] mt-1">Gassalın Defteri</h2>
           </div>
           <button
             type="button"
@@ -138,9 +123,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                 {rules.map((rule) => (
                   <div
                     key={rule.id}
-                    className={`py-3 px-2.5 ${
-                      rule.violated ? 'bg-[#8c1d18]/12' : 'bg-transparent'
-                    }`}
+                    className={`py-3 px-2.5 ${rule.violated ? 'bg-[#8c1d18]/12' : 'bg-transparent'}`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-hand text-xl font-bold text-[#20160d]">
@@ -152,9 +135,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                         </span>
                       )}
                     </div>
-                    <p className="font-hand text-lg leading-snug text-[#342618] mt-1">
-                      {rule.text}
-                    </p>
+                    <p className="font-hand text-lg leading-snug text-[#342618] mt-1">{rule.text}</p>
                   </div>
                 ))}
               </div>
@@ -208,19 +189,12 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {discoveredClues.map((clue) => (
-                  <div
-                    key={clue.id}
-                    className="p-3.5 bg-[#ede4cf]/70 border border-[#8e7657]/55"
-                  >
+                  <div key={clue.id} className="p-3.5 bg-[#ede4cf]/70 border border-[#8e7657]/55">
                     <div className="text-xs uppercase tracking-wider text-[#6a5239] font-semibold">
                       {clue.subtitle}
                     </div>
-                    <div className="font-hand text-xl font-bold text-[#1d140b]">
-                      {clue.title}
-                    </div>
-                    <p className="font-hand text-lg leading-snug text-[#2e2115] mt-1">
-                      {clue.body}
-                    </p>
+                    <div className="font-hand text-xl font-bold text-[#1d140b]">{clue.title}</div>
+                    <p className="font-hand text-lg leading-snug text-[#2e2115] mt-1">{clue.body}</p>
                   </div>
                 ))}
               </div>
@@ -236,9 +210,9 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {(Object.keys(autopsyCases) as AutopsyCaseId[]).map((cid) => {
                 const c = autopsyCases[cid];
-                const zonesFound = (Object.values(c.zones) as Array<AutopsyCaseState['zones'][AutopsyZoneId]>).filter(
-                  (z) => z.externalFound,
-                );
+                const zonesFound = (
+                  Object.values(c.zones) as Array<AutopsyCaseState['zones'][AutopsyZoneId]>
+                ).filter((z) => z.externalFound);
                 return (
                   <div
                     key={cid}
@@ -256,7 +230,11 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                       </h4>
                       <div className="mt-2 space-y-1.5 text-xs text-[#3b2c1d]">
                         {zonesFound.length === 0 ? (
-                          <p className="italic text-[#6a5843]">{c.completionMethod === 'registry' ? 'Teslim kaydı, dosyadaki belgeler karşılaştırılarak mühürlendi.' : 'Henüz muayene yapılmadı.'}</p>
+                          <p className="italic text-[#6a5843]">
+                            {c.completionMethod === 'registry'
+                              ? 'Teslim kaydı, dosyadaki belgeler karşılaştırılarak mühürlendi.'
+                              : 'Henüz muayene yapılmadı.'}
+                          </p>
                         ) : (
                           zonesFound.map((z) => (
                             <div key={z.zone} className="border-t border-[#8c7556]/25 pt-1">
@@ -286,7 +264,8 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                   İnanışlar ve Anomaliler Sözlüğü
                 </h3>
                 <p className="text-xs text-[#574531] mt-0.5">
-                  Köy yaşlılarından duyulan batıl inanışlar, karşılaşılan anomaliler ve kendi saha notların.
+                  Köy yaşlılarından duyulan batıl inanışlar, karşılaşılan anomaliler ve kendi saha
+                  notların.
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold uppercase tracking-wider">
@@ -419,9 +398,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                                 <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-semibold">
                                   <span
                                     className={
-                                      note.category === 'anomaly'
-                                        ? 'text-[#7c1d18]'
-                                        : 'text-[#3c4d32]'
+                                      note.category === 'anomaly' ? 'text-[#7c1d18]' : 'text-[#3c4d32]'
                                     }
                                   >
                                     {note.category === 'anomaly' ? 'Anomali Notu' : 'Batıl İnanış Notu'}
@@ -453,7 +430,8 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                 {glossaryFilter !== 'notes' && (
                   <div>
                     <div className="text-xs font-display font-bold uppercase tracking-[0.16em] text-[#4b3824] mb-2">
-                      Derlenen Köy İnanışları ve Anomaliler ({unlockedGlossaryCount}/{glossaryEntries.length})
+                      Derlenen Köy İnanışları ve Anomaliler ({unlockedGlossaryCount}/
+                      {glossaryEntries.length})
                     </div>
                     <div className="divide-y divide-[#8c7556]/35 border-t border-b border-[#8c7556]/40">
                       {glossaryEntries
@@ -474,9 +452,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                             <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-wider font-semibold">
                               <span
                                 className={
-                                  entry.category === 'anomaly'
-                                    ? 'text-[#7c1d18]'
-                                    : 'text-[#435334]'
+                                  entry.category === 'anomaly' ? 'text-[#7c1d18]' : 'text-[#435334]'
                                 }
                               >
                                 {entry.category === 'anomaly' ? 'Anomali' : 'Batıl İnanış'}
@@ -527,52 +503,29 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                   strokeWidth="8"
                   opacity="0.7"
                 />
-                {/* Main north-south road */}
                 <line
                   x1={toSvgX(0)}
-                  y1={12}
+                  y1={toSvgY(-48)}
                   x2={toSvgX(0)}
-                  y2={305}
+                  y2={toSvgY(42)}
                   stroke="#745f44"
-                  strokeWidth="6"
+                  strokeWidth="3.3"
                 />
-                {/* Branch to Clinic */}
-                <line
-                  x1={toSvgX(0)}
-                  y1={toSvgY(-24)}
-                  x2={toSvgX(26)}
-                  y2={toSvgY(-28)}
-                  stroke="#745f44"
-                  strokeWidth="4.5"
-                />
-                {/* Branch to Cemetery */}
-                <line
-                  x1={toSvgX(0)}
-                  y1={toSvgY(-29)}
-                  x2={toSvgX(-34)}
-                  y2={toSvgY(-36)}
-                  stroke="#745f44"
-                  strokeWidth="4.5"
-                />
-                {/* Branch to Mill & Bridge */}
-                <line
-                  x1={toSvgX(0)}
-                  y1={toSvgY(8)}
-                  x2={toSvgX(-36)}
-                  y2={toSvgY(8)}
-                  stroke="#745f44"
-                  strokeWidth="4.5"
-                />
-                {/* Branch to Crash Site */}
-                <line
-                  x1={toSvgX(0)}
-                  y1={toSvgY(16)}
-                  x2={toSvgX(28)}
-                  y2={toSvgY(20)}
-                  stroke="#745f44"
-                  strokeWidth="4.5"
-                />
-
+                {[...CORE_LANES, ...OUTER_LANES].map(([x1, z1, x2, z2, w]) => (
+                  <line
+                    key={`${x1},${z1}:${x2},${z2}`}
+                    x1={toSvgX(x1)}
+                    y1={toSvgY(z1)}
+                    x2={toSvgX(x2)}
+                    y2={toSvgY(z2)}
+                    stroke="#745f44"
+                    strokeWidth={w * 0.72}
+                    strokeLinecap="round"
+                  />
+                ))}
+                <text x="14" y="20" fontSize="10" fontWeight="bold" fill="#3e4839">
+                  ↑ K
+                </text>
                 {/* Landmark pins */}
                 {MAP_LANDMARKS.map((lm) => {
                   const seen = discoveredDistricts.includes(lm.id);
@@ -596,7 +549,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                         fontWeight="bold"
                         fill="#1f160d"
                       >
-                        {lm.name.split('&')[0].trim()}
+                        {lm.short}
                       </text>
                     </g>
                   );
@@ -604,14 +557,20 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
 
                 {/* Live Player Marker */}
                 <g transform={`translate(${toSvgX(playerMapPos.x)}, ${toSvgY(playerMapPos.z)})`}>
-                  <circle r="6" fill="#9e241b" stroke="#f7ebd2" strokeWidth="2" />
+                  <path
+                    d="M0 -8 L5.8 5 L0 3 L-5.8 5 Z"
+                    transform={`rotate(${(-playerMapPos.yaw * 180) / Math.PI})`}
+                    fill="#9e241b"
+                    stroke="#f7ebd2"
+                    strokeWidth="1.6"
+                  />
                 </g>
               </svg>
             </div>
 
             <div className="md:col-span-2 space-y-2.5 text-xs">
               <h3 className="font-display text-sm font-bold tracking-[0.16em] uppercase text-[#4b3824] mb-2">
-                Kuzdağ 5 Bölge Krokisi
+                Kuzdağ · {MAP_LANDMARKS.length} Bölge
               </h3>
               {MAP_LANDMARKS.map((lm) => {
                 const seen = discoveredDistricts.includes(lm.id);
@@ -628,7 +587,8 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                 );
               })}
               <p className="text-[11px] text-[#5c4730] pt-1">
-                Kırmızı nokta şu anki konumunu gösterir. Batıdaki dere üzerinden ahşap köprüyle değirmene geçilir.
+                Kırmızı ok bulunduğun yeri ve baktığın yönü gösterir. Sağlık ocağından mektebe, virajdan
+                istasyona, değirmenden sırt santraline yol çıkar.
               </p>
             </div>
           </div>

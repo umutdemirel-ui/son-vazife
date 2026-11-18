@@ -1,6 +1,8 @@
+import { funeralFigure, preparationTowel } from './funerary';
+import { watcherFigure, type NightArt } from './nightArt';
 import * as THREE from 'three';
 import { bakeStaticChildrenByMaterial } from './meshBatch';
-import { VillageCraft, block, face, pitchedRoof } from './villageCraft';
+import { VillageCraft, block, face, pitchedRoof, type PlateName } from './villageCraft';
 import { AutopsyBodyRefs, createAutopsyCadaverOverlay } from './autopsy';
 import { VillageTextures } from './textures';
 
@@ -59,7 +61,11 @@ function getSharedVillageMaterials(textures: VillageTextures): SharedVillageMate
 }
 
 const lampWoodMat = new THREE.MeshStandardMaterial({ color: 0x33271e, roughness: 0.9, metalness: 0.04 });
-const lampIronMat = new THREE.MeshStandardMaterial({ color: 0x26292d, roughness: 0.45, metalness: 0.82 });
+const lampIronMat = new THREE.MeshStandardMaterial({
+  color: 0x26292d,
+  roughness: 0.45,
+  metalness: 0.82,
+});
 
 export interface GasilhaneRefs {
   group: THREE.Group;
@@ -73,7 +79,7 @@ export interface GasilhaneRefs {
   ceilingBulbMat: THREE.MeshStandardMaterial;
   porchLanternLight: THREE.PointLight;
   deceasedGroup: THREE.Group;
-  pestemalMesh: THREE.Mesh;
+  pestemalMesh: THREE.Group;
   kefenWrapGroup: THREE.Group;
   basinWaterMesh: THREE.Mesh;
 }
@@ -82,6 +88,7 @@ export interface MuhtarRefs {
   group: THREE.Group;
   doorPivot: THREE.Group;
   deskLampLight: THREE.PointLight;
+  deskLampFallback: THREE.Group;
   camphorJar: THREE.Group;
   notePaper: THREE.Group;
   crashFolder: THREE.Group;
@@ -189,9 +196,17 @@ export function createCopperEwerAndSoap(
     const spout = new THREE.Mesh(new THREE.TubeGeometry(spoutCurve, 10, 0.014, 8, false), copper);
     g.add(spout);
   } else if (type === 'sabun') {
-    const dishMat = new THREE.MeshStandardMaterial({ color: 0x6f553c, roughness: 0.82, metalness: 0.05 });
+    const dishMat = new THREE.MeshStandardMaterial({
+      color: 0x6f553c,
+      roughness: 0.82,
+      metalness: 0.05,
+    });
     const soapMat = new THREE.MeshStandardMaterial({ color: 0xc4b98f, roughness: 0.52, metalness: 0.0 });
-    const loofahMat = new THREE.MeshStandardMaterial({ color: 0x9b8257, roughness: 0.96, metalness: 0.0 });
+    const loofahMat = new THREE.MeshStandardMaterial({
+      color: 0x9b8257,
+      roughness: 0.96,
+      metalness: 0.0,
+    });
 
     const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.13, 0.04, 14), dishMat);
     dish.position.y = 0.02;
@@ -202,7 +217,11 @@ export function createCopperEwerAndSoap(
     lif.position.set(0.05, 0.06, 0.03);
     g.add(dish, soap, lif);
   } else if (type === 'kefen') {
-    const clothMat = new THREE.MeshStandardMaterial({ color: 0xeae5da, roughness: 0.88, metalness: 0.0 });
+    const clothMat = new THREE.MeshStandardMaterial({
+      color: 0xeae5da,
+      roughness: 0.88,
+      metalness: 0.0,
+    });
     const cordMat = new THREE.MeshStandardMaterial({ color: 0xb9aa90, roughness: 0.9, metalness: 0.0 });
 
     const bundle1 = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.12, 0.34), clothMat);
@@ -214,9 +233,21 @@ export function createCopperEwerAndSoap(
     tie.position.y = 0.105;
     g.add(bundle1, bundle2, tie);
   } else if (type === 'defter') {
-    const coverMat = new THREE.MeshStandardMaterial({ color: 0x3a2419, roughness: 0.78, metalness: 0.08 });
-    const pagesMat = new THREE.MeshStandardMaterial({ color: 0xd8ccb2, roughness: 0.92, metalness: 0.0 });
-    const brassCorner = new THREE.MeshStandardMaterial({ color: 0xa4803d, roughness: 0.35, metalness: 0.85 });
+    const coverMat = new THREE.MeshStandardMaterial({
+      color: 0x3a2419,
+      roughness: 0.78,
+      metalness: 0.08,
+    });
+    const pagesMat = new THREE.MeshStandardMaterial({
+      color: 0xd8ccb2,
+      roughness: 0.92,
+      metalness: 0.0,
+    });
+    const brassCorner = new THREE.MeshStandardMaterial({
+      color: 0xa4803d,
+      roughness: 0.35,
+      metalness: 0.85,
+    });
 
     const cover = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.035, 0.36), coverMat);
     cover.position.y = 0.018;
@@ -233,7 +264,11 @@ export function createCopperEwerAndSoap(
       transparent: true,
       opacity: 0.72,
     });
-    const powderMat = new THREE.MeshStandardMaterial({ color: 0xf4f2ec, roughness: 0.9, metalness: 0.0 });
+    const powderMat = new THREE.MeshStandardMaterial({
+      color: 0xf4f2ec,
+      roughness: 0.9,
+      metalness: 0.0,
+    });
     const corkMat = new THREE.MeshStandardMaterial({ color: 0x745438, roughness: 0.88, metalness: 0.0 });
 
     const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.09, 0.2, 14), glassMat);
@@ -408,7 +443,11 @@ export function createAbandonedHouse(
   };
 }
 
-export function createStreetLamp(): { group: THREE.Group; light: THREE.PointLight; bulbMat: THREE.MeshStandardMaterial } {
+export function createStreetLamp(): {
+  group: THREE.Group;
+  light: THREE.PointLight;
+  bulbMat: THREE.MeshStandardMaterial;
+} {
   const g = new THREE.Group();
   const bulbMat = new THREE.MeshStandardMaterial({
     color: 0xffd79a,
@@ -444,7 +483,11 @@ export function createStreetLamp(): { group: THREE.Group; light: THREE.PointLigh
   return { group: g, light, bulbMat };
 }
 
-export function createMosqueAndGasilhane(textures: VillageTextures, craft: VillageCraft): GasilhaneRefs {
+export function createMosqueAndGasilhane(
+  textures: VillageTextures,
+  craft: VillageCraft,
+  art: NightArt,
+): GasilhaneRefs {
   const root = new THREE.Group();
 
   const stoneMat = new THREE.MeshStandardMaterial({
@@ -657,7 +700,13 @@ export function createMosqueAndGasilhane(textures: VillageTextures, craft: Villa
   const shTorso = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.34, 1.2, 8), shadowMat);
   const shHead = new THREE.Mesh(new THREE.SphereGeometry(0.21, 10, 10), shadowMat);
   shHead.position.y = 0.78;
-  windowShadowFigure.add(shTorso, shHead);
+  const shadowFallback = new THREE.Group();
+  shadowFallback.add(shTorso, shHead);
+  shadowFallback.position.y = 1.45;
+  const watcher = watcherFigure(art, 'sis-gozcusu', shadowFallback).root;
+  watcher.rotation.y = Math.PI / 2;
+  watcher.position.y = -1.25;
+  windowShadowFigure.add(watcher);
   windowShadowFigure.visible = false;
   gasilGroup.add(windowShadowFigure);
 
@@ -676,11 +725,48 @@ export function createMosqueAndGasilhane(textures: VillageTextures, craft: Villa
   drainGroup.add(drainRim, drainHole, grateBar1, grateBar2);
   gasilGroup.add(drainGroup);
 
-  const cab1 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.1, 0.52), timberMat);
-  cab1.position.set(-1.5, 2.35, -rd / 2 + 0.38);
-  const cab2 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 0.58), timberMat);
-  cab2.position.set(1.5, 0.61, -rd / 2 + 0.42);
-  gasilGroup.add(cab1, cab2);
+  // Cupboards with actual inset doors. The row of candleholders sits on the LOW cabinet.
+  for (const [x, y, w, h, depth] of [
+    [-1.5, 2.35, 1.8, 1.1, 0.48],
+    [1.5, 0.61, 1.8, 0.9, 0.56],
+  ]) {
+    const z = -rd / 2 + 0.4;
+    block(gasilGroup, craft.shutters[0], w, h, depth, x, y, z, 1.2);
+    for (const side of [-1, 1]) {
+      block(
+        gasilGroup,
+        craft.wood,
+        w * 0.477,
+        h - 0.052,
+        0.029,
+        x + side * w * 0.25,
+        y,
+        z + depth / 2 + 0.013,
+        1.15,
+      );
+      block(
+        gasilGroup,
+        craft.shutters[0],
+        w * 0.399,
+        h - 0.155,
+        0.022,
+        x + side * w * 0.25,
+        y,
+        z + depth / 2 + 0.032,
+        1.28,
+      );
+      block(
+        gasilGroup,
+        craft.metal,
+        0.031,
+        0.096,
+        0.034,
+        x + side * 0.082,
+        y - 0.068,
+        z + depth / 2 + 0.055,
+      );
+    }
+  }
 
   // Marble Teneşir Slab
   const tenesir = new THREE.Group();
@@ -695,58 +781,13 @@ export function createMosqueAndGasilhane(textures: VillageTextures, craft: Villa
   slab.castShadow = true;
   slab.receiveShadow = true;
 
-  const headRest = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.09, 0.56), marbleMat);
-  headRest.position.set(-0.88, 0.9, 0);
-  tenesir.add(ped1, ped2, slab, headRest);
-
+  tenesir.add(ped1, ped2, slab);
   const deceasedGroup = new THREE.Group();
-  deceasedGroup.position.set(0, 0.87, 0);
-
-  const clothBaseMat = new THREE.MeshStandardMaterial({
-    color: 0xc8c3b8,
-    roughness: 0.88,
-    metalness: 0.0,
-  });
-  const pestemalMat = new THREE.MeshStandardMaterial({
-    color: 0xe6e1d4,
-    roughness: 0.84,
-    metalness: 0.0,
-  });
-  const kefenMat = new THREE.MeshStandardMaterial({ color: 0xf2eee6, roughness: 0.86, metalness: 0.0 });
-
-  const bodyCore = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.22, 0.44), clothBaseMat);
-  bodyCore.position.set(0.08, 0.11, 0);
-  bodyCore.castShadow = true;
-  const shoulderContour = new THREE.Mesh(new THREE.CylinderGeometry(0.21, 0.24, 0.56, 12), clothBaseMat);
-  shoulderContour.rotation.x = Math.PI / 2;
-  shoulderContour.position.set(-0.46, 0.14, 0);
-  const headContour = new THREE.Mesh(new THREE.SphereGeometry(0.145, 14, 12), clothBaseMat);
-  headContour.scale.set(1.15, 0.85, 0.92);
-  headContour.position.set(-0.86, 0.15, 0);
-  const feetContour = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.34), clothBaseMat);
-  feetContour.position.set(0.84, 0.12, 0);
-  deceasedGroup.add(bodyCore, shoulderContour, headContour, feetContour);
-
-  const pestemalMesh = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.25, 0.5), pestemalMat);
-  pestemalMesh.position.set(0.08, 0.125, 0);
-  pestemalMesh.visible = false;
-  deceasedGroup.add(pestemalMesh);
-
-  const kefenWrapGroup = new THREE.Group();
-  const kefenBody = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 1.48, 8, 16), kefenMat);
-  kefenBody.rotation.z = Math.PI / 2;
-  kefenBody.scale.set(0.75, 1.0, 1.08);
-  kefenBody.position.set(0, 0.17, 0);
-  kefenWrapGroup.add(kefenBody);
-
-  [-0.95, 0.05, 0.95].forEach((bx) => {
-    const knot = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.022, 8, 16), kefenMat);
-    knot.rotation.y = Math.PI / 2;
-    knot.position.set(bx, 0.17, 0);
-    kefenWrapGroup.add(knot);
-  });
-  kefenWrapGroup.visible = false;
-  deceasedGroup.add(kefenWrapGroup);
+  deceasedGroup.position.set(0, 0.862, 0);
+  const pestemalMesh = preparationTowel(art);
+  const kefenWrapGroup = funeralFigure(art, 'yolcu', false);
+  pestemalMesh.visible = kefenWrapGroup.visible = false;
+  deceasedGroup.add(pestemalMesh, kefenWrapGroup);
   tenesir.add(deceasedGroup);
 
   const basinGroup = new THREE.Group();
@@ -1002,7 +1043,9 @@ export function createMuhtarHouse(textures: VillageTextures, craft: VillageCraft
   lampShade.position.set(1.4, 1.44, -0.95);
   const deskLampLight = new THREE.PointLight(0xffad58, 4.8, 9.5, 1.6);
   deskLampLight.position.set(1.3, 1.32, -0.95);
-  g.add(lampStand, lampShade, deskLampLight);
+  const deskLampFallback = new THREE.Group();
+  deskLampFallback.add(lampStand, lampShade);
+  g.add(deskLampFallback, deskLampLight);
 
   const notePaper = new THREE.Group();
   notePaper.position.set(0.98, 0.99, 0.12);
@@ -1052,6 +1095,7 @@ export function createMuhtarHouse(textures: VillageTextures, craft: VillageCraft
     new Set<THREE.Object3D>([
       doorPivot,
       deskLampLight,
+      deskLampFallback,
       camphorJar,
       notePaper,
       crashFolder,
@@ -1063,6 +1107,7 @@ export function createMuhtarHouse(textures: VillageTextures, craft: VillageCraft
     group: g,
     doorPivot,
     deskLampLight,
+    deskLampFallback,
     camphorJar,
     notePaper,
     crashFolder,
@@ -1317,7 +1362,11 @@ export interface ClinicRefs {
   autopsyBody: AutopsyBodyRefs;
 }
 
-export function createClinicBuilding(textures: VillageTextures, craft: VillageCraft): ClinicRefs {
+export function createClinicBuilding(
+  textures: VillageTextures,
+  craft: VillageCraft,
+  art: NightArt,
+): ClinicRefs {
   const g = new THREE.Group();
   const plasterMat = new THREE.MeshStandardMaterial({
     map: textures.plaster,
@@ -1407,8 +1456,8 @@ export function createClinicBuilding(textures: VillageTextures, craft: VillageCr
   tableTop.receiveShadow = true;
   g.add(tableBase, tableTop);
 
-  const autopsyBody = createAutopsyCadaverOverlay('case_mahmut', 0x9aa09a, 0x2a313a, -0.83);
-  autopsyBody.group.position.set(0.4, 0.99, 0);
+  const autopsyBody = createAutopsyCadaverOverlay('case_mahmut', art, -0.822);
+  autopsyBody.group.position.set(0.4, 0.982, 0);
   g.add(autopsyBody.group);
 
   // Overhead cold clinical exam lamp
@@ -1424,6 +1473,17 @@ export function createClinicBuilding(textures: VillageTextures, craft: VillageCr
   const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.35, 0.48), steelMat);
   shelf.position.set(0.5, 0.84, -rd / 2 + 0.42);
   g.add(shelf);
+  const enamel = new THREE.MeshStandardMaterial({ color: 0x626e66, roughness: 0.62, metalness: 0.2 });
+  const labelStock = new THREE.MeshStandardMaterial({ color: 0xe5d4b4, roughness: 0.92 });
+  for (const side of [-1, 1]) {
+    const sx = 0.5 + side * 0.515;
+    block(g, enamel, 0.96, 1.25, 0.036, sx, 0.84, -rd / 2 + 0.672);
+    block(g, craft.metal, 0.22, 0.1, 0.023, sx, 1.16, -rd / 2 + 0.697);
+    block(g, labelStock, 0.184, 0.076, 0.012, sx, 1.16, -rd / 2 + 0.713);
+    for (let i = 0; i < 4; i++)
+      block(g, steelMat, 0.51, 0.019, 0.019, sx, 0.59 + i * 0.057, -rd / 2 + 0.695);
+    block(g, craft.metal, 0.04, 0.13, 0.041, 0.5 + side * 0.116, 0.57, -rd / 2 + 0.712);
+  }
 
   bakeStaticChildrenByMaterial(g, new Set<THREE.Object3D>([doorPivot, examLight, autopsyBody.group]));
 
@@ -1588,7 +1648,7 @@ export interface CemeteryCryptRefs {
   vaultLight: THREE.PointLight;
 }
 
-export function createCemeteryHillAndCrypt(textures: VillageTextures): CemeteryCryptRefs {
+export function createCemeteryHillAndCrypt(textures: VillageTextures, art: NightArt): CemeteryCryptRefs {
   const group = new THREE.Group();
   const stoneMat = new THREE.MeshStandardMaterial({
     map: textures.stone,
@@ -1678,8 +1738,8 @@ export function createCemeteryHillAndCrypt(textures: VillageTextures): CemeteryC
   slab.position.set(0, 0.53, -0.35);
   crypt.add(slab);
 
-  const autopsyBody = createAutopsyCadaverOverlay('case_unknown', 0x8f98a0, 0x202229, -0.8);
-  autopsyBody.group.position.set(0, 0.94, -0.35);
+  const autopsyBody = createAutopsyCadaverOverlay('case_unknown', art, -0.782);
+  autopsyBody.group.position.set(0, 0.922, -0.35);
   crypt.add(autopsyBody.group);
 
   const vaultLight = new THREE.PointLight(0xa5c3d4, 3.6, 8.5, 1.5);
@@ -1776,11 +1836,11 @@ export function createWreckedMinibus(textures: VillageTextures): WreckedMinibusR
   return { group, hazardLight, manifestPaper };
 }
 
-export function createDistrictSignpost(craft: VillageCraft, inscription: '←  DEĞİRMEN' | 'MEZARLIK  ←' | 'ÇEŞME  →' | 'SAĞLIK OCAĞI'): THREE.Group {
+export function createDistrictSignpost(craft: VillageCraft, inscription: PlateName): THREE.Group {
   const g = new THREE.Group();
-  block(g, craft.wood, .12, 1.90, .14, 0, .90, 0);
-  block(g, craft.wood, 1.17, .31, .06, .12, 1.66, .07);
-  craft.plate(g, inscription, 1.14, .28, .12, 1.66, .105);
+  block(g, craft.wood, 0.12, 1.9, 0.14, 0, 0.9, 0);
+  block(g, craft.wood, 1.17, 0.31, 0.06, 0.12, 1.66, 0.07);
+  craft.plate(g, inscription, 1.14, 0.28, 0.12, 1.66, 0.105);
   bakeStaticChildrenByMaterial(g);
   return g;
 }
@@ -1808,4 +1868,3 @@ export function createSisGozcusu(): THREE.Group {
   root.add(veil, head, eyeL, eyeR);
   return root;
 }
-

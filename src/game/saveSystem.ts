@@ -11,6 +11,9 @@ const SAVE_STORAGE_KEY = 'son_vazife_save_v2';
 
 export interface SaveGamePayload {
   version: 2;
+  finalCall?: 'report' | 'farewell';
+  windowActive?: boolean;
+  windowResolved?: boolean;
   savedAt: string;
   act: GameAct;
   playerPos: { x: number; z: number; yaw: number; pitch: number };
@@ -66,7 +69,14 @@ export function readAutoSave(): SaveGamePayload | null {
     const raw = window.localStorage.getItem(SAVE_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<SaveGamePayload>;
-    if (parsed.version !== 2 || typeof parsed.act !== 'number' || !parsed.playerPos) {
+    if (
+      parsed.version !== 2 ||
+      typeof parsed.act !== 'number' ||
+      !Number.isInteger(parsed.act) ||
+      parsed.act < 1 ||
+      parsed.act > 8 ||
+      !parsed.playerPos
+    ) {
       return null;
     }
     return parsed as SaveGamePayload;

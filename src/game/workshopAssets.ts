@@ -32,7 +32,7 @@ export function workshopManifest(profile: Allocation): { id: ModelId; url: strin
 }
 
 /** Each template owns its geometry, material and bitmap; instances never own the atlas. */
-function releaseTemplate(root: THREE.Object3D) {
+export function releaseTemplate(root: THREE.Object3D) {
   const geos = new Set<THREE.BufferGeometry>(),
     mats = new Set<THREE.Material>(),
     textures = new Set<THREE.Texture>(),
@@ -88,14 +88,25 @@ export class WorkshopAssets {
   node(id: KitId, part: string = id) {
     return this.models.get(id)?.getObjectByName(part)?.clone() ?? null;
   }
-  dressing(id: DressingId, height: number, casts: boolean) {
+  dressing(id: DressingId, size: number, casts: boolean) {
     const source = this.models.get(id);
     if (!source) return null;
-    const obj = source.clone(true),
+    const obj = new THREE.Group(),
       group = new THREE.Group();
+    // Some scans are catalogues of alternatives. Place one ledger, not the open AND closed sample.
+    obj.add(
+      (id === 'binder' ? (source.getObjectByName('binder_notebook_closed') ?? source) : source).clone(
+        true,
+      ),
+    );
     const box = new THREE.Box3().setFromObject(obj),
       center = box.getCenter(new THREE.Vector3());
-    const scale = height / Math.max(0.01, box.max.y - box.min.y);
+    const extent = box.getSize(new THREE.Vector3());
+    // The cemetery scan is a FALLEN log (3.05 m long, only 0.29 m high). Fitting it to
+    // standing-tree height made a 46 m trunk pass through the crypt and the examination camera.
+    const span =
+      id === 'dead_tree' || id === 'binder' ? Math.max(extent.x, extent.y, extent.z) : extent.y;
+    const scale = size / Math.max(0.01, span);
     obj.scale.setScalar(scale);
     obj.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
     obj.traverse((o) => {

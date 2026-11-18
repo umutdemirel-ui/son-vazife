@@ -1857,3 +1857,136 @@
     padding: 10px 0;
   }
 }
+
+/* Field notebook and listening instruments; still usable without sound or pointer lock. */
+.night-record {
+  display: grid;
+  grid-template-columns: 1.12fr 1fr;
+  gap: clamp(1.1rem, 3vw, 2rem);
+  align-items: start;
+}
+.night-leaf {
+  padding: clamp(1rem, 2.2vw, 1.6rem);
+  background: linear-gradient(108deg, #d1c5a9, #e3d8bd 45%, #d7ccb1);
+  color: #322e25;
+  border-left: 4px solid #786345;
+  box-shadow: 0 2px 8px #0003;
+}
+.night-running,
+.night-leaf footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font:
+    600 0.6rem/1.4 ui-monospace,
+    monospace;
+  letter-spacing: 0.08em;
+}
+.night-running {
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid #8b8069;
+  margin-bottom: 1.1rem;
+}
+.night-leaf svg {
+  color: #675e49;
+}
+.night-leaf h3,
+.night-console h3 {
+  font:
+    600 1.3rem/1.2 Georgia,
+    serif;
+  margin: 0.65rem 0;
+}
+.night-leaf p {
+  font:
+    1rem/1.55 Georgia,
+    serif;
+  margin: 1rem 0 1.3rem;
+}
+.night-leaf footer {
+  padding-top: 0.6rem;
+  border-top: 1px solid #a59a81;
+  color: #615844;
+}
+.night-console {
+  display: grid;
+  gap: 0.65rem;
+}
+.night-console h3 {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.night-console p:not(.panel-index) {
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+.night-console button:disabled {
+  opacity: 0.47;
+  cursor: not-allowed;
+}
+.night-choices {
+  display: grid;
+  gap: 0.36rem;
+}
+.night-choices.sequence,
+.night-slots {
+  display: flex;
+  gap: 0.4rem;
+}
+.night-choices button,
+.night-slots span {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid #8d82643d;
+  padding: 0.57rem 0.7rem;
+  font-size: 0.83rem;
+  text-align: left;
+}
+.night-choices button {
+  color: inherit;
+  background: #80745c15;
+  cursor: pointer;
+}
+.night-choices button:is(:hover, :focus-visible, [aria-pressed="true"]) {
+  border-color: #b39f71;
+  background: #99845c30;
+}
+.night-choices button span {
+  font: 0.66rem monospace;
+  opacity: 0.63;
+}
+.night-slots span {
+  justify-content: center;
+  flex: 1;
+  color: #b5ab93;
+  background: #37352d;
+  border-bottom: 2px solid #7d755e;
+  font: 1rem monospace;
+}
+.night-slots .filled {
+  color: #f1dda8;
+  border-bottom-color: #baa069;
+}
+.night-console .night-error {
+  color: #cc8467;
+}
+.night-console .text-action {
+  justify-self: start;
+}
+@media (max-width: 640px) {
+  .night-record {
+    grid-template-columns: 1fr;
+  }
+  .night-leaf svg,
+  .night-leaf footer {
+    display: none;
+  }
+  .night-leaf p {
+    margin: 0.6rem 0;
+  }
+  .night-running {
+    margin-bottom: 0.45rem;
+  }
+}

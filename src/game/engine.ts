@@ -1,3 +1,16 @@
+import {
+  FIELD_NOTES,
+  nightStealthPrompt,
+  correctPage,
+  isNightId,
+  nextNightPage,
+  nightAct,
+  NIGHT_TITLES,
+  PAGES,
+  type NightId,
+} from './nightWatch';
+import { districtAt, insideOutpost, OUTPOSTS, VALLEY } from './valley';
+import { NightPatrol } from './nightPatrol';
 import * as THREE from 'three';
 import { HorrorAudioEngine } from './audio';
 import {
@@ -20,18 +33,9 @@ import {
 } from './quality';
 import { DreadLevelListener, SpatialDreadTrigger } from './dreadListener';
 import { createHandCandle, HandCandleRefs } from './models';
-import {
-  filterDialogueOptions,
-  updateNpcActorPatrol,
-  VILLAGE_NPCS,
-} from './npcs';
+import { filterDialogueOptions, updateNpcActorPatrol, VILLAGE_NPCS } from './npcs';
 import type { PostProcessingRig } from './postprocessing';
-import {
-  getAutoSaveSummary,
-  readAutoSave,
-  SaveGamePayload,
-  writeAutoSave,
-} from './saveSystem';
+import { getAutoSaveSummary, readAutoSave, SaveGamePayload, writeAutoSave } from './saveSystem';
 import { exteriorFloorAt, groundHeightAt } from './terrain';
 import { DELIVERY_FILES, validDelivery } from './registry';
 import { readControls, readMuted, storeControls, storeMuted } from './preferences';
@@ -102,9 +106,7 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
         'Gasilhanenin soğuk duvarlarından fısıltılar yükseliyor...',
         'Mermer taşın arkasından kısık bir nefes duyuldu...',
       ],
-      floorboard_creak: [
-        'Tavandaki eski ahşap kirişler ağır bir yükle inledi...',
-      ],
+      floorboard_creak: ['Tavandaki eski ahşap kirişler ağır bir yükle inledi...'],
     },
   },
   {
@@ -123,9 +125,7 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
         'Çürümüş döşeme tahtaları sanki birinin ağırlığıyla gıcırdadı...',
         'Arka köşedeki bir tahta kendi kendine esnedi...',
       ],
-      whisper: [
-        'Karanlık odanın köşesinden boğuk bir fısıltı yükseldi...',
-      ],
+      whisper: ['Karanlık odanın köşesinden boğuk bir fısıltı yükseldi...'],
     },
   },
   {
@@ -140,12 +140,8 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
     cooldownSec: 18,
     hallucinations: ['floorboard_creak', 'whisper'],
     captions: {
-      floorboard_creak: [
-        'Arka odanın ahşap tabanı yavaşça gıcırdadı...',
-      ],
-      whisper: [
-        'Dolabın ardından adını fısıldayan bir ses duydun...',
-      ],
+      floorboard_creak: ['Arka odanın ahşap tabanı yavaşça gıcırdadı...'],
+      whisper: ['Dolabın ardından adını fısıldayan bir ses duydun...'],
     },
   },
   {
@@ -178,12 +174,8 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
     cooldownSec: 16,
     hallucinations: ['floorboard_creak', 'whisper'],
     captions: {
-      floorboard_creak: [
-        'Çark uğultusunun altında tahta kirişler inledi...',
-      ],
-      whisper: [
-        'Su sesinin içine karışan soğuk bir fısıltı duydun...',
-      ],
+      floorboard_creak: ['Çark uğultusunun altında tahta kirişler inledi...'],
+      whisper: ['Su sesinin içine karışan soğuk bir fısıltı duydun...'],
     },
   },
   {
@@ -215,9 +207,7 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
     cooldownSec: 17,
     hallucinations: ['floorboard_creak'],
     captions: {
-      floorboard_creak: [
-        'Köprü kalasları tam arkanda ağır bir adımla gıcırdadı...',
-      ],
+      floorboard_creak: ['Köprü kalasları tam arkanda ağır bir adımla gıcırdadı...'],
     },
   },
 ];
@@ -347,7 +337,7 @@ export class SonVazifeEngine {
   private emaFrameMs = 16.7;
   private qualityEvalTimer = 0;
   private fastWindows = 0;
-  private autoCeiling:RenderTier='high';
+  private autoCeiling: RenderTier = 'high';
   private shadowFrameCounter = 0;
   private shadowRefreshStride = 3;
   private lightCullDistSq = 21 * 21;
@@ -380,8 +370,10 @@ export class SonVazifeEngine {
   private leftGasilWithoutVigilFlagged = false;
   private stormFlashIntensity = 0;
   private nextThunderTime = 14;
-  private karaPatrolT = 0;
-  private sisPatrolT = 0;
+  private readonly karaPatrol = new NightPatrol(0);
+  private readonly mistPatrol = new NightPatrol(1);
+  private nightPage: NightId | null = null;
+  private finalCall: 'report' | 'farewell' | undefined;
   private karaCatchCooldown = 0;
   private caughtCount = 0;
   private endingReason = '';
@@ -408,11 +400,38 @@ export class SonVazifeEngine {
   }
 
   private setupDreadListener(): void {
-    this.dreadListener.registerTriggers(SPATIAL_DREAD_TRIGGERS);
+    const traces: SpatialDreadTrigger[] = (['school', 'station', 'exchange'] as const).map((id, i) => {
+      const b = OUTPOSTS[id];
+      return {
+        id: `outer_${id}`,
+        zoneName: b.name,
+        centerX: b.x,
+        centerZ: b.z,
+        radius: b.w / 2,
+        bounds: { minX: b.x - b.w / 2, maxX: b.x + b.w / 2, minZ: b.z - b.d / 2, maxZ: b.z + b.d / 2 },
+        hallucinations: i === 0 ? ['floorboard_creak'] : ['whisper'],
+        dreadThreshold: 45,
+        minStationarySec: 2.5,
+        cooldownSec: 26,
+        captions:
+          i === 0
+            ? {
+                floorboard_creak: ['Arka sıradan bir sandalye çekildi. Sınıfta senden başka kimse yok.'],
+              }
+            : {
+                whisper: [
+                  i === 1
+                    ? 'Hat boş. Yine de hoparlörden bir sonraki yolcunun adı okunuyor.'
+                    : 'Sökülmüş abone kordonundan bir kadın “buradayım” dedi.',
+                ],
+              },
+      };
+    });
+    this.dreadListener.registerTriggers([...SPATIAL_DREAD_TRIGGERS, ...traces]);
     this.dreadListener.subscribe((event) => {
       if (event.type === 'whisper') {
         this.audio.playWhisper(0.85);
-        this.unlockGlossaryEntry('anom_window');
+        if (event.triggerId === 'gasilhane_hall') this.unlockGlossaryEntry('anom_window');
       } else {
         this.audio.playFloorboardCreak(0.95);
       }
@@ -457,7 +476,7 @@ export class SonVazifeEngine {
     const preset = this.controlSettings.graphicsQuality;
     if (preset === 'auto') {
       this.qualityEvalTimer = 0;
-      this.applyGraphicsQuality(capTier(this.resolvedQualityTier,this.autoCeiling));
+      this.applyGraphicsQuality(capTier(this.resolvedQualityTier, this.autoCeiling));
     } else {
       this.applyGraphicsQuality(preset);
     }
@@ -611,7 +630,8 @@ export class SonVazifeEngine {
       this.isNotebookOpen ||
       this.activeDialogueNpcId !== null ||
       this.activeAutopsyCaseId !== null ||
-      this.registryCaseId !== null
+      this.registryCaseId !== null ||
+      this.nightPage !== null
     );
   }
 
@@ -698,8 +718,10 @@ export class SonVazifeEngine {
     this.leftGasilWithoutVigilFlagged = false;
     this.stormFlashIntensity = 0;
     this.nextThunderTime = 12;
-    this.karaPatrolT = 0;
-    this.sisPatrolT = 0;
+    this.karaPatrol.reset();
+    this.mistPatrol.reset();
+    this.nightPage = null;
+    this.finalCall = undefined;
     this.karaCatchCooldown = 0;
     this.caughtCount = 0;
     this.endingReason = '';
@@ -759,7 +781,7 @@ export class SonVazifeEngine {
     })();
 
     this.isSoftwareGl = hardwareProfile.softwareGl;
-    this.autoCeiling=hardwareProfile.veryWeak ? 'minimum' : hardwareProfile.lowEnd ? 'low' : 'high';
+    this.autoCeiling = hardwareProfile.veryWeak ? 'minimum' : hardwareProfile.lowEnd ? 'low' : 'high';
 
     this.resolvedQualityTier = startingTier(
       this.controlSettings.graphicsQuality,
@@ -845,21 +867,28 @@ export class SonVazifeEngine {
       mesh.visible = item ? !item.collected : true;
     });
 
+    // Only the active examination aid belongs in the rendered image; ray layers stay separate from E.
+    this.camera.layers.disable(AUTOPSY_LAYER);
+    this.camera.layers.disable(AUTOPSY_ANOMALY_LAYER);
+    if (this.activeAutopsyCaseId)
+      this.camera.layers.enable(
+        this.activeAutopsyTool === 'camera' ? AUTOPSY_ANOMALY_LAYER : AUTOPSY_LAYER,
+      );
     const inspectArif = this.activeAutopsyCaseId === 'case_arif';
-    const showArifForensic = inspectArif;
+    const movedMahmut = this.act >= 4 && this.autopsyCases.case_mahmut.completed;
+    const movedYolcu = this.act >= 6 && this.autopsyCases.case_unknown.completed;
 
-    // Toggle Gasilhane cloth vs forensic overlay cleanly
-    this.world.gasil.deceasedGroup.children.forEach((child) => {
-      if (child === this.world.gasilAutopsy.group) {
-        child.visible = showArifForensic;
-      } else if (child === this.world.gasil.pestemalMesh) {
-        child.visible = !inspectArif && this.stepPrepDone && !this.stepShroudDone;
-      } else if (child === this.world.gasil.kefenWrapGroup) {
-        child.visible = !inspectArif && this.stepShroudDone;
-      } else {
-        child.visible = !showArifForensic;
-      }
-    });
+    this.world.gasil.pestemalMesh.visible = !inspectArif && this.stepPrepDone && !this.stepShroudDone;
+    this.world.gasil.kefenWrapGroup.visible = !inspectArif && this.stepShroudDone;
+    this.world.receiving.mahmut.visible = movedMahmut;
+    this.world.receiving.yolcu.visible = movedYolcu;
+    if (movedMahmut) void this.world.nightArt.request('mahmut');
+    if (this.stepShroudDone || movedYolcu) void this.world.nightArt.request('yolcu');
+    if (this.act >= 2) void this.world.nightArt.request('sis-gozcusu');
+    if (this.act >= 3) void this.world.nightArt.request('karabasma');
+    const signal = this.hasEntry('night_signal');
+    this.world.setSignal(signal);
+    this.world.keeper.setStage(this.act === 7, signal);
 
     this.world.gasil.basinWaterMesh.visible = this.stepPrepDone && !this.dirtyBasinDrained;
     this.world.gasil.vigilFlame.visible = this.vigilLit;
@@ -877,7 +906,11 @@ export class SonVazifeEngine {
       const st = this.autopsyCases[cid];
       const isInspecting = this.activeAutopsyCaseId === cid;
 
-      body.drapeMesh.visible = !isInspecting;
+      // The table at the old scene is empty after transfer. Explicit forensic review is a reconstruction.
+      body.group.visible =
+        isInspecting ||
+        !(cid === 'case_arif' ? this.stepShroudDone : cid === 'case_mahmut' ? movedMahmut : movedYolcu);
+      for (const marker of Object.values(body.anomalyMarkers)) marker.visible = isInspecting;
       body.incisionGroup.visible = isInspecting && st.zones.chest.incised;
       body.neckIncision.visible = isInspecting && st.zones.neck.incised;
       if (body.sampleNodes.chest) {
@@ -997,6 +1030,11 @@ export class SonVazifeEngine {
       r.violated = ruleSet.has(r.id);
     });
     const clueSet = new Set(save.cluesDiscovered || []);
+    if (clueSet.has('night_call') && (save.finalCall === 'report' || save.finalCall === 'farewell')) {
+      this.finalCall = save.finalCall;
+    } else {
+      clueSet.delete('night_call'); // An incomplete checkpoint can always reopen the last decision.
+    }
     this.clues.forEach((c) => {
       c.discovered = clueSet.has(c.id);
     });
@@ -1021,6 +1059,13 @@ export class SonVazifeEngine {
       this.stepDryDone = Boolean(save.ritual.dry);
       this.stepShroudDone = Boolean(save.ritual.shroud);
     }
+    this.windowAnomalyResolved = save.windowResolved ?? (this.shutterClosed && this.stepWashDone);
+    this.windowAnomalyActive =
+      save.windowActive ?? (this.stepWashDone && !this.dirtyBasinDrained && !this.shutterClosed);
+    this.leftGasilWithoutVigilFlagged = this.rules.find((r) => r.id === 'rule_alone')?.violated ?? false;
+    // A v2 save at the old final knot continues at the first unfiled night record, never resets.
+    if (this.stepShroudDone || this.act >= 6) this.act = nightAct((id) => this.hasEntry(id));
+    if (this.act >= 4) this.clues.find((c) => c.id === 'clue_kenan_confession')!.discovered = true;
     if (save.autopsyCases) {
       const defaults = createInitialAutopsyCases();
       (Object.keys(defaults) as AutopsyCaseId[]).forEach((cid) => {
@@ -1070,6 +1115,10 @@ export class SonVazifeEngine {
     this.camera.position.set(this.playerPos.x, this.playerPos.y + PLAYER_EYE_HEIGHT, this.playerPos.z);
     this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
     this.screen = 'playing';
+    if (this.finalCall && this.hasEntry('night_call')) {
+      this.triggerEnding();
+      return;
+    }
     this.showCaption('Kaldığın yerden devam ediliyor...', 3.8);
     this.requestPointerLockSafe();
     this.pushHudState(true);
@@ -1086,6 +1135,9 @@ export class SonVazifeEngine {
     const meta = this.getObjectiveText();
     const payload: SaveGamePayload = {
       version: 2,
+      finalCall: this.finalCall,
+      windowActive: this.windowAnomalyActive,
+      windowResolved: this.windowAnomalyResolved,
       savedAt: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
       act: this.act,
       actTitle: meta.actTitle,
@@ -1191,7 +1243,8 @@ export class SonVazifeEngine {
       this.screen !== 'playing' ||
       this.activeDialogueNpcId ||
       this.activeAutopsyCaseId ||
-      this.registryCaseId
+      this.registryCaseId ||
+      this.nightPage
     )
       return;
     this.isNotebookOpen = !this.isNotebookOpen;
@@ -1209,7 +1262,8 @@ export class SonVazifeEngine {
   }
 
   public toggleCandle(): void {
-    if (this.screen !== 'playing' || this.activeAutopsyCaseId || this.registryCaseId) return;
+    if (this.screen !== 'playing' || this.activeAutopsyCaseId || this.registryCaseId || this.nightPage)
+      return;
     if (!this.inventory.find((i) => i.id === 'defter')?.collected && this.act === 1) {
       this.showCaption('Henüz gassalın mumunu ve defterini almadın.', 2.8);
       return;
@@ -1230,6 +1284,7 @@ export class SonVazifeEngine {
   public returnToTitle(): void {
     if (this.screen === 'playing' || this.screen === 'paused') this.triggerAutoSave(false);
     this.screen = 'title';
+    this.nightPage = null;
     this.registryCaseId = null;
     this.isNotebookOpen = false;
     this.activeAutopsyCaseId = null;
@@ -1307,7 +1362,12 @@ export class SonVazifeEngine {
     const node = npcDef.nodes[this.activeDialogueNodeId];
     if (!node) return;
 
-    const option = node.options.find((o) => o.id === optionId);
+    const option = filterDialogueOptions(
+      node.options,
+      this.clues,
+      this.autopsyCases,
+      this.inventory,
+    ).find((o) => o.id === optionId);
     if (!option) return;
 
     this.audio.playDialogueBlip();
@@ -1797,7 +1857,95 @@ export class SonVazifeEngine {
     this.pushHudState(true);
   }
 
+  private hasEntry(id: string) {
+    return this.clues.some((c) => c.id === id && c.discovered);
+  }
+  private nextNight() {
+    return nextNightPage((id) => this.hasEntry(id));
+  }
+  private accessFromHere(id: string) {
+    const p = this.playerPos;
+    if (
+      [
+        'tenesir_slab',
+        'vigil_candle',
+        'gasil_drain',
+        'gasil_shutter',
+        'receiving_mahmut',
+        'night_call',
+        'night_tag',
+      ].includes(id)
+    )
+      return this.isInsideGasilhane(p);
+    if (id === 'autopsy_case_unknown') return this.isInsideCrypt(p);
+    if (id === 'autopsy_case_mahmut') return this.isInsideClinic(p);
+    if (id === 'clue_mill_ledger') return this.isInsideMill(p);
+    if (id === 'item_gulsuyu' || id === 'clue_serife_letter') return this.isInsideAbandoned(p);
+    if (['item_kafur', 'clue_muhtar_note', 'clue_crash_report', 'clue_photo'].includes(id))
+      return this.isInsideMuhtar(p);
+    const room = insideOutpost(p.x, p.z);
+    if (id === 'night_bag' || id === 'night_roll' || id === 'seyir_tahta') return room === 'school';
+    if (id === 'night_ticket' || id === 'night_spool') return room === 'station';
+    if (id === 'night_line') return room === 'exchange';
+    if (id === 'seyir_sef') return !room && this.world.keeper.root.visible;
+    if (id === 'night_bell' || id === 'night_signal' || id === 'seyir_peron' || id === 'seyir_abone')
+      return !room;
+    return true;
+  }
+  public closeNightPage() {
+    if (!this.nightPage) return;
+    this.nightPage = null;
+    this.requestPointerLockSafe();
+    this.pushHudState(true);
+  }
+  public soundNightKey(value: number) {
+    if (this.nightPage === 'night_bell') this.audio.playSchoolBell(value === 1);
+    else if (this.nightPage === 'night_line') this.audio.playExamineClick();
+  }
+  public fileNightPage(input: number[]) {
+    const id = this.nightPage;
+    if (
+      this.screen !== 'playing' ||
+      this.act < 6 ||
+      !id ||
+      id !== this.nextNight() ||
+      !correctPage(id, input)
+    )
+      return false;
+    this.clues.find((c) => c.id === id)!.discovered = true;
+    this.nightPage = null;
+    this.activeInteractId = null;
+    this.activeInteractLabel = null;
+    this.act = nightAct((k) => this.hasEntry(k));
+    if (id === 'night_call') this.finalCall = input[0] === 0 ? 'report' : 'farewell';
+    this.syncVisualMeshes();
+    this.triggerAutoSave(true);
+    if (id === 'night_call') {
+      this.triggerEnding();
+      return true;
+    }
+    if (id === 'night_line') this.audio.playTelephone();
+    else if (id === 'night_bell') this.audio.playFloorboardCreak(0.85);
+    else if (id === 'night_spool') this.audio.playWhisper(0.8);
+    else this.audio.playPaperFlip();
+    this.showCaption(PAGES[id].entry, 6);
+    this.requestPointerLockSafe();
+    this.pushHudState(true);
+    return true;
+  }
+
   private getInteractLabel(id: string): string | null {
+    if (!this.accessFromHere(id)) return null;
+    if (isNightId(id)) {
+      if (this.act < 6 || (id !== this.nextNight() && !this.hasEntry(id))) return null;
+      const quiet = nightStealthPrompt(id, this.isCrouching, this.candleLit);
+      if (quiet && !this.hasEntry(id)) return quiet;
+      return `[E] ${this.hasEntry(id) ? 'Kaydı yeniden oku' : PAGES[id].prompt}`;
+    }
+    if (Object.hasOwn(FIELD_NOTES, id))
+      return `[E] ${FIELD_NOTES[id as keyof typeof FIELD_NOTES].title} · İncele`;
+    if (id === 'receiving_mahmut')
+      return this.world.receiving.mahmut.visible ? '[E] Şoför Mahmut’un nakil fişini oku' : null;
     if (id.startsWith('npc_')) {
       const npcId = id.replace('npc_', '') as NpcId;
       const def = VILLAGE_NPCS[npcId];
@@ -1917,6 +2065,41 @@ export class SonVazifeEngine {
     if (this.screen !== 'playing' || this.isOverlayBlockingMove() || !this.activeInteractId) return;
     const id = this.activeInteractId;
 
+    if (!this.getInteractLabel(id)) return;
+    if (isNightId(id)) {
+      const quiet = nightStealthPrompt(id, this.isCrouching, this.candleLit);
+      if (quiet && !this.hasEntry(id)) {
+        this.showCaption(quiet, 3.5);
+        return;
+      }
+      this.nightPage = id;
+      this.keys = {};
+      this.virtualMoveX = this.virtualMoveY = 0;
+      this.virtualSprint = this.rightMouseDown = this.isDraggingLook = false;
+      if (document.pointerLockElement === this.renderer.domElement) document.exitPointerLock();
+      if (id === 'night_call') this.audio.playTelephone();
+      else this.audio.playPaperFlip();
+      this.pushHudState(true);
+      return;
+    }
+    if (Object.hasOwn(FIELD_NOTES, id)) {
+      const c = this.clues.find((c) => c.id === id)!;
+      if (!c.discovered) {
+        c.discovered = true;
+        this.triggerAutoSave(true);
+      }
+      if (id === 'seyir_sef') this.audio.playWhisper(0.85);
+      else this.audio.playPaperFlip();
+      this.showCaption(c.body, 6);
+      return;
+    }
+    if (id === 'receiving_mahmut') {
+      this.showCaption(
+        '072 · Şoför Mahmut. Sağlık ocağından mühürlü olarak alındı. Teslim alan: Bekçi Hasan.',
+        5,
+      );
+      return;
+    }
     // 0. NPCs
     if (id.startsWith('npc_')) {
       const npcId = id.replace('npc_', '') as NpcId;
@@ -1950,7 +2133,7 @@ export class SonVazifeEngine {
       } else if (invId === 'kafur') {
         const torn = this.clues.find((c) => c.id === 'clue_torn_page');
         if (torn) torn.discovered = true;
-        if (this.autopsyCases.case_unknown.completed) {
+        if (this.autopsyCases.case_unknown.completed && this.act < 5) {
           this.act = 5;
         }
         this.showCaption(
@@ -2180,6 +2363,7 @@ export class SonVazifeEngine {
         } else {
           this.showCaption('Şimdi Sabır Mumunu yakıp Bekçi Hasan’dan Sağlık Ocağı Anahtarını al.', 4.4);
         }
+        this.triggerAutoSave(false);
         this.pushHudState(true);
         return;
       }
@@ -2209,10 +2393,15 @@ export class SonVazifeEngine {
           this.showCaption('Kurulama ve gülsuyu tamamlandı. Son adım: kefenle ve bağları bağla.', 4.2);
         } else if (!this.stepShroudDone) {
           this.stepShroudDone = true;
-          this.audio.playPickup();
+          this.act = 6;
+          this.audio.playTelephone();
           this.syncVisualMeshes();
-          this.triggerEnding();
+          this.showCaption(
+            'Kefen bağlandı. İdris öteki sedyeyi de getirmiş. Yolcunun ayak ucunda bir mektep etiketi var.',
+            6.5,
+          );
         }
+        this.triggerAutoSave(true);
         this.pushHudState(true);
       }
     }
@@ -2225,9 +2414,16 @@ export class SonVazifeEngine {
     const completedCases = (Object.values(this.autopsyCases) as AutopsyCaseState[]).filter(
       (c) => c.completed,
     ).length;
-    const discoveredClues = this.clues.filter((c) => c.discovered).length;
+    const discoveredClues = this.clues.filter(
+      (c) => c.discovered && c.id.startsWith('clue_') && c.id !== 'clue_kenan_confession',
+    ).length;
 
-    if (this.violations <= 1 && completedCases === 3 && discoveredClues >= 6) {
+    if (
+      this.finalCall === 'report' &&
+      this.violations <= 1 &&
+      completedCases === 3 &&
+      discoveredClues >= 6
+    ) {
       this.screen = 'ending_truth';
       this.endingReason =
         'Hem halk inanışlarına sadık kaldın hem de üç cenaze dosyasını mühürleyip Katip Kenan’ın Boğanak komplosunu açığa çıkardın. Şafakta jandarma köye ulaştı; Hacı Arif de, 22:42’de yitip giden ruhun da huzura erdi.';
@@ -2252,7 +2448,7 @@ export class SonVazifeEngine {
     } else {
       this.screen = 'ending_twist';
       this.endingReason =
-        'Yasakları çiğnedin. Kefeni bağlarken elin bileğindeki saate çarptı — 22:42’de camı kırık durmuş saat. Virajda ölen yolcu sendin.';
+        'Yasakları çiğnedin. Ahizeyi bırakırken elin bileğindeki saate çarptı — 22:42’de camı kırık durmuş saat. Virajda ölen yolcu sendin.';
       this.audio.playViolationSting();
     }
     this.pushHudState(true);
@@ -2283,9 +2479,13 @@ export class SonVazifeEngine {
 
   private onWebGlContextRestored = (): void => {
     this.isContextLost = false;
-    this.postProcessing?.dispose(); this.postProcessing=null;
-    this.scene.environment=null;this.envTarget?.dispose();this.envTarget=null;
-    this.effectsFailed=false;this.lastAppliedQualityKey='';
+    this.postProcessing?.dispose();
+    this.postProcessing = null;
+    this.scene.environment = null;
+    this.envTarget?.dispose();
+    this.envTarget = null;
+    this.effectsFailed = false;
+    this.lastAppliedQualityKey = '';
     if (this.renderer.shadowMap.enabled) {
       this.renderer.shadowMap.needsUpdate = true;
     }
@@ -2336,7 +2536,8 @@ export class SonVazifeEngine {
       this.screen !== 'playing' ||
       this.isNotebookOpen ||
       this.activeDialogueNpcId ||
-      this.registryCaseId
+      this.registryCaseId ||
+      this.nightPage
     )
       return;
     this.audio.init();
@@ -2371,7 +2572,8 @@ export class SonVazifeEngine {
       this.screen !== 'playing' ||
       this.isNotebookOpen ||
       this.activeDialogueNpcId ||
-      this.registryCaseId
+      this.registryCaseId ||
+      this.nightPage
     )
       return;
 
@@ -2446,7 +2648,11 @@ export class SonVazifeEngine {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     // The modal owns Tab, Escape and form input while filing a record.
-    if (this.registryCaseId || (this.screen === 'paused' && document.querySelector('dialog[open]')))
+    if (
+      this.nightPage ||
+      this.registryCaseId ||
+      (this.screen === 'paused' && document.querySelector('dialog[open]'))
+    )
       return;
     const target = e.target as HTMLElement | null;
     const isTypingTarget =
@@ -2561,16 +2767,12 @@ export class SonVazifeEngine {
   }
 
   private getCurrentDistrict(p: THREE.Vector3): DistrictId {
-    if (Math.hypot(p.x - 26, p.z + 28) < 13) return 'clinic';
-    if (p.x < -21 && p.z > -10) return 'mill';
-    if (p.x < -20 && p.z <= -22) return 'cemetery';
-    if (Math.hypot(p.x - 28, p.z - 20) < 13) return 'crash_site';
-    return 'square';
+    return districtAt(p.x, p.z);
   }
 
   private resolveCollisions(nextPos: THREE.Vector3): void {
-    nextPos.x = THREE.MathUtils.clamp(nextPos.x, -46.5, 38.5);
-    nextPos.z = THREE.MathUtils.clamp(nextPos.z, -48.5, 39.5);
+    nextPos.x = THREE.MathUtils.clamp(nextPos.x, VALLEY.x1, VALLEY.x2);
+    nextPos.z = THREE.MathUtils.clamp(nextPos.z, VALLEY.z1, VALLEY.z2);
 
     for (const c of this.world.colliders) pushOutsideBox(nextPos, c, PLAYER_RADIUS);
 
@@ -2659,10 +2861,15 @@ export class SonVazifeEngine {
     if (this.qualityEvalTimer < 1.2) return;
     this.qualityEvalTimer = 0;
 
-    this.fastWindows=this.emaFrameMs<18.2?this.fastWindows+1:0;
-    const nextTier=adaptiveTier(this.resolvedQualityTier,this.autoCeiling,this.emaFrameMs,this.fastWindows);
+    this.fastWindows = this.emaFrameMs < 18.2 ? this.fastWindows + 1 : 0;
+    const nextTier = adaptiveTier(
+      this.resolvedQualityTier,
+      this.autoCeiling,
+      this.emaFrameMs,
+      this.fastWindows,
+    );
     if (nextTier !== this.resolvedQualityTier) {
-      this.fastWindows=0;
+      this.fastWindows = 0;
       this.applyGraphicsQuality(nextTier);
       this.pushHudState(true);
     }
@@ -2685,7 +2892,13 @@ export class SonVazifeEngine {
       lastFrameAt = now;
       // Reading a delivery sheet is untimed. Keep the last composed frame
       // beneath the dialog instead of drawing the whole village behind it.
-      if (this.isContextLost || this.screen === 'paused' || this.registryCaseId || document.hidden) {
+      if (
+        this.isContextLost ||
+        this.screen === 'paused' ||
+        this.registryCaseId ||
+        this.nightPage ||
+        document.hidden
+      ) {
         this.frameId = window.setTimeout(tick, 100);
         return;
       }
@@ -2755,7 +2968,7 @@ export class SonVazifeEngine {
 
     if (this.screen !== 'playing') return;
 
-    if (this.registryCaseId) return;
+    if (this.registryCaseId || this.nightPage) return;
 
     // 2. NPC Patrols (zero-GC index loop)
     for (let i = 0; i < this.npcKeys.length; i++) {
@@ -2851,7 +3064,8 @@ export class SonVazifeEngine {
     const holdCrouch =
       Boolean(this.keys['ControlLeft']) ||
       (!this.controlSettings.crouchToggle && Boolean(this.keys['KeyC']));
-    const crouching = this.controlSettings.crouchToggle ? this.crouchToggled || holdCrouch : holdCrouch;
+    // The touch button always toggles. Hold/toggle preference only changes the keyboard binding.
+    const crouching = this.crouchToggled || holdCrouch;
     this.isCrouching = crouching;
 
     let moveZ = 0;
@@ -2895,8 +3109,15 @@ export class SonVazifeEngine {
     const insideMill = this.isInsideMill(this.playerPos);
     const insideCrypt = this.isInsideCrypt(this.playerPos);
     const onBridge = this.isOnBridge(this.playerPos);
+    const outpost = insideOutpost(this.playerPos.x, this.playerPos.z);
     const isIndoors =
-      insideGasil || insideAbandoned || insideMuhtar || insideClinic || insideMill || insideCrypt;
+      !!outpost ||
+      insideGasil ||
+      insideAbandoned ||
+      insideMuhtar ||
+      insideClinic ||
+      insideMill ||
+      insideCrypt;
 
     const currentDistrict = this.getCurrentDistrict(this.playerPos);
     if (!this.discoveredDistricts.has(currentDistrict)) {
@@ -2926,22 +3147,25 @@ export class SonVazifeEngine {
       }
     }
 
-    const groundY = isIndoors
-      ? insideGasil
-        ? groundHeightAt(-10.5, 6.0) + 0.16
-        : insideAbandoned
-          ? groundHeightAt(-10.8, -10.5) + 0.16
-          : insideMuhtar
-            ? groundHeightAt(10.5, -18.0) + 0.16
-            : insideClinic
-              ? groundHeightAt(26.0, -28.0) + 0.16
-              : insideMill
-                ? groundHeightAt(-36.0, 8.0) + 0.16
-                : groundHeightAt(-34.0, -36.0) + 0.14
-      : onBridge
-        ? 0.44
-        : exteriorFloorAt(this.playerPos.x, this.playerPos.z);
+    const groundY = outpost
+      ? OUTPOSTS[outpost].y + 0.09
+      : isIndoors
+        ? insideGasil
+          ? groundHeightAt(-10.5, 6.0) + 0.16
+          : insideAbandoned
+            ? groundHeightAt(-10.8, -10.5) + 0.16
+            : insideMuhtar
+              ? groundHeightAt(10.5, -18.0) + 0.16
+              : insideClinic
+                ? groundHeightAt(26.0, -28.0) + 0.16
+                : insideMill
+                  ? groundHeightAt(-36.0, 8.0) + 0.16
+                  : groundHeightAt(-34.0, -36.0) + 0.14
+        : onBridge
+          ? 0.44
+          : exteriorFloorAt(this.playerPos.x, this.playerPos.z);
 
+    this.playerPos.y = groundY;
     const bobAmp = THREE.MathUtils.clamp(horizSpeed / 3.5, 0, 1.2) * (crouching ? 0.02 : 0.032);
     const targetEyeY =
       groundY + (crouching ? 1.12 : PLAYER_EYE_HEIGHT) + Math.sin(this.headBobPhase) * bobAmp;
@@ -3151,27 +3375,32 @@ export class SonVazifeEngine {
       }
     }
 
-    // 9. Nocturnal Threats (Acts 3-5): Kara Basma & Sis Gözcüsü
+    // 9. Nocturnal Threats (Acts III–VIII): Kara Basma & Sis Gözcüsü
     let dangerProximity = 0;
     const isHiding =
       isIndoors || ((this.isUnderPorchOrAlcove(this.playerPos) || crouching) && !this.candleLit);
 
     if (this.act >= 3) {
-      // Kara Basma patrols center/clinic roads
-      this.karaPatrolT += dt * (this.act >= 4 ? 0.26 : 0.21);
-      const kz = Math.sin(this.karaPatrolT) * 20.0 - 6.0;
-      const kx = Math.cos(this.karaPatrolT * 0.72) * 8.0;
-      const ky = groundHeightAt(kx, kz);
-      this.world.karaBasma.root.position.set(kx, ky, kz);
-
-      // Sis Gözcüsü patrols stream bridge & cemetery hill
-      this.sisPatrolT += dt * 0.18;
-      const sx = -26 + Math.sin(this.sisPatrolT) * 9.0;
-      const sz = -14 + Math.cos(this.sisPatrolT * 0.8) * 18.0;
-      const sy = groundHeightAt(sx, sz);
-      this.world.sisGozcusu.position.set(sx, sy + Math.sin(this.elapsedTime * 2.1) * 0.08, sz);
-      this.world.sisGozcusu.lookAt(this.playerPos.x, sy, this.playerPos.z);
-
+      const exposed = !blocked && !isHiding && this.karaCatchCooldown <= 0;
+      const beat = this.act === 8 && this.hasEntry('night_line') ? 5 : this.act;
+      const a = this.karaPatrol.tick(
+        this.world.karaBasma.root,
+        beat,
+        dt,
+        this.playerPos,
+        exposed,
+        this.world.colliders,
+      );
+      const b = this.mistPatrol.tick(
+        this.world.sisGozcusu,
+        beat,
+        dt,
+        this.playerPos,
+        exposed,
+        this.world.colliders,
+      );
+      this.world.poseWatchers(this.elapsedTime, a, b);
+      this.world.keeper.pose(dt, this.elapsedTime, this.playerPos);
       const dKara = this.playerPos.distanceTo(this.world.karaBasma.root.position);
       const dSis = this.playerPos.distanceTo(this.world.sisGozcusu.position);
       if (dKara < 14.0 && this.unlockGlossaryEntry('anom_karabasma')) {
@@ -3181,7 +3410,7 @@ export class SonVazifeEngine {
         this.pushHudState(true);
       }
       const closestThreat = Math.min(dKara, dSis);
-      const threatObj = dKara <= dSis ? this.world.karaBasma.root : this.world.sisGozcusu;
+      const catchDistance = Math.min(a ? dKara : Infinity, b ? dSis : Infinity);
       dangerProximity = THREE.MathUtils.clamp(1 - (closestThreat - 2.2) / 14.0, 0, 1);
 
       if (this.karaCatchCooldown > 0) this.karaCatchCooldown -= dt;
@@ -3192,15 +3421,7 @@ export class SonVazifeEngine {
           if (this.candleLit) {
             this.handCandle.light.intensity *= 0.45 + Math.random() * 0.4;
           }
-          _vec3.subVectors(this.playerPos, threatObj.position);
-          _vec3.y = 0;
-          if (_vec3.lengthSq() > 0.01) {
-            _vec3.normalize();
-            threatObj.position.addScaledVector(_vec3, dt * (this.candleLit ? 2.5 : 1.35));
-            threatObj.lookAt(this.playerPos.x, threatObj.position.y, this.playerPos.z);
-          }
-
-          if (closestThreat < 2.15 && this.karaCatchCooldown <= 0) {
+          if (catchDistance < 1.55 && this.karaCatchCooldown <= 0) {
             this.karaCatchCooldown = 6.5;
             this.caughtCount += 1;
             if (this.caughtCount >= 3) {
@@ -3223,8 +3444,6 @@ export class SonVazifeEngine {
           }
         }
       }
-
-      this.world.karaBasma.root.position.y += Math.sin(this.elapsedTime * 3.2) * 0.06;
     }
 
     // 9b. Modular Spatial Dread-Level Listener (whispers & floorboard creaks when dread > 70% & stationary)
@@ -3272,22 +3491,15 @@ export class SonVazifeEngine {
 
         let foundId: string | null = null;
         let foundLabel: string | null = null;
-        if (hits.length > 0) {
-          const hitId = hits[0].object.userData.interactId as string;
-          const interactables = this.world.interactables;
-          for (let i = 0; i < interactables.length; i++) {
-            const target = interactables[i];
-            if (target.id === hitId) {
-              if (hits[0].distance <= target.maxDist) {
-                const lbl = target.label();
-                if (lbl) {
-                  foundId = hitId;
-                  foundLabel = lbl;
-                }
-              }
-              break;
-            }
-          }
+        // A collected item or inactive record cannot mask a live target behind it.
+        for (const hit of hits) {
+          const target = this.world.interactables[hit.object.userData.targetIndex];
+          if (!target || hit.distance > target.maxDist) continue;
+          const label = target.label();
+          if (!label) continue;
+          foundId = target.id;
+          foundLabel = label;
+          break;
         }
         if (foundId !== this.activeInteractId || foundLabel !== this.activeInteractLabel) {
           this.activeInteractId = foundId;
@@ -3359,7 +3571,7 @@ export class SonVazifeEngine {
     }
 
     const rainLevel = this.act === 1 ? 0 : this.act >= 3 ? 1.0 : 0.45;
-    this.world.rainPoints.visible = rainLevel > 0;
+    this.world.rainPoints.visible = rainLevel > 0 && !isIndoors;
     this.world.rainUniforms.uTime.value = this.elapsedTime;
     this.world.rainUniforms.uPlayerPos.value.copy(this.camera.position);
     this.world.rainUniforms.uOpacity.value = rainLevel * 0.58;
@@ -3470,28 +3682,41 @@ export class SonVazifeEngine {
     const insideCrypt = this.isInsideCrypt(this.playerPos);
     const district = this.getCurrentDistrict(this.playerPos);
 
-    const location = insideGasil
-      ? 'Gasilhane (Gusül Odası)'
-      : insideAbandoned
-        ? 'Eski Köy Evi'
-        : insideMuhtar
-          ? 'Muhtarın Odası'
-          : insideClinic
-            ? 'Sağlık Ocağı · Kayıt Odası'
-            : insideMill
-              ? 'Eski Su Değirmeni'
-              : insideCrypt
-                ? 'Mezarlık · Taş Mahzen'
-                : district === 'clinic'
-                  ? 'Yukarı Mahalle · Sağlık Ocağı Önü'
-                  : district === 'mill'
-                    ? 'Dere Köprüsü & Değirmen Kıyısı'
-                    : district === 'cemetery'
-                      ? 'Mezarlık Tepesi'
-                      : district === 'crash_site'
-                        ? 'Viraj Kaza Alanı'
-                        : 'Kuzdağ Köy Meydanı';
+    const outer = insideOutpost(this.playerPos.x, this.playerPos.z);
+    const location = outer
+      ? OUTPOSTS[outer].name
+      : district === 'school'
+        ? 'Mektep Yolu'
+        : district === 'station'
+          ? 'Doğu Hattı'
+          : district === 'exchange'
+            ? 'Santral Sırtı'
+            : insideGasil
+              ? 'Gasilhane (Gusül Odası)'
+              : insideAbandoned
+                ? 'Eski Köy Evi'
+                : insideMuhtar
+                  ? 'Muhtarın Odası'
+                  : insideClinic
+                    ? 'Sağlık Ocağı · Kayıt Odası'
+                    : insideMill
+                      ? 'Eski Su Değirmeni'
+                      : insideCrypt
+                        ? 'Mezarlık · Taş Mahzen'
+                        : district === 'clinic'
+                          ? 'Yukarı Mahalle · Sağlık Ocağı Önü'
+                          : district === 'mill'
+                            ? 'Dere Köprüsü & Değirmen Kıyısı'
+                            : district === 'cemetery'
+                              ? 'Mezarlık Tepesi'
+                              : district === 'crash_site'
+                                ? 'Viraj Kaza Alanı'
+                                : 'Kuzdağ Köy Meydanı';
 
+    if (this.act >= 6) {
+      const next = this.nextNight() ?? 'night_call';
+      return { actTitle: NIGHT_TITLES[PAGES[next].act], objective: PAGES[next].objective, location };
+    }
     if (this.act === 1) {
       const collectedCount = ['defter', 'kefen', 'sabun', 'ibrik'].filter(
         (id) => this.inventory.find((i) => i.id === id)?.collected,
@@ -3570,7 +3795,7 @@ export class SonVazifeEngine {
     const hasKafur = this.inventory.find((i) => i.id === 'kafur')?.collected;
     const hasGulsuyu = this.inventory.find((i) => i.id === 'gulsuyu')?.collected;
     return {
-      actTitle: 'BÖLÜM V · SON VAZİFE VE ŞAFAK',
+      actTitle: 'BÖLÜM V · ÜÇ TESLİM FİŞİ',
       objective: !hasKafur
         ? 'Muhtarlık odasına gir · Belgeleri incele ve Kafur Kavanozunu al'
         : !hasGulsuyu
@@ -3579,7 +3804,7 @@ export class SonVazifeEngine {
             ? 'Gasilhaneye dön ve teneşirde kafurlu su ile son durulamayı yap'
             : !this.stepDryDone
               ? 'Temiz havlu ve gülsuyu ile cenazeyi kurula'
-              : 'Cenazeyi kefenle ve sabah ezanını bekle',
+              : 'Cenazeyi kefenle ve nakil sedyelerini teslim al',
       location,
     };
   }
@@ -3591,7 +3816,8 @@ export class SonVazifeEngine {
       this.isInsideMuhtar(this.playerPos) ||
       this.isInsideClinic(this.playerPos) ||
       this.isInsideMill(this.playerPos) ||
-      this.isInsideCrypt(this.playerPos),
+      this.isInsideCrypt(this.playerPos) ||
+      !!insideOutpost(this.playerPos.x, this.playerPos.z),
     isHiding = false,
     dangerProximity = this.dangerProximity,
   ): void {
@@ -3640,7 +3866,7 @@ export class SonVazifeEngine {
       candleLit: this.candleLit,
       candleOil: Math.round(this.candleOil),
       vigilTimer: Math.ceil(this.vigilTimer),
-      vigilActive: this.act >= 3 && this.stepWashDone,
+      vigilActive: (this.act === 3 || this.act === 4) && this.stepWashDone,
       dreadLevel: Math.round(this.dreadLevel),
       stamina: Math.round(this.stamina),
       isCrouching: this.isCrouching,
@@ -3671,6 +3897,7 @@ export class SonVazifeEngine {
       saveNoticeText: this.saveNoticeText,
       activeDialogue: this.getActiveDialogueState(),
       registryCaseId: this.registryCaseId,
+      nightPage: this.nightPage,
       activeAutopsyCaseId: this.activeAutopsyCaseId,
       activeAutopsyTool: this.activeAutopsyTool,
       activeAutopsyCameraAngle: this.activeAutopsyCameraAngle,

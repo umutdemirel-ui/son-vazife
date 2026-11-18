@@ -1,15 +1,16 @@
+import { CORE_LANES, OUTER_LANES, OUTER_HOMES, OUTPOSTS, OUTPOST_IDS, reservedGround } from './valley';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { surfaceUrl, type Allocation } from './quality';
 import { VillageTextures } from './textures';
 
 /**
- * Deterministic heightfield for the expanded 5-district Kuzdağ Anatolian mountain valley.
+ * Deterministic heightfield for the expanded Kuzdağ Anatolian mountain valley.
  * Keeps village square, clinic, mill, cemetery hill, and crash bend gently walkable
  * while carving a shallow mountain stream at x ≈ -24 and raising surrounding mountain ridges.
  */
-export function groundHeightAt(x: number, z: number): number {
-  // Playable valley corridor spans x:[-48, 42], z:[-52, 44]
+function valleyHeight(x: number, z: number): number {
+  // Ridges begin beyond the original village; the outlying wards cut level pads into them.
   const laneDistX = Math.max(0, Math.abs(x + 3) - 46);
   const laneDistZ = z < -54 ? -54 - z : z > 46 ? z - 46 : 0;
   const edgeDist = Math.hypot(laneDistX, laneDistZ);
@@ -31,7 +32,7 @@ export function groundHeightAt(x: number, z: number): number {
   // Shallow stream channel along x ≈ -24 (except under the wooden bridge at z ≈ 8 and cemetery road at z ≈ -32)
   const streamCenter = -24 + Math.sin(z * 0.07) * 1.4;
   const streamDist = Math.abs(x - streamCenter);
-  const nearBridge = Math.abs(z - 8) < 3.4 || Math.abs(z + 32) < 3.4;
+  const nearBridge = Math.abs(z - 8) < 3.4 || Math.abs(z + 32) < 3.4 || Math.abs(z - 39) < 2.4;
   const streamDip =
     streamDist < 3.2 && !nearBridge ? -0.68 * Math.cos((streamDist / 3.2) * (Math.PI * 0.5)) : 0;
 
@@ -59,9 +60,36 @@ export function groundHeightAt(x: number, z: number): number {
     ),
   );
 
-  return mountain + cemeteryRise + streamDip + gentleSlope * padMask;
+  const natural = mountain + cemeteryRise + streamDip + gentleSlope * padMask;
+  for (const id of OUTPOST_IDS) {
+    const b = OUTPOSTS[id];
+    const dist = Math.hypot(
+      Math.max(0, Math.abs(x - b.x) - b.w * 0.5 - 3),
+      Math.max(0, Math.abs(z - b.z) - b.d * 0.5 - 5),
+    );
+    if (dist < 10) {
+      const t = dist / 10;
+      return b.y + (natural - b.y) * t * t * (3 - 2 * t);
+    }
+  }
+  return natural;
 }
 
+// A foundation cannot use only its centre sample on the sloping outer ridge.
+const homePads = OUTER_HOMES.map(([x, z]) => ({ x, z, y: valleyHeight(x, z) }));
+export function groundHeightAt(x: number, z: number): number {
+  const natural = valleyHeight(x, z);
+  for (const b of homePads) {
+    const dx = x - b.x,
+      dz = z - b.z,
+      d2 = dx * dx + dz * dz;
+    if (d2 < 64) {
+      const t = Math.max(0, (Math.sqrt(d2) - 4.55) / 3.45);
+      return b.y + (natural - b.y) * t * t * (3 - 2 * t);
+    }
+  }
+  return natural;
+}
 // Raised exterior floors are not hills: leave the terrain mesh flat underneath.
 const porchPads = [
   { x1:-7.8, x2:-6.3, z1:-12.1, z2:-8.9, y:groundHeightAt(-10.8,-10.5)+.14 },
@@ -92,9 +120,9 @@ export function buildMountainTerrainAndForest(
   // 1. Valley Terrain Mesh (340m x 340m)
   const minimal = allocation === 'minimum',
     compact = allocation !== 'full';
-  const size = minimal ? 184 : 340;
+  const size = minimal ? 252 : 340;
   // Preserve grid spacing in the walkable valley; discard distant mountain rings, not doorstep precision.
-  const segs = minimal ? 58 : 104;
+  const segs = minimal ? 78 : 104;
   const terrainGeo = new THREE.PlaneGeometry(size, size, segs, segs);
   terrainGeo.rotateX(-Math.PI / 2);
 
@@ -123,6 +151,22 @@ export function buildMountainTerrainAndForest(
   scene.add(terrainMesh);
   disposables.push(terrainGeo, terrainMat);
 
+  // Match the triangles actually drawn on this tier. A road following only the analytic
+  // ridge can disappear under the coarser rasterised slope between sample points.
+  const surfaceY = (x: number, z: number) => {
+    const cx = (x / size + 0.5) * segs,
+      cz = (z / size + 0.5) * segs,
+      ix = Math.floor(cx),
+      iz = Math.floor(cz),
+      u = cx - ix,
+      v = cz - iz;
+    const a = iz * (segs + 1) + ix,
+      h = pos.getY(a),
+      b = pos.getY(a + segs + 1),
+      d = pos.getY(a + 1),
+      c = pos.getY(a + segs + 2);
+    return u + v < 1 ? h + v * (b - h) + u * (d - h) : c + (1 - u) * (b - c) + (1 - v) * (d - c);
+  };
   // 2. Main Road + District Side Roads (shared wet cobblestone material)
   const roadMat = new THREE.MeshStandardMaterial({
     map: textures.road,
@@ -172,7 +216,7 @@ export function buildMountainTerrainAndForest(
       rx + curveOffset + Math.pow(Math.abs(rx) / 2.6, 3) * 0.14 * Math.sin(rz * 1.8 + rx * 2);
     mrPos.setX(i, worldX);
     mrPos.setZ(i, rz);
-    mrPos.setY(i, groundHeightAt(worldX, rz) + 0.038);
+    mrPos.setY(i, surfaceY(worldX, rz) + 0.045);
   }
   dressLane(mainRoadGeo, 5.2);
   mainRoadGeo.computeVertexNormals();
@@ -186,8 +230,10 @@ export function buildMountainTerrainAndForest(
   // Helper to build branch paths
   const buildSideRoad = (startX: number, startZ: number, endX: number, endZ: number, width: number) => {
     const len = Math.hypot(endX - startX, endZ - startZ);
-    const segLen = Math.max(12, Math.round(len * 1.4));
-    const geo = new THREE.PlaneGeometry(width, len, 6, segLen);
+    const outer =
+      Math.abs(startX) > 37 || Math.abs(startZ) > 36 || Math.abs(endX) > 37 || Math.abs(endZ) > 36;
+    const segLen = Math.max(4, Math.ceil(len * (outer ? 0.65 : 1.4)));
+    const geo = new THREE.PlaneGeometry(width, len, outer ? 4 : 6, segLen);
     geo.rotateX(-Math.PI / 2);
     const angle = Math.atan2(endX - startX, endZ - startZ);
     const cx = (startX + endX) * 0.5;
@@ -205,7 +251,7 @@ export function buildMountainTerrainAndForest(
       const wz = cz - lx * sinA + lz * cosA;
       p.setX(i, wx);
       p.setZ(i, wz);
-      p.setY(i, groundHeightAt(wx, wz) + 0.036);
+      p.setY(i, surfaceY(wx, wz) + 0.052);
     }
     dressLane(geo, width);
     geo.computeVertexNormals();
@@ -217,20 +263,10 @@ export function buildMountainTerrainAndForest(
     disposables.push(geo);
   };
 
-  // Branch 1: East to Sağlık Ocağı (x: 1 -> 26, z: -24 -> -28)
-  buildSideRoad(0.5, -24, 26.5, -28, 3.8);
-  // Branch 2: West to Mezarlık Tepesi (x: -1 -> -34, z: -29 -> -36)
-  buildSideRoad(-1.0, -29, -34.0, -36, 3.4);
-  // Branch 3: West to Dere Köprüsü & Eski Su Değirmeni (x: -1 -> -36, z: 8 -> 8)
-  // Follow the outer garden wall, not the gasilhane floor, to the bridge.
-  buildSideRoad(-1.0, 10.1, -14.7, 11.2, 2.7);
-  buildSideRoad(-14.7, 11.2, -20.8, 8.0, 2.7);
-  buildSideRoad(-20.8, 8.0, -36.0, 8.0, 2.7);
-  // Branch 4: Southeast to Viraj Kaza Alanı (x: 1 -> 28, z: 16 -> 20)
-  buildSideRoad(1.0, 16.0, 29.0, 20.5, 4.0);
+  for (const lane of [...CORE_LANES, ...OUTER_LANES]) buildSideRoad(...lane);
 
   // 2c. Mountain Stream Water along x ≈ -24
-  const streamGeo = new THREE.PlaneGeometry(4.4, 96, 8, 48);
+  const streamGeo = new THREE.PlaneGeometry(4.4, 172, 6, 80);
   streamGeo.rotateX(-Math.PI / 2);
   const sPos = streamGeo.attributes.position;
   for (let i = 0; i < sPos.count; i++) {
@@ -330,7 +366,8 @@ export function buildMountainTerrainAndForest(
     const radius = 26 + rand() * 98;
     const tx = Math.cos(angle) * radius;
     const tz = Math.sin(angle) * radius;
-    // Keep all 5 districts and connecting roads clear of trees
+    if (reservedGround(tx, tz)) continue;
+    // Keep the original districts and connecting roads clear of trees
     if (Math.abs(tx) < 16.5 && tz > -46 && tz < 38) continue;
     if (Math.hypot(tx - 26, tz + 28) < 11.5) continue; // Clinic pad
     if (Math.hypot(tx + 34, tz + 36) < 12.5) continue; // Cemetery hill
@@ -412,6 +449,7 @@ export function buildMountainTerrainAndForest(
   for (let i = 0; i < 110; i++) {
     const rx = -48 + rand() * 90;
     const rz = -50 + rand() * 90;
+    if (reservedGround(rx, rz)) continue;
     if (Math.abs(rx) < 4.5 || Math.hypot(rx - 4.8, rz - 12.5) < 2.5) continue;
     if (Math.abs(rx + 10.5) < 5.5 && Math.abs(rz - 6.0) < 5.5) continue;
     if (Math.abs(rx + 10.8) < 5.0 && Math.abs(rz + 10.5) < 4.5) continue;
@@ -481,6 +519,7 @@ export function buildMountainTerrainAndForest(
   for (let i = 0; i < (minimal ? 54 : 150); i++) {
     const sx = -44 + rand() * 82;
     const sz = -46 + rand() * 84;
+    if (reservedGround(sx, sz)) continue;
     if (Math.abs(sx) < 3.6) continue;
     if (Math.abs(sx + 10.5) < 4.5 && Math.abs(sz - 6.0) < 4.5) continue;
     if (Math.abs(sx + 10.8) < 4.0 && Math.abs(sz + 10.5) < 4.0) continue;

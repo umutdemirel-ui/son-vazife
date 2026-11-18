@@ -54,7 +54,7 @@ try {
   );
   await page.waitForLoadState('networkidle');
   const result = await page.evaluate(
-    async (sampleWidth) => {
+    async ({ sampleWidth, night }) => {
       const e = window.engine,
         r = e.renderer,
         gl = r.getContext();
@@ -81,11 +81,33 @@ try {
       }
       const sampleBuffer = [r.domElement.width, r.domElement.height];
       const rows = [];
-      for (const [place, x, z, yaw, pitch] of [
-        ['Meydan', 0, 23, 0, -0.04],
-        ['Çeşme', 1.6, 12.35, -Math.PI / 2, -0.11],
-        ['Gasilhane', -8.32, 6, Math.PI / 2, -0.24],
-      ]) {
+      // Optional late-watch survey: fixed-camera CPU/GPU readback AFTER all night art is ready.
+      // This deliberately warms the entire night pack; its byte count is not a start-up measurement.
+      if (night) {
+        const { NIGHT_MODELS } = await import('/src/game/nightArt.ts');
+        await Promise.all(NIGHT_MODELS.map((id) => e.world.nightArt.request(id)));
+        e.stepShroudDone = true;
+        e.autopsyCases.case_mahmut.completed = e.autopsyCases.case_unknown.completed = true;
+        e.vigilLit = true;
+        e.karaCatchCooldown = 1e5;
+      }
+      const sites = night
+        ? [
+            ['Kabul sedyeleri', -7.89, 5.93, Math.PI / 2, -0.22, 6],
+            ['Sarı Mektep', 45.9, -57.5, 0, -0.1, 6],
+            ['Son peron', 63.77, 34.67, 0.44, -0.16, 7],
+            ['Sırt Santrali', -54, 42.9, 0, -0.3, 8],
+          ]
+        : [
+            ['Meydan', 0, 23, 0, -0.04],
+            ['Çeşme', 1.6, 12.35, -Math.PI / 2, -0.11],
+            ['Gasilhane', -8.32, 6, Math.PI / 2, -0.24],
+          ];
+      for (const [place, x, z, yaw, pitch, act] of sites) {
+        if (night) {
+          e.act = act;
+          e.syncVisualMeshes();
+        }
         view(x, z, yaw, pitch);
         for (let n = 0; n < 3; n++) frame();
         const samples = [];
@@ -108,7 +130,11 @@ try {
         e.lastAppliedQualityKey = '';
         e.syncQualityTierFromSettings();
       }
-      view(0, 23, 0, -0.04);
+      if (night) {
+        e.act = 7;
+        e.syncVisualMeshes();
+        view(63.77, 34.67, 0.44, -0.16);
+      } else view(0, 23, 0, -0.04);
       e.startLoop();
       await new Promise((res) => setTimeout(res, 600));
       const stamp = performance.now(),
@@ -123,6 +149,7 @@ try {
         .filter((e) => e.name.includes('/assets/') && e.name.startsWith(location.origin));
       const stats = {
         gpu,
+        course: night ? 'Gece / peron döngüsü' : 'İlk nöbet / meydan döngüsü',
         sampleBuffer,
         loopBuffer: [r.domElement.width, r.domElement.height],
         rows,
@@ -135,7 +162,7 @@ try {
       e.dispose();
       return stats;
     },
-    Number(process.env.SAMPLE_WIDTH) || 0,
+    { sampleWidth: Number(process.env.SAMPLE_WIDTH) || 0, night: process.env.NIGHT === '1' },
   );
   const out = JSON.stringify({ ...setup, ...result, errors }, null, 2);
   console.log(out);

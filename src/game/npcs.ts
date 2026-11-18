@@ -57,7 +57,8 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
           },
           {
             id: 'ask_arif_autopsy',
-            label: '[Adli Kanıt] Hacı Arif kalp krizinden ölmemiş — ciğerlerinde dere suyu ve zehir var.',
+            label:
+              '[Adli Kanıt] Hacı Arif kalp krizinden ölmemiş — ciğerlerinde dere suyu ve zehir var.',
             nextNodeId: 'arif_reaction',
             requiredCompletedCase: 'case_arif',
             unlockItemId: 'clinic_key',
@@ -223,7 +224,7 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
     role: 'Muhtarlık Katibi & Sağlık Memuru',
     pace: 1.17,
     waypoints: [
-      { x: 6.2, z: -17.5, pauseSec: 5.5 },
+      { x: 6.2, z: -16.47, pauseSec: 5.5 },
       { x: 6.0, z: -22.5, pauseSec: 0.3 }, // skirt the muhtarlık, rather than walking through it
       { x: 16.5, z: -23.5, pauseSec: 5.0 },
       { x: 21.0, z: -26.5, pauseSec: 5.5 },
@@ -242,8 +243,10 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
           },
           {
             id: 'confront_mahmut',
-            label: '[Rapor ve Değirmen Kaydı] Mahmut kazadan 85 dakika önce zehirlendi! El yazın değirmen defterinde!',
+            label:
+              '[Rapor ve Değirmen Kaydı] Mahmut kazadan 85 dakika önce zehirlendi! El yazın değirmen defterinde!',
             nextNodeId: 'kenan_breakdown',
+            unlockClueId: 'clue_kenan_confession',
             requiredClueId: 'clue_mill_ledger',
             requiredCompletedCase: 'case_mahmut',
             trustDelta: -10,
@@ -303,8 +306,10 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
           },
           {
             id: 'demand_crypt',
-            label: '[Kenan İtirafı] Katip Kenan üçüncü bedeni Taş Mahzene koyduğunuzu söyledi. Anahtarı ver!',
+            label:
+              '[Kenan İtirafı] Katip Kenan üçüncü bedeni Taş Mahzene koyduğunuzu söyledi. Anahtarı ver!',
             nextNodeId: 'give_crypt_key',
+            requiredClueId: 'clue_kenan_confession',
             requiredCompletedCase: 'case_mahmut',
             unlockItemId: 'crypt_key',
             trustDelta: 6,

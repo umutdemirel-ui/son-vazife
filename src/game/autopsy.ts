@@ -1,3 +1,5 @@
+import { funeralFigure } from './funerary';
+import type { NightArt } from './nightArt';
 import * as THREE from 'three';
 import {
   AutopsyCameraAngle,
@@ -379,7 +381,7 @@ export interface AutopsyCameraPreset {
 
 export interface AutopsyBodyRefs {
   group: THREE.Group;
-  drapeMesh: THREE.Mesh;
+  figure: THREE.Group;
   incisionGroup: THREE.Group;
   neckIncision: THREE.Mesh;
   sampleNodes: Partial<Record<AutopsyZoneId, THREE.Mesh>>;
@@ -395,29 +397,11 @@ export interface AutopsyBodyRefs {
 
 export function createAutopsyCadaverOverlay(
   caseId: AutopsyCaseId,
-  skinToneHex: number,
-  coatColorHex: number,
+  art: NightArt,
   floorOffsetY = -0.95,
 ): AutopsyBodyRefs {
   const group = new THREE.Group();
 
-  const skinMat = new THREE.MeshStandardMaterial({
-    color: skinToneHex,
-    roughness: 0.72,
-    metalness: 0.04,
-  });
-  const coatMat = new THREE.MeshStandardMaterial({
-    color: coatColorHex,
-    roughness: 0.88,
-    metalness: 0.02,
-  });
-  const drapeMat = new THREE.MeshStandardMaterial({
-    color: 0xd9d4c8,
-    roughness: 0.9,
-    metalness: 0.0,
-    transparent: true,
-    opacity: 0.92,
-  });
   const incisionMat = new THREE.MeshStandardMaterial({
     color: 0x4b0d0c,
     roughness: 0.35,
@@ -428,50 +412,15 @@ export function createAutopsyCadaverOverlay(
     roughness: 0.65,
   });
 
-  // Head
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.145, 16, 14), skinMat);
-  head.scale.set(1.12, 0.88, 0.95);
-  head.position.set(-0.78, 0.14, 0);
-  head.castShadow = true;
-
-  // Neck
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.085, 0.16, 12), skinMat);
-  neck.rotation.z = Math.PI / 2;
-  neck.position.set(-0.58, 0.12, 0);
-
-  // Torso / Chest
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.24, 0.44), coatMat);
-  torso.position.set(-0.18, 0.12, 0);
-  torso.castShadow = true;
-
-  // Abdomen & Legs
-  const legs = new THREE.Mesh(new THREE.BoxGeometry(0.76, 0.2, 0.38), coatMat);
-  legs.position.set(0.54, 0.1, 0);
-  legs.castShadow = true;
-
-  // Arms & Hands
-  const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.56, 10), coatMat);
-  armL.rotation.z = Math.PI / 2;
-  armL.position.set(-0.08, 0.11, -0.27);
-  const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.045, 0.56, 10), coatMat);
-  armR.rotation.z = Math.PI / 2;
-  armR.position.set(-0.08, 0.11, 0.27);
-
-  const handL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.05, 0.1), skinMat);
-  handL.position.set(0.24, 0.1, -0.25);
-  const handR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.05, 0.1), skinMat);
-  handR.position.set(0.24, 0.1, 0.25);
-
-  group.add(head, neck, torso, legs, armL, armR, handL, handR);
-
-  // Cover drape (peels back or hides when active inspection begins)
-  const drapeMesh = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.26, 0.5), drapeMat);
-  drapeMesh.position.set(0.08, 0.13, 0);
-  group.add(drapeMesh);
+  const figure = funeralFigure(
+    art,
+    caseId === 'case_arif' ? 'arif' : caseId === 'case_mahmut' ? 'mahmut' : 'yolcu',
+  );
+  group.add(figure);
 
   // Surgical Y-Incision + Ribs (revealed on chest cut)
   const incisionGroup = new THREE.Group();
-  incisionGroup.position.set(-0.18, 0.242, 0);
+  incisionGroup.position.set(-0.18, 0.291, 0);
   const slitMain = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.025, 0.11), incisionMat);
   const slitL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.025, 0.045), incisionMat);
   slitL.position.set(-0.24, 0, -0.09);
@@ -502,17 +451,21 @@ export function createAutopsyCadaverOverlay(
     metalness: 0.7,
   });
   const chestClue = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), clueMat);
-  chestClue.position.set(-0.12, 0.27, 0);
+  chestClue.position.set(-0.12, 0.306, 0);
   chestClue.visible = false;
   const pocketClue = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.02, 0.09), clueMat);
-  pocketClue.position.set(0.05, 0.25, 0.18);
+  pocketClue.position.set(0.05, 0.235, 0.17);
   group.add(chestClue, pocketClue);
 
   // Raycastable interactive zones on AUTOPSY_LAYER (layer 2)
-  const zoneSpecs: Array<{ id: AutopsyZoneId; pos: [number, number, number]; size: [number, number, number] }> = [
+  const zoneSpecs: Array<{
+    id: AutopsyZoneId;
+    pos: [number, number, number];
+    size: [number, number, number];
+  }> = [
     { id: 'head', pos: [-0.78, 0.17, 0], size: [0.34, 0.28, 0.34] },
-    { id: 'neck', pos: [-0.56, 0.15, 0], size: [0.22, 0.22, 0.26] },
-    { id: 'chest', pos: [-0.18, 0.18, 0], size: [0.62, 0.26, 0.46] },
+    { id: 'neck', pos: [-0.6, 0.17, 0], size: [0.16, 0.24, 0.235] },
+    { id: 'chest', pos: [-0.235, 0.19, 0], size: [0.46, 0.26, 0.42] },
     { id: 'hands', pos: [0.24, 0.12, 0.25], size: [0.3, 0.2, 0.65] },
     { id: 'pocket', pos: [0.06, 0.18, 0.18], size: [0.28, 0.24, 0.26] },
   ];
@@ -550,7 +503,15 @@ export function createAutopsyCadaverOverlay(
   const anomalyMarkers: Record<string, THREE.Group> = {};
   const fy = floorOffsetY + 0.012;
 
-  const addAnomalyCollider = (id: string, px: number, py: number, pz: number, sx: number, sy: number, sz: number) => {
+  const addAnomalyCollider = (
+    id: string,
+    px: number,
+    py: number,
+    pz: number,
+    sx: number,
+    sy: number,
+    sz: number,
+  ) => {
     const hitGeo = new THREE.BoxGeometry(sx, sy, sz);
     const hitMat = new THREE.MeshBasicMaterial({
       color: 0x8eb8ca,
@@ -581,7 +542,12 @@ export function createAutopsyCadaverOverlay(
     });
     const puddle = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.27, 0.012, 14), puddleMat);
     resG.add(puddle);
-    const petalMat = new THREE.MeshStandardMaterial({ color: 0x5c2463, emissive: 0x2a0c30, emissiveIntensity: 0.5, roughness: 0.6 });
+    const petalMat = new THREE.MeshStandardMaterial({
+      color: 0x5c2463,
+      emissive: 0x2a0c30,
+      emissiveIntensity: 0.5,
+      roughness: 0.6,
+    });
     for (let i = 0; i < 5; i++) {
       const petal = new THREE.Mesh(new THREE.DodecahedronGeometry(0.032, 0), petalMat);
       petal.scale.set(1.2, 0.4, 0.9);
@@ -621,7 +587,13 @@ export function createAutopsyCadaverOverlay(
       new THREE.CylinderGeometry(0.21, 0.23, 0.01, 14),
       new THREE.MeshStandardMaterial({ color: 0x263822, roughness: 0.22, metalness: 0.15 }),
     );
-    const glassMat = new THREE.MeshStandardMaterial({ color: 0x9ab5ba, roughness: 0.15, metalness: 0.2, transparent: true, opacity: 0.82 });
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x9ab5ba,
+      roughness: 0.15,
+      metalness: 0.2,
+      transparent: true,
+      opacity: 0.82,
+    });
     const shard1 = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.09, 4), glassMat);
     shard1.rotation.z = 1.25;
     shard1.position.set(-0.04, 0.025, 0.02);
@@ -721,7 +693,7 @@ export function createAutopsyCadaverOverlay(
 
   return {
     group,
-    drapeMesh,
+    figure,
     incisionGroup,
     neckIncision,
     sampleNodes: {

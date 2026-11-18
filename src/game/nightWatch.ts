@@ -1,0 +1,238 @@
+import type { ClueDocument, GameAct } from './types';
+
+/** Each entry is a real object. The filed entries themselves are the checkpoint; there is no second quest counter to drift out of sync with the notebook. */
+export const NIGHT_ORDER = [
+  'night_tag',
+  'night_roll',
+  'night_bell',
+  'night_bag',
+  'night_ticket',
+  'night_signal',
+  'night_spool',
+  'night_relay',
+  'night_line',
+  'night_call',
+] as const;
+export type NightId = (typeof NIGHT_ORDER)[number];
+export const NIGHT_TITLES = {
+  6: 'BÖLÜM VI · BOŞ SIRALAR',
+  7: 'BÖLÜM VII · SON PERON',
+  8: 'BÖLÜM VIII · KAPANMAYAN HAT',
+} as const;
+interface Page {
+  act: 6 | 7 | 8;
+  folio: string;
+  title: string;
+  place: string;
+  objective: string;
+  prompt: string;
+  text: string;
+  entry: string;
+  kind: 'report' | 'select' | 'sequence' | 'decision';
+  action: string;
+  choices?: readonly string[];
+  answer?: readonly number[];
+  hint?: string;
+}
+export const PAGES: Record<NightId, Page> = {
+  night_tag: {
+    act: 6,
+    folio: 'N / 01',
+    title: 'İpli etiket',
+    place: 'Gasilhane · Yolcu sedyesi',
+    objective: 'Gasilhanede güney duvarındaki yolcu sedyesine bak. Bilete bağlı etiketi çöz.',
+    prompt: 'Yolcunun nakil fişini çevir',
+    text: 'İdris iki sedyeyi teslim etmiş. Yolcunun ayak ucundaki etiket, kapatılmış köy mektebinin kartonundan kesilmiş. Arkasında bir çocuk el yazısı var: “Öğretmenim, son zilden sonra istasyonda bekleyeceğim.” Tarih: 16 Kasım 1973.',
+    entry:
+      'Nakil etiketinin arkasındaki yazı yirmi yıllık. Mektepteki nöbetçi öğretmenin yoklama defterini bulmalıyım.',
+    kind: 'report',
+    action: 'Etiketi deftere iliştir',
+  },
+  night_roll: {
+    act: 6,
+    folio: 'M / 02',
+    title: 'Yoklamadan sonra',
+    place: 'Sarı Mektep · Öğretmen masası',
+    objective:
+      'Sağlık ocağının yanından kuzeydoğuya çıkan Mektep Yolu’nu izle. Derslikte öğretmen masasını bul.',
+    prompt: 'Öğretmenin yoklamasını oku',
+    text: 'Son sayfada isimler değil, zil işaretleri var. “Tek kısa: ders başı. İki uzun: yangın. Kısa, uzun, kısa: kayıp yolcu. Bu son işareti duyan hademe avludaki bez çantayı açar.” Kapıya asılı çanın ipi, rüzgâr olmadığı hâlde sallanıyor.',
+    entry: 'Kayıp yolcu çağrısı: kısa — uzun — kısa. Mektep kapısının sağındaki avlu çanında çalınacak.',
+    kind: 'report',
+    action: 'Zil işaretlerini kopyala',
+  },
+  night_bell: {
+    act: 6,
+    folio: 'M / 03',
+    title: 'Avlu çanı',
+    place: 'Sarı Mektep · Revak',
+    objective: 'Mektebin önündeki pirinç çanda yoklamadaki kayıp yolcu çağrısını çal.',
+    prompt: 'Çanın ipini tut',
+    text: 'İpi çekip hemen bırakırsan kısa, biraz beklersen uzun bir ses duyuluyor. Son yoklamadaki kayıp yolcu çağrısını tekrarla. Üçüncü vuruştan sonra dinle.',
+    entry:
+      'Avluda üç vuruş yankılandı. Cevap, karanlık sınıftaki raftan geldi: bez çantanın tokası düştü.',
+    kind: 'sequence',
+    choices: ['Kısa', 'Uzun'],
+    answer: [0, 1, 0],
+    action: 'Yankıyı dinle',
+    hint: 'Yoklama kenarına yazılan çağrı kısa, uzun, kısa idi.',
+  },
+  night_bag: {
+    act: 6,
+    folio: 'M / 04',
+    title: 'Hademenin bez çantası',
+    place: 'Sarı Mektep · Derslik rafı',
+    objective: 'Dersliğe dön. Tahtanın sağındaki çantadan istasyon biletini çıkar.',
+    prompt: 'Bez çantayı aç',
+    text: 'Bozuk paraların arasında ikiye katlanmış bir peron bileti var. Saat hanesinin üstünde tren mührü değil, küçük bir minibüs resmi duruyor. Eşikteki ayak izleri doğuya, kapalı istasyona dönmüş.',
+    entry:
+      'Doğu istasyonunda aynı delik dizisi olan bir dipkoçan bulunmalı. Gişedeki cetveli karşılaştır.',
+    kind: 'report',
+    action: 'Peron biletini sakla',
+  },
+  night_ticket: {
+    act: 7,
+    folio: 'İ / 05',
+    title: 'Gişe cetveli',
+    place: 'Kuzdağ İstasyonu · Bekleme salonu',
+    objective:
+      'Doğu yolunu güneye, kapalı istasyona kadar takip et. Gişe masasındaki dipkoçanları incele.',
+    prompt: 'Gişe cetvelini karşılaştır',
+    text: '19.10 / Peron I: kömür vagonu, tek yuvarlak delik. 22.40 / Peron II: karayolu aktarması, iki çentik. 22.42 / Peron III: tarifede sefer yok; satırı farklı mürekkeple birisi sonradan doldurmuş. Çantadaki minibüs biletinin kenarında iki çentik var.',
+    entry:
+      'Minibüsün asıl aktarması 22.40, Peron II. 22.42 bir tren saati değil. Dışarıdaki işaret kolu yanlış peronu gösteriyor.',
+    kind: 'select',
+    choices: ['I · Kömür vagonu', 'II · Karayolu aktarması', 'III · İlave sefer'],
+    answer: [1],
+    action: 'Eşleşen koçanı ayır',
+    hint: 'Biletteki taşıt ve iki çentik yalnızca aktarma satırında birlikte geçiyor.',
+  },
+  night_signal: {
+    act: 7,
+    folio: 'İ / 06',
+    title: 'Peron göstergesi',
+    place: 'İstasyon · Doğu peronu',
+    objective: 'Peronun doğu ucunda mum sönükken eğil. Kırmızı kolu cetveldeki gerçek perona getir.',
+    prompt: 'Peron işaretini değiştir',
+    text: 'Levhada üç çizik var. Kolu yolcunun gerçekten indiği perona bırakırsan gişe kayıt makinesi o hattı okuyacak. Gözcü traverslerin öbür ucunda; sığınağın bekleme salonu.',
+    entry: 'Peron II açık. Bekleme salonundan bant makaralarının dönme sesi geliyor.',
+    kind: 'select',
+    choices: ['I', 'II', 'III'],
+    answer: [1],
+    action: 'Kolu kilitle',
+    hint: 'Gişe cetvelindeki karayolu aktarması II numaralı peronda.',
+  },
+  night_spool: {
+    act: 7,
+    folio: 'İ / 07',
+    title: 'Son anons',
+    place: 'İstasyon · Kayıt makinesi',
+    objective: 'Bekleme salonundaki çift makaralı kayıt makinesine dön ve son anonsu çöz.',
+    prompt: 'Son anons bandını sar',
+    text: 'Bantta istasyon şefinin sesi var: “Önce evin abonesini, sonra yolun kilometresini, en son harici hattı bağla. Gasilhane altı. Viraj on dört. Hariç sıfır. Dere dağıtım kutusundaki sarı örgü hat hâlâ sağlam.” Ardından, az önce avluda çaldığın zil duyuluyor.',
+    entry:
+      'Santral bağlantı sırası: 06 → 14 → 00. Önce değirmenin güneybatısındaki dağıtım kutusunda sarı örgü çifti seç.',
+    kind: 'report',
+    action: 'Anonsu yazıya geçir',
+  },
+  night_relay: {
+    act: 8,
+    folio: 'S / 08',
+    title: 'Dere dağıtım kutusu',
+    place: 'Değirmen–Santral servis yolu',
+    objective:
+      'Değirmenin güneybatısına, servis yolunun kıvrımındaki dağıtım kutusuna git. İstasyon bandındaki hattı bul.',
+    prompt: 'Dağıtım kutusunu incele',
+    text: 'Yağmurdan etiketler silinmiş. Üç eski abone kordonu var: biri beyaz bez, biri sarı örgü, biri kömür karası. İstasyon şefinin sağlam dediği çifti dinleme mandalına al.',
+    entry: 'Sarı çiftte çevir sesi var. Servis yolunu güneye izleyip Sırt Santrali’ndeki panoya git.',
+    kind: 'select',
+    choices: ['Beyaz bez', 'Kömür karası', 'Sarı örgü'],
+    answer: [2],
+    action: 'Hattı dinle',
+    hint: 'Bantta şef “sarı örgü” diyordu. Elektrik değil, eski bir abone hattı.',
+  },
+  night_line: {
+    act: 8,
+    folio: 'S / 09',
+    title: 'Gece santrali',
+    place: 'Sırt Santrali · Bağlantı panosu',
+    objective: 'Servis yolundan Sırt Santrali’ne çık. Panoda üç aboneyi anons sırasıyla bağla.',
+    prompt: 'Santral panosuna geç',
+    text: 'Masadaki karta göre 00 hariç, 06 gasilhane, 14 viraj. Bantta yerler bir sıra hâlinde okunmuştu. Yanlış bağlarsan yalnızca kendi nefesini duyarsın.',
+    entry:
+      'Önce gasilhane, sonra viraj, sonunda hariç. Hat açılınca meydandaki gasilhanenin telefonu çalmaya başladı.',
+    kind: 'sequence',
+    choices: ['00', '06', '14'],
+    answer: [1, 2, 0],
+    action: 'Çevir sesini sınayıp bağla',
+    hint: 'Şefin sırası ev, yol, hariçti: 06, 14, 00.',
+  },
+  night_call: {
+    act: 8,
+    folio: 'G / 10',
+    title: 'Şafak hattı',
+    place: 'Gasilhane · Kabul telefonu',
+    objective: 'Meydana dön. Gasilhane kapısının iç yanındaki telefondan son çağrıya cevap ver.',
+    prompt: 'Ahizeyi kaldır',
+    text: 'Hat ilk kez boş değil. İlçe memuru adını soruyor. Masada üç teslim fişi, cebinde 1973 tarihli bir bilet var. Bu kez hatta ne kalacağı sana bağlı.',
+    entry: 'Gece hattının başında son karar verildi.',
+    kind: 'decision',
+    choices: ['Mühürlü dosyaları ilçeye bildir', 'İsimleri söylemeden vedalaş'],
+    action: 'Ahizeyi bırak',
+  },
+};
+export const NIGHT_CLUES: ClueDocument[] = NIGHT_ORDER.map((id) => ({
+  id,
+  title: PAGES[id].title,
+  subtitle: PAGES[id].place,
+  body: PAGES[id].entry,
+  discovered: false,
+}));
+export function nextNightPage(found: (id: NightId) => boolean): NightId | undefined {
+  return NIGHT_ORDER.find((id) => !found(id));
+}
+export function nightAct(found: (id: NightId) => boolean): GameAct {
+  return PAGES[nextNightPage(found) ?? 'night_call'].act;
+}
+export function isNightId(id: string): id is NightId {
+  return Object.hasOwn(PAGES, id);
+}
+export function correctPage(id: NightId, input: readonly number[]) {
+  const page = PAGES[id];
+  if (page.kind === 'decision') return input.length === 1 && (input[0] === 0 || input[0] === 1);
+  const expected = page.answer ?? [];
+  return expected.length === input.length && expected.every((v, i) => v === input[i]);
+}
+
+export const FIELD_NOTES = {
+  seyir_tahta: {
+    title: 'Tahtadaki son tarih',
+    subtitle: 'Sarı Mektep · Kara tahta',
+    body: 'Tebeşirle 16 Kasım yazılmış. Altında bir çocuğun çizdiği köy ve bir işaret var. Yeni bir tarih için hiç yer silinmemiş.',
+  },
+  seyir_sef: {
+    title: 'Saati durmuş memur',
+    subtitle: 'Son peron · Şapkalı nöbetçi',
+    body: 'Şefin yüzü bir saat kadranı. Saniye kolu yok, akrep ile yelkovan 22.42’de. Ağzı olmadan konuştu: “İki çentik, ikinci peron. O gece trene binen olmadı.”',
+  },
+  seyir_peron: {
+    title: 'İptal levhası',
+    subtitle: 'Kuzdağ İstasyonu · Peron',
+    body: 'Hattın Kasım 1973’te yolcu trafiğine kapandığı yazılı. O günden sonra anlatılan tren sesleri tarifeye ait olamaz.',
+  },
+  seyir_abone: {
+    title: 'Son abone',
+    subtitle: 'Sırt Santrali · Duvar levhası',
+    body: 'Kapıdaki eski şebeke kartında en son sökülecek telefon işaretlenmiş: gasilhane, 06. İlk nöbetimde çalan telefon bu hat üzerindeydi.',
+  },
+} as const;
+export const FIELD_CLUES: ClueDocument[] = Object.entries(FIELD_NOTES).map(([id, n]) => ({
+  id,
+  ...n,
+  discovered: false,
+}));
+export function nightStealthPrompt(id: NightId, crouched: boolean, lit: boolean) {
+  return id === 'night_signal' && (!crouched || lit)
+    ? 'Gözcü peronda. Işığı söndür [F] ve eğil [C]; sonra kolu kullan.'
+    : null;
+}

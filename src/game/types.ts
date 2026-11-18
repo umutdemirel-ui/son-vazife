@@ -1,3 +1,4 @@
+import { FIELD_CLUES, NIGHT_CLUES, type NightId } from './nightWatch';
 import {
   GlossaryCategory,
   GlossaryEntry,
@@ -17,14 +18,16 @@ export type GameScreen =
   | 'ending_twist'
   | 'game_over';
 
-export type GameAct = 1 | 2 | 3 | 4 | 5;
+export type GameAct = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 // Bölüm 1: Kuzdağ'a Geliş, İlk İnceleme & Vaka I (Hacı Arif Efendi)
 // Bölüm 2: Sağlık Ocağı, İkinci Ceset (Şoför Mahmut) & Katip Kenan Yüzleşmesi
 // Bölüm 3: Dere Köprüsü, Eski Su Değirmeni & Viraj Kaza Alanı
 // Bölüm 4: Mezarlık Tepesi, Üçüncü Ceset (İsimsiz Yolcu) & Taş Mahzen
-// Bölüm 5: Muhtarlık Sırları, Şafak Öncesi Son Vazife & Final
+// Bölüm 5: Muhtarlık Sırları ve Kefen
+// Bölüm 6–8: Sarı Mektep, Son Peron ve Kapanmayan Hat
 
-export type DistrictId = 'square' | 'clinic' | 'mill' | 'cemetery' | 'crash_site';
+export type DistrictId =
+  'square' | 'clinic' | 'mill' | 'cemetery' | 'crash_site' | 'school' | 'station' | 'exchange';
 
 export type AutopsyCaseId = 'case_arif' | 'case_mahmut' | 'case_unknown';
 export type AutopsyTool = 'magnifier' | 'scalpel' | 'forceps' | 'camera';
@@ -187,6 +190,7 @@ export interface GameHudState {
   saveSummary: SaveSummary | null;
   saveNoticeText: string | null;
   activeDialogue: ActiveDialogueState | null;
+  nightPage: NightId | null;
   registryCaseId: AutopsyCaseId | null;
   activeAutopsyCaseId: AutopsyCaseId | null;
   activeAutopsyTool: AutopsyTool;
@@ -371,4 +375,13 @@ export const INITIAL_CLUES: ClueDocument[] = [
     body: '"Eğer kuralları bozar ve kendi hikâyeni reddedersen, sabah ezanı bu köye doğmaz. Hakikati mühürleyip son vazifeyi tamamlarsan hem Arif’in hem senin ruhun huzura erer."',
     discovered: false,
   },
+  {
+    id: 'clue_kenan_confession',
+    title: 'Katibin itirafı',
+    subtitle: 'Muhtarlık yolu · Tanık beyanı',
+    body: 'Kenan üçüncü yolcunun taş mahzene götürüldüğünü söyledi. Anahtar Mezarcı İdris’te.',
+    discovered: false,
+  },
+  ...FIELD_CLUES,
+  ...NIGHT_CLUES,
 ];

@@ -14,7 +14,16 @@ const inscriptions = [
   ['DERE YOLU', '←  DEĞİRMEN'],
   ['YUKARI MAHALLE', 'MEZARLIK  ←'],
   ['MEYDAN', 'ÇEŞME  →'],
+  ['KUZEYDOĞU', 'MEKTEP YOLU'],
+  ['DOĞU HATTI', 'İSTASYON YOLU'],
+  ['DERE SIRTI', 'SANTRAL YOLU'],
+  ['KUZDAĞ · 1941', 'SARI MEKTEP'],
+  ['DOĞU HATTI · KM 14', 'KUZDAĞ İSTASYONU'],
+  ['P.T.T. · KUZDAĞ', 'SIRT SANTRALİ'],
+  ['T.C.D.D. · 1973', 'KAPALI HAT'],
+  ['P.T.T.', 'ABONE 06'],
 ] as const;
+const atlasHeight = inscriptions.length * 128 + 3 * 64;
 export type PlateName = (typeof inscriptions)[number][1];
 
 /** Box UVs can be measured in metres: a long garden wall shouldn't stretch one stone across it. */
@@ -125,7 +134,7 @@ export function pitchedRoof(
 function enamelAtlas() {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
-  canvas.height = 1024;
+  canvas.height = atlasHeight;
   const ctx = canvas.getContext('2d')!;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -157,7 +166,14 @@ function enamelAtlas() {
     }
   }
   inscriptions.forEach(([s, t], i) => plate(0, 128 * i, 512, 128, s, t));
-  for (let i = 0; i < 8; i++) plate(i * 64, 896, 64, 64, String(i + 1).padStart(2, '0'));
+  for (let i = 0; i < 24; i++)
+    plate(
+      (i % 8) * 64,
+      inscriptions.length * 128 + Math.floor(i / 8) * 64,
+      64,
+      64,
+      String(i + 1).padStart(2, '0'),
+    );
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -257,13 +273,15 @@ export class VillageCraft {
   ) {
     const label = face(parent, this.enamel, w, h, x, y, z, yaw);
     const number = typeof name === 'number';
-    const row = number ? 7 : inscriptions.findIndex(([, title]) => title === name);
+    const row = number
+      ? inscriptions.length + Math.floor((name - 1) / 8) * 0.5
+      : inscriptions.findIndex(([, title]) => title === name);
     const uv = label.geometry.attributes.uv;
     for (let i = 0; i < uv.count; i++) {
       uv.setXY(
         i,
-        number ? ((name - 1) * 64 + 1 + uv.getX(i) * 62) / 512 : 0.002 + uv.getX(i) * 0.996,
-        1 - (row * 128 + 1 + (1 - uv.getY(i)) * (number ? 62 : 126)) / 1024,
+        number ? (((name - 1) % 8) * 64 + 1 + uv.getX(i) * 62) / 512 : 0.002 + uv.getX(i) * 0.996,
+        1 - (row * 128 + 1 + (1 - uv.getY(i)) * (number ? 62 : 126)) / atlasHeight,
       );
     }
     return label;
