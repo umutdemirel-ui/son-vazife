@@ -24,3 +24,9 @@ test('old outpost and platform saves move with their sites', async () => {
   assert.deepEqual(migrateOutpostPosition(-54, 43), { x: -56, z: 51 });
   assert.deepEqual(migrateOutpostPosition(0, 0), { x: 0, z: 0 });
 });
+
+test('clinic saves follow the rebuilt clinic but outdoor saves stay put', async () => {
+  const { migrateClinicPosition } = await import('../src/game/homeMigration');
+  assert.deepEqual(migrateClinicPosition(25, -28), { x: 31, z: -10 });
+  assert.deepEqual(migrateClinicPosition(20, -28), { x: 20, z: -28 });
+});

@@ -2,7 +2,7 @@ import { buildHome, type Home } from './homes';
 import { CEMETERY, CEMETERY_GRAVES, MOSQUE_GRAVES, VILLAGE_GRAVES } from './cemetery';
 import { receivingBay, STRETCHERS } from './funerary';
 import { NightArt, watcherFigure } from './nightArt';
-import { CORE_HOME_CENTRES, OUTER_HOMES, type Outpost } from './valley';
+import { CLINIC, CORE_HOME_CENTRES, OUTER_HOMES, type Outpost } from './valley';
 import { buildOutposts } from './outposts';
 import { bakeStaticChildrenByMaterial } from './meshBatch';
 import * as THREE from 'three';
@@ -223,7 +223,7 @@ export function buildVillageWorld(
   const gasilAutopsy = createAutopsyCadaverOverlay('case_arif', nightArt, -0.862);
   gasil.deceasedGroup.add(gasilAutopsy.group);
   nightArt.near('arif', gasilPos.x, gasilPos.z, 22);
-  nightArt.near('mahmut', 26, -28, 23);
+  nightArt.near('mahmut', CLINIC.x, CLINIC.z, 23);
   nightArt.near('yolcu', -34, -36, 22);
   const receiving = receivingBay(gasil.group, nightArt, craft);
   for (const { x, z } of Object.values(STRETCHERS))
@@ -322,8 +322,8 @@ export function buildVillageWorld(
     { minX: -3.45, maxX: -2.95, minZ: 0.8, maxZ: 3.2 },
     { minX: 0.6, maxX: 1.9, minZ: -1.3, maxZ: 0.9 },
   ]));
-  // 5b. Sağlık Ocağı (District II: East Clinic) at (26.0, y, -28.0)
-  const clinicPos = new THREE.Vector3(26.0, groundHeightAt(26.0, -28.0), -28.0);
+  // 5b. Sağlık Ocağı, on the east hillside.
+  const clinicPos = new THREE.Vector3(CLINIC.x, groundHeightAt(CLINIC.x, CLINIC.z), CLINIC.z);
   const clinic = createClinicBuilding(textures, craft, nightArt);
   clinic.group.position.copy(clinicPos);
   cells.add(scene, clinic.group, 26, 48);
@@ -565,7 +565,7 @@ export function buildVillageWorld(
     { x: 3.9, z: 17.5, rot: Math.PI, base: 5.4 },
     { x: -4.0, z: -17.5, rot: 0, base: 5.2 },
     { x: 13.5, z: -24.5, rot: -Math.PI / 2, base: 5.6 }, // Clinic road
-    { x: 20.8, z: -29.5, rot: 0, base: 6.0 }, // Clinic courtyard
+    { x: CLINIC.x - 5.2, z: CLINIC.z - 1.5, rot: 0, base: 6.0 }, // Clinic courtyard
     { x: -19.5, z: 6.0, rot: Math.PI / 2, base: 5.2 }, // Bridge head
     { x: -26.5, z: -33.2, rot: 0.3, base: 4.8 }, // Cemetery hill approach
     { x: 46.7, z: -54.2, rot: 0, base: 4.5 }, // Mektep yard

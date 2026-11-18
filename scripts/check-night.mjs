@@ -218,8 +218,8 @@ try {
   await use('npc_bekci', -1.05, 14.65);
   await btn(/Adli Kanıt/).click();
   await btn(/Anahtarını al ve oraya/).click();
-  await doorway('clinic_door', 20.8, -28, 'x', 1);
-  await use('autopsy_case_mahmut', 24.41, -28);
+  await doorway('clinic_door', 26.8, -10, 'x', 1);
+  await use('autopsy_case_mahmut', 30.41, -10);
   await form('case_mahmut');
   await doorway('mill_door', -31.35, 8, 'x', -1);
   await use('clue_mill_ledger', -35.61, 9.12);

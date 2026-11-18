@@ -1,5 +1,5 @@
 import { CEMETERY, VILLAGE_GRAVES } from './cemetery';
-import { CORE_LANES, OUTER_LANES, OUTER_HOMES, OUTPOSTS, OUTPOST_IDS, reservedGround } from './valley';
+import { CLINIC, CORE_LANES, OUTER_LANES, OUTER_HOMES, OUTPOSTS, OUTPOST_IDS, reservedGround } from './valley';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { surfaceUrl, type Allocation } from './quality';
@@ -45,7 +45,7 @@ function valleyHeight(x: number, z: number): number {
   const dAbandoned = Math.hypot(x + 10.8, z + 10.5);
   const dMuhtar = Math.hypot(x - 10.5, z + 18.0);
   const dFountain = Math.hypot(x - 4.8, z - 12.5);
-  const dClinic = Math.hypot(x - 26.0, z + 28.0);
+  const dClinic = Math.hypot(x - CLINIC.x, z - CLINIC.z);
   const dMill = Math.hypot(x + 36.0, z - 8.0);
   const dCrypt = Math.hypot(x + 34.0, z + 36.0);
   const dCrash = Math.hypot(x - 28.0, z - 20.0);
@@ -396,7 +396,7 @@ export function buildMountainTerrainAndForest(
     if (reservedGround(tx, tz) || VILLAGE_GRAVES.some(g => Math.hypot(tx - g.x, tz - g.z) < 2.2)) continue;
     // Keep the original districts and connecting roads clear of trees
     if (Math.abs(tx) < 16.5 && tz > -46 && tz < 38) continue;
-    if (Math.hypot(tx - 26, tz + 28) < 11.5) continue; // Clinic pad
+    if (Math.hypot(tx - CLINIC.x, tz - CLINIC.z) < 11.5) continue; // Clinic pad
     if (Math.hypot(tx + 34, tz + 36) < 12.5) continue; // Cemetery hill
     if (Math.hypot(tx + 36, tz - 8) < 11.5) continue; // Mill pad
     if (Math.hypot(tx - 28, tz - 20) < 11.5) continue; // Crash bend
@@ -518,7 +518,7 @@ export function buildMountainTerrainAndForest(
     if (Math.abs(rx + 10.5) < 5.5 && Math.abs(rz - 6.0) < 5.5) continue;
     if (Math.abs(rx + 10.8) < 5.0 && Math.abs(rz + 10.5) < 4.5) continue;
     if (Math.abs(rx - 10.5) < 5.0 && Math.abs(rz + 18.0) < 4.5) continue;
-    if (Math.hypot(rx - 26, rz + 28) < 7.5) continue;
+    if (Math.hypot(rx - CLINIC.x, rz - CLINIC.z) < 7.5) continue;
     if (Math.hypot(rx + 36, rz - 8) < 7.5) continue;
     if (Math.hypot(rx + 34, rz + 36) < 8.5) continue;
     if (Math.hypot(rx - 28, rz - 20) < 7.5) continue;
@@ -588,7 +588,7 @@ export function buildMountainTerrainAndForest(
     if (Math.abs(sx + 10.5) < 4.5 && Math.abs(sz - 6.0) < 4.5) continue;
     if (Math.abs(sx + 10.8) < 4.0 && Math.abs(sz + 10.5) < 4.0) continue;
     if (Math.abs(sx - 10.5) < 4.2 && Math.abs(sz + 18.0) < 4.2) continue;
-    if (Math.hypot(sx - 26, sz + 28) < 6.0) continue;
+    if (Math.hypot(sx - CLINIC.x, sz - CLINIC.z) < 6.0) continue;
     if (Math.hypot(sx + 36, sz - 8) < 5.5) continue;
     if (Math.hypot(sx + 34, sz + 36) < 6.5) continue;
     shrubData.push({ x: sx, z: sz, s: 0.65 + rand() * 0.95 });

@@ -1,5 +1,5 @@
 import { insideHome } from './homes';
-import { migrateOldHomePosition, migrateOutpostPosition } from './homeMigration';
+import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition } from './homeMigration';
 import { atEscapePoint, isEvening, survivalDay } from './survival';
 import {
   FIELD_NOTES,
@@ -13,7 +13,7 @@ import {
   PAGES,
   type NightId,
 } from './nightWatch';
-import { districtAt, insideOutpost, OUTPOSTS, OUTPOST_IDS, VALLEY, type Outpost } from './valley';
+import { CLINIC, districtAt, insideOutpost, OUTPOSTS, OUTPOST_IDS, VALLEY, type Outpost } from './valley';
 import { NightPatrol } from './nightPatrol';
 import * as THREE from 'three';
 import { HorrorAudioEngine } from './audio';
@@ -151,10 +151,10 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
   {
     id: 'clinic_morgue_room',
     zoneName: 'Sağlık Ocağı',
-    centerX: 26.0,
-    centerZ: -28.0,
+    centerX: CLINIC.x,
+    centerZ: CLINIC.z,
     radius: 4.6,
-    bounds: { minX: 22.3, maxX: 29.7, minZ: -31.3, maxZ: -24.7 },
+    bounds: { minX: CLINIC.x - 3.7, maxX: CLINIC.x + 3.7, minZ: CLINIC.z - 3.3, maxZ: CLINIC.z + 3.3 },
     dreadThreshold: 70,
     minStationarySec: 1.8,
     cooldownSec: 19,
@@ -1071,11 +1071,13 @@ export class SonVazifeEngine {
     this.act = save.act;
     this.survivalSeconds = save.survivalSeconds ?? 0;
     this.caughtCount = save.caughtCount ?? 0;
-    const homePosition = save.villageRevision === 2 || save.villageRevision === 3
+    const homePosition = save.villageRevision === 2 || save.villageRevision === 3 || save.villageRevision === 4
       ? save.playerPos
       : migrateOldHomePosition(save.playerPos.x, save.playerPos.z, this.world.homes, save.villageRevision);
-    const restoredPosition = save.villageRevision === 3
+    const outpostPosition = save.villageRevision === 3 || save.villageRevision === 4
       ? homePosition : migrateOutpostPosition(homePosition.x, homePosition.z);
+    const restoredPosition = save.villageRevision === 4
+      ? outpostPosition : migrateClinicPosition(outpostPosition.x, outpostPosition.z);
     this.playerPos.set(
       restoredPosition.x,
       groundHeightAt(restoredPosition.x, restoredPosition.z),
@@ -1140,7 +1142,7 @@ export class SonVazifeEngine {
     }
     // A pre-rebuild outdoor save may now intersect a moved wall or grave. Resolve
     // after restoring door states, so resuming never traps a player in new geometry.
-    if (save.villageRevision !== 3) {
+    if (save.villageRevision !== 4) {
       this.resolveCollisions(this.playerPos);
       this.playerPos.y = groundHeightAt(this.playerPos.x, this.playerPos.z);
     }
@@ -1230,7 +1232,7 @@ export class SonVazifeEngine {
     const meta = this.getObjectiveText();
     const payload: SaveGamePayload = {
       version: 2,
-      villageRevision: 3,
+      villageRevision: 4,
       survivalSeconds: this.survivalSeconds,
       caughtCount: this.caughtCount,
       openHomes: this.world.homes.flatMap((home, i) => home.open ? [i] : []),
@@ -2934,7 +2936,7 @@ export class SonVazifeEngine {
   }
 
   private isInsideClinic(p: THREE.Vector3): boolean {
-    return p.x >= 22.3 && p.x <= 29.7 && p.z >= -31.3 && p.z <= -24.7;
+    return Math.abs(p.x - CLINIC.x) <= 3.7 && Math.abs(p.z - CLINIC.z) <= 3.3;
   }
 
   private isInsideMill(p: THREE.Vector3): boolean {
@@ -3004,11 +3006,11 @@ export class SonVazifeEngine {
     }
     if (
       !this.clinicDoorOpen &&
-      Math.abs(nextPos.x - 22.3) < 0.45 &&
-      nextPos.z > -28.8 &&
-      nextPos.z < -27.2
+      Math.abs(nextPos.x - (CLINIC.x - 3.7)) < 0.45 &&
+      nextPos.z > CLINIC.z - 0.8 &&
+      nextPos.z < CLINIC.z + 0.8
     ) {
-      nextPos.x = nextPos.x > 22.3 ? 22.3 + 0.45 : 22.3 - 0.45;
+      nextPos.x = nextPos.x > CLINIC.x - 3.7 ? CLINIC.x - 3.25 : CLINIC.x - 4.15;
     }
     if (!this.millDoorOpen && Math.abs(nextPos.x - -32.9) < 0.45 && nextPos.z > 7.2 && nextPos.z < 8.8) {
       nextPos.x = nextPos.x > -32.9 ? -32.9 + 0.45 : -32.9 - 0.45;
@@ -3397,7 +3399,7 @@ export class SonVazifeEngine {
             : insideMuhtar
               ? groundHeightAt(10.5, -18.0) + 0.16
               : insideClinic
-                ? groundHeightAt(26.0, -28.0) + 0.16
+                ? groundHeightAt(CLINIC.x, CLINIC.z) + 0.16
                 : insideMill
                   ? groundHeightAt(-36.0, 8.0) + 0.16
                   : groundHeightAt(-34.0, -36.0) + 0.14

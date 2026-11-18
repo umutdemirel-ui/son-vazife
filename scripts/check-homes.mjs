@@ -112,5 +112,15 @@ try {
   await btn('Devam et').click(); await btn('Duraklat').waitFor();
   const migrated = await page.evaluate(() => [fixture.playerPos.x, fixture.playerPos.z]);
   assert.ok(Math.abs(migrated[0] - 13.5) < 0.1 && Math.abs(migrated[1] - 3.5) < 0.1, `revision-one migration: ${migrated}`);
+  // Revision three saved inside the old clinic must resume inside the new one.
+  await page.evaluate(() => {
+    const key = 'son_vazife_save_v2', save = JSON.parse(localStorage.getItem(key));
+    save.villageRevision = 3; save.playerPos.x = 23; save.playerPos.z = -27.4;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await btn('Devam et').click(); await btn('Duraklat').waitFor();
+  const clinic = await page.evaluate(() => [fixture.playerPos.x, fixture.playerPos.z]);
+  assert.ok(Math.abs(clinic[0] - 29) < 0.1 && Math.abs(clinic[1] + 9.4) < 0.1, `clinic migration: ${clinic}`);
   console.log(`OK: ${result.count + 2} empty houses, doors, collisions and save restoration`);
 } finally { await browser.close(); }

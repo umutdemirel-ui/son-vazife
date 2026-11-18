@@ -2,6 +2,8 @@ import type { DistrictId } from './types';
 
 /** Metres, north = -Z. Collision, clearing, wayfinding and the notebook share this survey. */
 export const VALLEY = { x1: -72, x2: 76, z1: -78, z2: 62 } as const;
+/** Shared anchor for the rebuilt hillside clinic. */
+export const CLINIC = { x: 32, z: -10 } as const;
 export const OUTPOSTS = {
   school: { x: 43, z: -65, w: 11.4, d: 5.9, door: 1.29, y: 1.8, name: 'Sarı Mektep' },
   station: { x: 60, z: 43, w: 8.9, d: 4.9, door: 1.19, y: 1.1, name: 'Kuzdağ İstasyonu' },
@@ -37,8 +39,8 @@ export const LANDMARKS: {
     name: 'Sağlık Ocağı',
     short: 'Sağlık Ocağı',
     sub: 'Vaka II · Şoför Mahmut',
-    x: 26,
-    z: -28,
+    x: CLINIC.x,
+    z: CLINIC.z,
   },
   {
     id: 'mill',
@@ -72,7 +74,7 @@ export function districtAt(x: number, z: number): DistrictId {
   if (z < -40 && x > 12) return 'school';
   if (x > 38) return z < -31 ? 'school' : 'station';
   if ((x < -26 && z > 19) || (x < -40 && z > 10)) return 'exchange';
-  if (Math.hypot(x - 26, z + 28) < 13) return 'clinic';
+  if (Math.hypot(x - CLINIC.x, z - CLINIC.z) < 13) return 'clinic';
   if (x < -21 && z > -10) return 'mill';
   if (x < -20 && z <= -22) return 'cemetery';
   if (Math.hypot(x - 28, z - 20) < 13) return 'crash_site';
@@ -92,7 +94,11 @@ export const CORE_LANES: readonly Lane[] = [
   [1, 16, 25, 20, 4],
 ];
 export const OUTER_LANES: readonly Lane[] = [
-  // Clinic's west entry round its south wall to the school yard.
+  // Hillside clinic spur leaves the old northern road and approaches its west door.
+  [20, -22.5, 24, -19, 3.1],
+  [24, -19, 26, -10, 3.1],
+  [26, -10, 28.3, -10, 2.5],
+  // Northern road to the school yard.
   [20, -27.7, 20, -22.5, 3.1],
   [20, -22.5, 33, -22.5, 3.1],
   [33, -22.5, 34, -35, 3.1],

@@ -57,3 +57,10 @@ export function migrateOutpostPosition(x: number, z: number) {
   }
   return { x, z };
 }
+
+/** Carry a player saved inside the former clinic into the same room at its new site. */
+export function migrateClinicPosition(x: number, z: number) {
+  return Math.abs(x - 26) < 3.7 && Math.abs(z + 28) < 3.3
+    ? { x: x + 6, z: z + 18 }
+    : { x, z };
+}
