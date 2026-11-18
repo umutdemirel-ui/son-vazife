@@ -1591,11 +1591,10 @@ export function createWatermillAndBridge(textures: VillageTextures): MillAndBrid
   eastTop.position.set(rw / 2, 2.3 + (rh - 2.3) / 2, 0);
   millGroup.add(westW, northW, southW, eastL, eastR, eastTop);
 
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(4.8, 2.0, 4), roofMat);
-  roof.rotation.y = Math.PI / 4;
-  roof.position.y = rh + 1.05;
-  roof.castShadow = true;
-  millGroup.add(roof);
+  // Uneven tiled eaves and a long ridge, rather than a pyramidal placeholder.
+  pitchedRoof(millGroup, roofMat, roofMat, rw + 0.65, rd + 0.65, rh, 0.9, 1.45);
+  block(millGroup, woodMat, rw + 0.5, 0.13, 0.16, 0, rh, rd / 2 + 0.18, 1.8);
+  block(millGroup, woodMat, rw + 0.5, 0.13, 0.16, 0, rh, -rd / 2 - 0.18, 1.8);
 
   const doorPivot = new THREE.Group();
   doorPivot.position.set(rw / 2, 0.16, -0.78);
@@ -1614,6 +1613,18 @@ export function createWatermillAndBridge(textures: VillageTextures): MillAndBrid
     const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.65, 0.16), woodMat);
     spoke.rotation.x = (i / 8) * Math.PI;
     wheelPivot.add(spoke);
+  }
+  // Twin rings and paddles share the existing animated wheel pivot.
+  const farRim = new THREE.Mesh(new THREE.TorusGeometry(1.35, 0.085, 6, 20), woodMat);
+  farRim.rotation.y = Math.PI / 2;
+  farRim.position.x = 0.32;
+  wheelPivot.add(farRim);
+  for (let i = 0; i < 12; i++) {
+    const angle = i * Math.PI * 2 / 12;
+    const paddle = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.27, 0.12), woodMat);
+    paddle.position.set(0.16, Math.cos(angle) * 1.26, Math.sin(angle) * 1.26);
+    paddle.rotation.x = angle;
+    wheelPivot.add(paddle);
   }
   millGroup.add(wheelPivot);
 
@@ -1701,6 +1712,13 @@ export function createCemeteryHillAndCrypt(textures: VillageTextures, art: Night
     const h = 1.05 + (idx % 3) * 0.18;
     const stele = block(group, graveMat, 0.32, h, 0.13, gx, 0.16 + h / 2, gz - 0.52, 1.4);
     stele.rotation.z = (idx % 2 === 0 ? 1 : -1) * 0.04;
+    // Rounded tops and shallow carved lines are part of the same grave footprint.
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), graveMat);
+    cap.scale.set(1, 0.65, 0.4);
+    cap.position.set(gx, 0.16 + h, gz - 0.52);
+    group.add(cap);
+    for (let line = 0; line < 3; line++)
+      block(group, timberMat, 0.18 - line * 0.02, 0.012, 0.01, gx, 0.16 + h * (0.68 - line * 0.1), gz - 0.585);
   });
 
   // Freshly dug grave mound + pit

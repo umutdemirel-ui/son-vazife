@@ -187,6 +187,8 @@ export class VillageCraft {
   readonly lime: THREE.MeshStandardMaterial[];
   readonly shutters: THREE.MeshStandardMaterial[];
   readonly tile: THREE.MeshStandardMaterial;
+  readonly roofVariants: THREE.MeshStandardMaterial[];
+  readonly earthen: THREE.MeshStandardMaterial;
   readonly kilim: THREE.MeshStandardMaterial;
   readonly pane: THREE.MeshStandardMaterial;
   readonly door: THREE.MeshStandardMaterial;
@@ -217,6 +219,8 @@ export class VillageCraft {
     this.lime = [0xe0d4ba, 0xc3c1a6, 0xc7a385].map((c) => standard(t.plaster, c, 0.93, t.plasterNormal));
     this.shutters = [0x708075, 0x947d63, 0x677d85].map((c) => standard(t.timber, c, 0.93));
     this.tile = standard(t.roof, 0xc7b3a4, 0.93, t.roofNormal);
+    this.roofVariants = [0x947f70, 0xb2a094, 0x8d7973].map(c => standard(t.roof, c, 0.96, t.roofNormal));
+    this.earthen = standard(t.earthenPlaster, 0xa79a83, 0.98, t.wornPlasterNormal);
     this.kilim = standard(t.kilim, 0xb4a79a, 0.99);
     this.pane = standard(t.sash, 0xd1d2c7, 0.73);
     this.door = standard(t.door, 0xc1b4a6, 0.88);
@@ -447,6 +451,8 @@ export class VillageCraft {
       ...this.lime,
       ...this.shutters,
       this.tile,
+      ...this.roofVariants,
+      this.earthen,
       this.kilim,
       this.pane,
       this.door,

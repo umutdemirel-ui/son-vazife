@@ -63,3 +63,7 @@ node /tmp/kuzdag-art/compact.mjs
 ```
 
 [Çalışma zamanı bütçesi ve ölçüm yöntemi](../docs/performans.md).
+
+### Sonbahar meşesi
+
+`environment/reference/autumn-oak.png` proje için üretilmiş kurmaca ağaç görselidir; üçüncü taraf taraması değildir. `environment/oak.py` pembe fonu şeffaflaştırır, renk sızıntısını giderir ve `public/assets/village/` ile `compact/` içinde iki WebP üretir. Oyun bunları ağaç konumlarında çapraz alfa-testli düzlemler olarak, mevcut karaçamla birlikte örnekler. Yeniden üretmek için Pillow gerekir: `python art/environment/oak.py`.

@@ -32,7 +32,8 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   const root = new THREE.Group(); root.position.set(spec.x, ground, spec.z); root.rotation.y = spec.rotY;
   root.name = `Hane ${number}`;
   const { w, d } = spec, wall = 0.18, height = 2.75 + (number % 3) * 0.12, opening = 1.45;
-  const finish = spec.style === 'tas' ? craft.masonry : craft.lime[number % craft.lime.length];
+  const finish = spec.style === 'tas' ? craft.masonry : number % 4 === 0 ? craft.earthen : craft.lime[number % craft.lime.length];
+  const upperFinish = spec.style === 'tas' ? craft.lime[(number + 1) % craft.lime.length] : finish;
   block(root, craft.wood, w, 0.12, d, 0, 0.02, 0, 1.5);
   block(root, finish, w, height, wall, 0, height / 2, -d / 2, 2.2);
   for (const side of [-1, 1])
@@ -47,27 +48,35 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   const upper = number % 3 !== 0;
   const roofY = upper ? height + 1.55 : height;
   if (upper) {
-    block(root, finish, w - 0.08, 1.55, d - 0.08, 0, height + 0.775, 0, 2.2);
+    block(root, upperFinish, w - 0.08, 1.55, d - 0.08, 0, height + 0.775, 0, 2.2);
     block(root, craft.wood, w + 0.12, 0.13, 0.13, 0, height + 0.08, d / 2, 2.2);
     for (const side of [-1, 1]) {
       block(root, craft.wood, 0.11, 1.55, 0.10, side * (w / 2 - 0.16), height + 0.775, d / 2, 2.2);
-      craft.window(root, side * w * 0.24, height + 0.82, d / 2 + 0.04, 0.72, 0.92);
+      craft.window(root, side * w * 0.24, height + 0.82, d / 2 + 0.04, 0.72, 0.92, 0, number % 2 ? craft.shutters[number % craft.shutters.length] : undefined);
     }
   }
-  pitchedRoof(root, craft.tile, finish, w + 0.5, d + 0.5, roofY, 0.68 + (number % 3) * 0.08, Math.max(0.45, w * (spec.style === 'tas' ? 0.12 : 0.22)));
+  const roof = craft.roofVariants[number % craft.roofVariants.length];
+  pitchedRoof(root, roof, roof, w + 0.5, d + 0.5, roofY, 0.68 + (number % 3) * 0.08, Math.max(0.45, w * (spec.style === 'tas' ? 0.12 : 0.22)));
+  // Rough timber eaves and projecting lintels add depth without covering openings.
+  block(root, craft.wood, w + 0.48, 0.12, 0.12, 0, roofY - 0.04, d / 2 + 0.18, 1.5);
+  block(root, craft.wood, w + 0.48, 0.12, 0.12, 0, roofY - 0.04, -d / 2 - 0.18, 1.5);
   block(root, craft.masonry, 0.42, 0.85, 0.42, -w * 0.27, roofY + 0.46, -d * 0.18, 1.0);
   // Modest thresholds and stone foundations give each street facade depth.
-  block(root, craft.masonry, w + 0.1, 0.22, 0.15, 0, 0.11, -d / 2 - 0.02, 2.2);
+  block(root, craft.masonry, w + 0.1, 0.52, 0.15, 0, -0.04, -d / 2 - 0.02, 2.2);
   for (const side of [-1, 1]) {
-    block(root, craft.masonry, 0.15, 0.22, d, side * (w / 2 + 0.02), 0.11, 0, 2.2);
-    block(root, craft.masonry, flankWidth(w, opening), 0.22, 0.15, side * (opening / 2 + (w - opening) / 4), 0.11, d / 2 + 0.02, 2.2);
+    block(root, craft.masonry, 0.15, 0.52, d, side * (w / 2 + 0.02), -0.04, 0, 2.2);
+    block(root, craft.masonry, flankWidth(w, opening), 0.52, 0.15, side * (opening / 2 + (w - opening) / 4), -0.04, d / 2 + 0.02, 2.2);
   }
   // Shuttered windows and structural timber read from the muddy street.
   for (const side of [-1, 1]) {
-    craft.window(root, side * (opening / 2 + flank / 2), 1.67, d / 2 + 0.1, Math.min(0.8, flank * 0.68), 0.95);
+    craft.window(root, side * (opening / 2 + flank / 2), 1.67, d / 2 + 0.1, Math.min(0.8, flank * 0.68), 0.95, 0, number % 3 === 0 ? craft.shutters[(number + 1) % craft.shutters.length] : undefined);
     if (spec.style !== 'tas')
       block(root, craft.wood, 0.1, height, 0.09, side * (w / 2 - 0.12), height / 2, d / 2 + 0.12);
   }
+  // A short, weathered lintel and doorframe stay fixed when the leaf opens.
+  block(root, craft.wood, 0.1, 2.2, 0.1, -opening / 2 - 0.05, 1.1, d / 2 + 0.08);
+  block(root, craft.wood, 0.1, 2.2, 0.1, opening / 2 + 0.05, 1.1, d / 2 + 0.08);
+  block(root, craft.wood, opening + 0.3, 0.16, 0.16, 0, 2.19, d / 2 + 0.08);
   craft.plate(root, number, 0.24, 0.24, opening / 2 + 0.2, 2.16, d / 2 + 0.16);
   const door = new THREE.Group(); door.position.set(-opening / 2, 0.08, d / 2 + 0.02);
   // A door photograph belongs on the broad faces, not stretched over its thin edges.

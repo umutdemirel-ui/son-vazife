@@ -427,7 +427,11 @@ export function buildMountainTerrainAndForest(
     side: THREE.DoubleSide,
     alphaTest: 0.32,
   });
-  const forest = new THREE.InstancedMesh(pineGeo, pineMat, treeCoords.length);
+  // Keep the same clearings and surveyed tree positions, but alternate conifer
+  // and broad-leaf silhouettes instead of repeating one identical cutout.
+  const pines = treeCoords.filter((_, i) => i % 4 !== 0);
+  const oaks = treeCoords.filter((_, i) => i % 4 === 0);
+  const forest = new THREE.InstancedMesh(pineGeo, pineMat, pines.length);
   forest.renderOrder = 9;
   forest.name = 'Karaçam korusu';
   forest.visible = false;
@@ -436,8 +440,8 @@ export function buildMountainTerrainAndForest(
   });
   pineMap.colorSpace = THREE.SRGBColorSpace;
   pineMat.map = pineMap;
-  treeCoords.forEach((tree, i) => {
-    dummy.position.set(tree.x, groundHeightAt(tree.x, tree.z) - 0.09, tree.z);
+  pines.forEach((tree, i) => {
+    dummy.position.set(tree.x, surfaceY(tree.x, tree.z) - 0.09, tree.z);
     dummy.rotation.set(tree.leanX, tree.rot, tree.leanZ);
     dummy.scale.set(tree.scale * (0.88 + rand() * 0.22), tree.scale, tree.scale);
     dummy.updateMatrix();
@@ -452,8 +456,40 @@ export function buildMountainTerrainAndForest(
   scene.add(forest);
   disposables.push(forest, pineGeo, pineMat, pineMap);
 
+  // One double-crossed oak sprite draw on each quality tier. The alpha-tested
+  // trunk has a real ground contact and never affects navigation or interactions.
+  const oakPlane = new THREE.PlaneGeometry(12.2, 8.6).translate(0, 4.3, 0);
+  const oakCross = oakPlane.clone().rotateY(Math.PI / 2);
+  const oakGeo = mergeGeometries([oakPlane, oakCross])!;
+  oakPlane.dispose(); oakCross.dispose();
+  const oakMat = new THREE.MeshLambertMaterial({ color: 0xc2c0a9, side: THREE.DoubleSide, alphaTest: 0.35 });
+  const oakForest = new THREE.InstancedMesh(oakGeo, oakMat, oaks.length);
+  oakForest.name = 'Sonbahar meşeleri'; oakForest.visible = false;
+  const oakMap = new THREE.TextureLoader().load(surfaceUrl('autumn-oak', compact), () => { oakForest.visible = true; });
+  oakMap.colorSpace = THREE.SRGBColorSpace;
+  oakMat.map = oakMap;
+  oaks.forEach((tree, i) => {
+    dummy.position.set(tree.x, surfaceY(tree.x, tree.z) - 0.05, tree.z);
+    dummy.rotation.set(tree.leanX, tree.rot, tree.leanZ);
+    dummy.scale.setScalar(tree.scale * 0.9); dummy.updateMatrix();
+    oakForest.setMatrixAt(i, dummy.matrix);
+    const shade = 0.72 + rand() * 0.2;
+    tint.setRGB(shade, shade * 0.98, shade * 0.86); oakForest.setColorAt(i, tint);
+  });
+  oakForest.instanceMatrix.needsUpdate = true;
+  oakForest.computeBoundingSphere(); oakForest.matrixAutoUpdate = false; oakForest.updateMatrix();
+  scene.add(oakForest);
+  disposables.push(oakForest, oakGeo, oakMat, oakMap);
+
   // 4. Instanced Mossy Mountain Boulders along edges, stream banks & slopes
   const rockGeo = new THREE.IcosahedronGeometry(0.65, minimal ? 0 : 1);
+  const rockVertices = rockGeo.attributes.position;
+  for (let i = 0; i < rockVertices.count; i++) {
+    const x = rockVertices.getX(i), y = rockVertices.getY(i), z = rockVertices.getZ(i);
+    const crag = 1 + 0.12 * Math.sin(x * 9 + z * 4) * Math.cos(y * 7 - z * 6);
+    rockVertices.setXYZ(i, x * crag, y * crag, z * crag);
+  }
+  rockGeo.computeVertexNormals();
   const rockData: Array<{ x: number; z: number; sx: number; sy: number; sz: number; ry: number }> = [];
   for (let i = 0; i < 110; i++) {
     const rx = -48 + rand() * 90;
@@ -480,8 +516,8 @@ export function buildMountainTerrainAndForest(
   rocks.castShadow = false;
   rocks.receiveShadow = true;
   rockData.forEach((r, idx) => {
-    const gy = groundHeightAt(r.x, r.z);
-    dummy.position.set(r.x, gy + r.sy * 0.16, r.z);
+    const gy = surfaceY(r.x, r.z);
+    dummy.position.set(r.x, gy + r.sy * 0.25, r.z);
     dummy.rotation.set((rand() - 0.5) * 0.3, r.ry, (rand() - 0.5) * 0.3);
     dummy.scale.set(r.sx, r.sy, r.sz);
     dummy.updateMatrix();
@@ -551,7 +587,7 @@ export function buildMountainTerrainAndForest(
   }
   const shrubs = new THREE.InstancedMesh(shrubGeo, shrubMat, shrubData.length);
   shrubData.forEach((sh, idx) => {
-    const gy = groundHeightAt(sh.x, sh.z);
+    const gy = surfaceY(sh.x, sh.z);
     dummy.position.set(sh.x, gy - 0.04, sh.z);
     dummy.rotation.set(0, rand() * Math.PI * 2, 0);
     dummy.scale.set(sh.s * 1.15, sh.s * 0.78, sh.s);
@@ -568,6 +604,33 @@ export function buildMountainTerrainAndForest(
   shrubs.updateMatrix();
   scene.add(shrubs);
   disposables.push(shrubs, shrubGeo, shrubMat);
+
+  // Low winter scrub: forked twig silhouettes and irregular clumps, instanced
+  // only on the same cleared ground as the existing grass, never on a doorway.
+  const twigParts: THREE.BufferGeometry[] = [];
+  for (let i = 0; i < 7; i++) {
+    const twig = new THREE.CylinderGeometry(0.012, 0.028, 0.55 + (i % 3) * 0.1, 5);
+    const a = i * Math.PI * 2 / 7;
+    twig.translate(0, 0.29, 0);
+    twig.rotateZ(0.30 + (i % 3) * 0.12);
+    twig.rotateY(a);
+    twigParts.push(twig);
+  }
+  const twigGeo = mergeGeometries(twigParts)!;
+  twigParts.forEach(g => g.dispose());
+  const twigMat = new THREE.MeshLambertMaterial({ color: 0x51483a });
+  const scrubPoints = shrubData.filter((_, i) => i % 3 === 0);
+  const scrub = new THREE.InstancedMesh(twigGeo, twigMat, scrubPoints.length);
+  scrubPoints.forEach((p, i) => {
+    dummy.position.set(p.x, surfaceY(p.x, p.z) - 0.025, p.z);
+    dummy.rotation.set(0, (i * 2.399) % (Math.PI * 2), 0);
+    dummy.scale.set(0.7 + p.s * 0.35, 0.65 + p.s * 0.4, 0.7 + p.s * 0.35);
+    dummy.updateMatrix(); scrub.setMatrixAt(i, dummy.matrix);
+  });
+  scrub.instanceMatrix.needsUpdate = true;
+  scrub.computeBoundingSphere(); scrub.matrixAutoUpdate = false; scrub.updateMatrix();
+  scene.add(scrub);
+  disposables.push(scrub, twigGeo, twigMat);
 
   return {
     streamWater,

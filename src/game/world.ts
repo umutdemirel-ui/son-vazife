@@ -2,7 +2,7 @@ import { buildHome, type Home } from './homes';
 import { CEMETERY, CEMETERY_GRAVES, MOSQUE_GRAVES, VILLAGE_GRAVES } from './cemetery';
 import { receivingBay, STRETCHERS } from './funerary';
 import { NightArt, watcherFigure } from './nightArt';
-import { OUTER_HOMES, type Outpost } from './valley';
+import { CORE_HOME_CENTRES, OUTER_HOMES, type Outpost } from './valley';
 import { buildOutposts } from './outposts';
 import { bakeStaticChildrenByMaterial } from './meshBatch';
 import * as THREE from 'three';
@@ -405,14 +405,14 @@ export function buildVillageWorld(
     h: number;
     style: HouseStyle;
   }[] = [
-    { x: 12.5, z: 2.0, rotY: -Math.PI / 2, w: 6.2, d: 5.4, h: 4.3, style: 'cumba' },
-    { x: -10.6, z: 21.5, rotY: Math.PI / 2, w: 5.6, d: 4.8, h: 3.9, style: 'himis' },
-    { x: 13.0, z: -8.6, rotY: -Math.PI / 2 + 0.08, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
-    { x: -14.0, z: -21.5, rotY: Math.PI / 2 - 0.12, w: 6.0, d: 5.2, h: 4.1, style: 'cumba' },
-    { x: 21.0, z: 12.0, rotY: -Math.PI * 0.6, w: 6.4, d: 5.4, h: 4.2, style: 'tas' },
-    { x: -20.0, z: -5.5, rotY: Math.PI * 0.45, w: 5.8, d: 5.0, h: 4.0, style: 'himis' },
-    { x: 17.5, z: -36.5, rotY: -Math.PI * 0.25, w: 6.0, d: 5.2, h: 4.1, style: 'himis' },
-    { x: -15.5, z: -37.5, rotY: Math.PI * 0.35, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
+    { x: CORE_HOME_CENTRES[0][0], z: CORE_HOME_CENTRES[0][1], rotY: -Math.PI / 2, w: 6.2, d: 5.4, h: 4.3, style: 'cumba' },
+    { x: CORE_HOME_CENTRES[1][0], z: CORE_HOME_CENTRES[1][1], rotY: Math.PI / 2, w: 5.6, d: 4.8, h: 3.9, style: 'himis' },
+    { x: CORE_HOME_CENTRES[2][0], z: CORE_HOME_CENTRES[2][1], rotY: -Math.PI / 2 + 0.08, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
+    { x: CORE_HOME_CENTRES[3][0], z: CORE_HOME_CENTRES[3][1], rotY: Math.PI / 2 - 0.12, w: 6.0, d: 5.2, h: 4.1, style: 'cumba' },
+    { x: CORE_HOME_CENTRES[4][0], z: CORE_HOME_CENTRES[4][1], rotY: -Math.PI * 0.6, w: 6.4, d: 5.4, h: 4.2, style: 'tas' },
+    { x: CORE_HOME_CENTRES[5][0], z: CORE_HOME_CENTRES[5][1], rotY: Math.PI * 0.45, w: 5.8, d: 5.0, h: 4.0, style: 'himis' },
+    { x: CORE_HOME_CENTRES[6][0], z: CORE_HOME_CENTRES[6][1], rotY: -Math.PI * 0.25, w: 6.0, d: 5.2, h: 4.1, style: 'himis' },
+    { x: CORE_HOME_CENTRES[7][0], z: CORE_HOME_CENTRES[7][1], rotY: Math.PI * 0.35, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
   ];
   OUTER_HOMES.forEach(([x, z, rotY], i) =>
     houseConfigs.push({

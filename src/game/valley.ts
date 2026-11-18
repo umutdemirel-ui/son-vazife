@@ -120,6 +120,11 @@ export const OUTER_LANES: readonly Lane[] = [
   [-41, 24, -47, 31, 2.9],
   [-47, 31, -43, 47, 2.9],
 ];
+/** Shared house centres for foundations, vegetation clearings and world construction. */
+export const CORE_HOME_CENTRES = [
+  [12.5, 2], [-10.6, 21.5], [13, -8.6], [-14, -21.5],
+  [21, 12], [-20, -5.5], [17.5, -36.5], [-15.5, -37.5],
+] as const;
 export const LEGACY_OUTER_HOMES = [
   // A closer, staggered street frontage frames the muddy north–south lane,
   // while leaving the surveyed routes and the entrances unobstructed.
@@ -159,7 +164,7 @@ export function reservedGround(x: number, z: number) {
     Object.values(OUTPOSTS).some(
       (b) => Math.abs(x - b.x) < b.w / 2 + 4.5 && Math.abs(z - b.z) < b.d / 2 + 6,
     ) ||
-    OUTER_HOMES.some(([a, b]) => Math.hypot(x - a, z - b) < 5.3) ||
+    [...CORE_HOME_CENTRES, ...OUTER_HOMES].some(([a, b]) => Math.hypot(x - a, z - b) < 5.3) ||
     clearedForRoad(x, z, OUTER_LANES) ||
     clearedForRoad(x, z, CORE_LANES) ||
     Math.hypot(x - RELAY.x, z - RELAY.z) < 3.5
