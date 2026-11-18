@@ -67,7 +67,7 @@ test('recorded evidence determines the next chapter, independent of optional not
 
 test('outer district landmarks, walk-in thresholds and house foundations use the same metre survey', () => {
   assert.equal(LANDMARKS.length, 8);
-  assert.equal(OUTER_HOMES.length, 10);
+  assert.equal(OUTER_HOMES.length, 14);
   for (const m of LANDMARKS) {
     assert.ok(m.x > VALLEY.x1 && m.x < VALLEY.x2 && m.z > VALLEY.z1 && m.z < VALLEY.z2);
     assert.equal(districtAt(m.x, m.z), m.id);

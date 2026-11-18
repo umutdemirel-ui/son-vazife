@@ -201,3 +201,18 @@ test('a missing kit part does not stall loading, and in-flight templates are rel
   assert.ok(released);
   assert.equal(inFlight.node('cumba'), null);
 });
+
+test('metre-scaled box UVs use the dimensions of each of the six faces', async () => {
+  const { block } = await import('../src/game/villageCraft');
+  const parent = new THREE.Group();
+  const mesh = block(parent, new THREE.MeshBasicMaterial(), 6, 4, 2, 0, 0, 0, 2);
+  const uv = mesh.geometry.attributes.uv;
+  const expected = [[1, 2], [1, 2], [3, 1], [3, 1], [3, 2], [3, 2]];
+  for (let face = 0; face < 6; face++) {
+    const u = [], v = [];
+    for (let i = face * 4; i < face * 4 + 4; i++) { u.push(uv.getX(i)); v.push(uv.getY(i)); }
+    assert.deepEqual([Math.max(...u) - Math.min(...u), Math.max(...v) - Math.min(...v)], expected[face]);
+  }
+  mesh.geometry.dispose();
+  (mesh.material as THREE.Material).dispose();
+});

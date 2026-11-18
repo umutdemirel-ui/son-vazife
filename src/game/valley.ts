@@ -121,6 +121,12 @@ export const OUTER_LANES: readonly Lane[] = [
   [-47, 31, -43, 47, 2.9],
 ];
 export const OUTER_HOMES = [
+  // A closer, staggered street frontage frames the muddy north–south lane,
+  // while leaving the surveyed routes and the entrances unobstructed.
+  [-7.6, -43, Math.PI / 2],
+  [8.2, -43, -Math.PI / 2],
+  [-7.8, 30, Math.PI / 2],
+  [8.0, 30, -Math.PI / 2],
   [35, -51, 0.46],
   [46, -41, -1.6],
   [62, -29, -1.4],

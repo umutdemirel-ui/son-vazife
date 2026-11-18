@@ -42,11 +42,11 @@ export function block(
   if (tileSize) {
     const uv = geo.attributes.uv;
     for (let i = 0; i < uv.count; i++) {
-      const face = Math.floor(i / 8);
+      const face = Math.floor(i / 4);
       uv.setXY(
         i,
-        (uv.getX(i) * (face === 0 ? d : w)) / tileSize,
-        (uv.getY(i) * (face === 1 ? d : h)) / tileSize,
+        (uv.getX(i) * (face < 2 ? d : w)) / tileSize,
+        (uv.getY(i) * (face >= 2 && face < 4 ? d : h)) / tileSize,
       );
     }
   }
@@ -318,8 +318,20 @@ export class VillageCraft {
     block(fallback, this.masonry, 6, 1.02, 5, 0, 0.51, 0, 2.5);
     block(fallback, this.lime[no % 3], 6, eave - 1.02, 5, 0, (eave + 1.02) / 2, 0);
     pitchedRoof(fallback, this.tile, this.tile, 6.64, 5.76, eave, 1.17, 1.14);
-    shell.add(this.mount(style, style, fallback));
+    // The fallback is visible while assets load and when a model fails. Give it a
+    // complete street-facing facade rather than an unbroken featureless box.
     const doorX = style === 'cumba' ? -0.37 : style === 'himis' ? -0.72 : 1.04;
+    face(fallback, this.wood, 0.95, 2.04, doorX, 1.02, 2.506);
+    for (const x of [-2.1, 2.05]) {
+      this.window(fallback, x, 1.75, 2.51, 0.75, 0.95);
+      if (eave > 3.8) this.window(fallback, x, 3.2, 2.51, 0.75, 0.9);
+    }
+    if (style !== 'tas') {
+      for (const x of [-2.94, 0, 2.94])
+        block(fallback, this.wood, 0.12, eave - 1.02, 0.08, x, (eave + 1.02) / 2, 2.53);
+      block(fallback, this.wood, 6, 0.12, 0.08, 0, 2.55, 2.53);
+    }
+    shell.add(this.mount(style, style, fallback));
     this.plate(shell, no, 0.24, 0.24, doorX + 0.81, 1.8, 2.513);
     if (no === 1) {
       const rug = face(shell, this.kilim, 0.54, 0.7, 0.57, 3.01, 2.971);
