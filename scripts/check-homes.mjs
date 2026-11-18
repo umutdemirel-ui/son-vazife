@@ -79,6 +79,25 @@ try {
     if (q.distanceTo(mosque) > 0.2) failures.push(['mosque', 'doorway obstructed', q.distanceTo(mosque)]);
     return { count: e.world.homes.length, failures };
   });
+  // Visible terrain rocks and tree trunks have solid footprints; broad billboard
+  // foliage itself stays passable and does not create giant invisible walls.
+  const scenery = await page.evaluate(async () => {
+    const THREE = await import('/node_modules/three/build/three.module.js');
+    const e = window.fixture, samples = [];
+    for (const name of ['Küçük çevre kayaları', 'Karaçam korusu', 'Sonbahar meşeleri']) {
+      const mesh = e.scene.getObjectByName(name);
+      if (!mesh) return { missing: name };
+      for (let i = 0; i < Math.min(mesh.count, 20); i++) {
+        const matrix = new THREE.Matrix4(); mesh.getMatrixAt(i, matrix);
+        const pos = new THREE.Vector3().setFromMatrixPosition(matrix);
+        if (pos.x < -72 || pos.x > 76 || pos.z < -78 || pos.z > 62) continue;
+        const hit = e.world.colliders.some(c => !c.frame && pos.x >= c.minX && pos.x <= c.maxX && pos.z >= c.minZ && pos.z <= c.maxZ);
+        if (!hit) samples.push([name, pos.x, pos.z]);
+      }
+    }
+    return { samples };
+  });
+  assert.deepEqual(scenery, { samples: [] });
   assert.equal(result.count, 22);
   assert.deepEqual(result.failures, []);
   const ray = await page.evaluate(async () => {
@@ -111,7 +130,7 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await btn('Devam et').click(); await btn('Duraklat').waitFor();
   const migrated = await page.evaluate(() => [fixture.playerPos.x, fixture.playerPos.z]);
-  assert.ok(Math.abs(migrated[0] - 13.5) < 0.1 && Math.abs(migrated[1] - 3.5) < 0.1, `revision-one migration: ${migrated}`);
+  assert.ok(Math.abs(migrated[0] - 14) < 0.1 && Math.abs(migrated[1] - 3) < 0.1, `revision-one migration: ${migrated}`);
   // Revision three saved inside the old clinic must resume inside the new one.
   await page.evaluate(() => {
     const key = 'son_vazife_save_v2', save = JSON.parse(localStorage.getItem(key));

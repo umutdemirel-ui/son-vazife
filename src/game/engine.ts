@@ -1071,14 +1071,14 @@ export class SonVazifeEngine {
     this.act = save.act;
     this.survivalSeconds = save.survivalSeconds ?? 0;
     this.caughtCount = save.caughtCount ?? 0;
-    const homePosition = save.villageRevision === 2 || save.villageRevision === 3 || save.villageRevision === 4 || save.villageRevision === 5
+    const homePosition = save.villageRevision === 6
       ? save.playerPos
       : migrateOldHomePosition(save.playerPos.x, save.playerPos.z, this.world.homes, save.villageRevision);
-    const outpostPosition = save.villageRevision === 3 || save.villageRevision === 4 || save.villageRevision === 5
+    const outpostPosition = (save.villageRevision ?? 0) >= 3
       ? homePosition : migrateOutpostPosition(homePosition.x, homePosition.z);
-    const clinicPosition = save.villageRevision === 4 || save.villageRevision === 5
+    const clinicPosition = (save.villageRevision ?? 0) >= 4
       ? outpostPosition : migrateClinicPosition(outpostPosition.x, outpostPosition.z);
-    const restoredPosition = save.villageRevision === 5
+    const restoredPosition = (save.villageRevision ?? 0) >= 5
       ? clinicPosition : migrateMuhtarPosition(clinicPosition.x, clinicPosition.z);
     this.playerPos.set(
       restoredPosition.x,
@@ -1144,7 +1144,7 @@ export class SonVazifeEngine {
     }
     // A pre-rebuild outdoor save may now intersect a moved wall or grave. Resolve
     // after restoring door states, so resuming never traps a player in new geometry.
-    if (save.villageRevision !== 5) {
+    if (save.villageRevision !== 6) {
       this.resolveCollisions(this.playerPos);
       this.playerPos.y = groundHeightAt(this.playerPos.x, this.playerPos.z);
     }
@@ -1234,7 +1234,7 @@ export class SonVazifeEngine {
     const meta = this.getObjectiveText();
     const payload: SaveGamePayload = {
       version: 2,
-      villageRevision: 5,
+      villageRevision: 6,
       survivalSeconds: this.survivalSeconds,
       caughtCount: this.caughtCount,
       openHomes: this.world.homes.flatMap((home, i) => home.open ? [i] : []),

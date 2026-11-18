@@ -1,5 +1,5 @@
 import { buildHome, type Home } from './homes';
-import { CEMETERY, CEMETERY_GRAVES, MOSQUE_GRAVES, VILLAGE_GRAVES } from './cemetery';
+import { CEMETERY, CEMETERY_GRAVES } from './cemetery';
 import { receivingBay, STRETCHERS } from './funerary';
 import { NightArt, watcherFigure } from './nightArt';
 import { CLINIC, MUHTAR, CORE_HOME_CENTRES, OUTER_HOMES, type Outpost } from './valley';
@@ -32,7 +32,6 @@ import {
   createCopperEwerAndSoap,
   createDistrictSignpost,
   createFirewoodStack,
-  createGraveyardCluster,
   createKaraBasma,
   createMosqueAndGasilhane,
   createMuhtarHouse,
@@ -212,6 +211,7 @@ export function buildVillageWorld(
   // 2. Expanded 5-District Terrain & Instanced Pine Forest
   const terrainHandle = buildMountainTerrainAndForest(scene, textures, craft.limestone, allocation);
   disposables.push(terrainHandle);
+  colliders.push(...terrainHandle.colliders);
 
   // 3. Mosque & Gasilhane Complex at (-10.5, y, 6.0)
   const gasilPos = new THREE.Vector3(-10.5, groundHeightAt(-10.5, 6.0), 6.0);
@@ -260,39 +260,8 @@ export function buildVillageWorld(
     { minX: 3.2, maxX: 3.5, minZ: -8.0, maxZ: -6.45 },
     { minX: 3.2, maxX: 3.5, minZ: -4.95, maxZ: -3.4 },
   ]));
-  // Mosque Graveyard beside Mosque
-  const graveyard = createGraveyardCluster(textures);
-  graveyard.position.set(-10.6, groundHeightAt(-10.6, -4.2), -4.2);
-  cells.add(scene, graveyard, 21, 38);
-  for (const st of MOSQUE_GRAVES)
-    colliders.push(houseFootprint(-10.6 + st.x, -4.2 + st.z, 0.55, 1.45, st.rot));
-
-  // The old village burial ground reaches into the square. Each marker has
-  // an individually sampled foundation and the same solid footprint as its art.
-  const villageBurial = new THREE.Group();
-  const steleMat = new THREE.MeshStandardMaterial({ color: 0xaaa99b, roughness: 0.96 });
-  const steleGeo = new THREE.BoxGeometry(0.36, 1, 0.14);
-  const graveBaseGeo = new THREE.BoxGeometry(0.56, 0.14, 1.35);
-  disposables.push(steleMat, steleGeo, graveBaseGeo);
-  for (const grave of VILLAGE_GRAVES) {
-    const marker = new THREE.Group();
-    marker.position.set(grave.x, groundHeightAt(grave.x, grave.z), grave.z);
-    marker.rotation.y = grave.rot;
-    const base = new THREE.Mesh(graveBaseGeo, steleMat);
-    base.position.y = 0.07;
-    const head = new THREE.Mesh(steleGeo, steleMat);
-    head.scale.y = grave.h;
-    head.position.set(0, 0.14 + grave.h / 2, -0.55);
-    head.rotation.z = grave.rot * 0.3;
-    marker.add(base, head);
-    villageBurial.add(marker);
-    colliders.push(houseFootprint(grave.x, grave.z, 0.56, 1.35, grave.rot));
-  }
-  bakeStaticChildrenByMaterial(villageBurial);
-  cells.add(scene, villageBurial, 35, 55);
-  disposables.push({ dispose: () => villageBurial.traverse(o => {
-    if (o instanceof THREE.Mesh && o.geometry !== steleGeo && o.geometry !== graveBaseGeo) o.geometry.dispose();
-  }) });
+  // The only burial ground is the designated cemetery; the square and mosque
+  // forecourt are kept free of graves and their former colliders.
 
   // 4. Walk-in Abandoned Village House (Eski Köy Evi) at (-10.8, y, -10.5)
   const abandonedPos = new THREE.Vector3(-10.8, groundHeightAt(-10.8, -10.5), -10.5);
@@ -1148,6 +1117,12 @@ export function buildVillageWorld(
         obj.matrixAutoUpdate = false;
       });
       cells.add(scene, m, 14, 25);
+      // Only load-bearing ground objects block movement; small handheld props
+      // remain reachable and do not become invisible walls.
+      if (id === 'dead_tree' || id === 'rock') {
+        const radius = id === 'dead_tree' ? 0.22 : size * 0.30;
+        colliders.push({ minX: x - radius, maxX: x + radius, minZ: z - radius, maxZ: z + radius });
+      }
       return m;
     };
 
@@ -1198,8 +1173,8 @@ export function buildVillageWorld(
     // Dead tree trunks & boulders around Cemetery & Crash Bend
     placeProp('dead_tree', 4.6, -28.0, groundHeightAt(-28.0, -39.5), -39.5, 0.4, true);
     placeProp('dead_tree', 4.2, -38.5, groundHeightAt(-38.5, -31.0), -31.0, 1.7, true);
-    placeProp('rock', 1.1, 25.0, groundHeightAt(25.0, 23.0), 23.0, 0.8, false);
-    placeProp('rock', 0.9, -20.5, groundHeightAt(-20.5, 4.5), 4.5, 1.9, false);
+    placeProp('rock', 0.65, 25.0, groundHeightAt(25.0, 23.0), 23.0, 0.8, false);
+    placeProp('rock', 0.55, -20.5, groundHeightAt(-20.5, 4.5), 4.5, 1.9, false);
   };
 
   return {

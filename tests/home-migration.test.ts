@@ -36,3 +36,8 @@ test('muhtarlık room saves move with the new upper village office', async () =>
   assert.deepEqual(migrateMuhtarPosition(8, -18), { x: 15.5, z: -57 });
   assert.deepEqual(migrateMuhtarPosition(0, 0), { x: 0, z: 0 });
 });
+
+test('revision five saves inside a rearranged house follow the same local position', () => {
+  const homes = [{ spec: { x: 14, z: 3, rotY: -Math.PI / 2, w: 6.2, d: 5.4, h: 4.3, style: 'cumba' } }] as Pick<Home, 'spec'>[];
+  assert.deepEqual(migrateOldHomePosition(13.5, 3.5, homes, 5), { x: 14, z: 3 });
+});

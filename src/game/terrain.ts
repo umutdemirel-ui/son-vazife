@@ -1,4 +1,5 @@
-import { CEMETERY, VILLAGE_GRAVES } from './cemetery';
+import { CEMETERY } from './cemetery';
+import type { BoxCollider } from './collision';
 import { CLINIC, MUHTAR, CORE_LANES, OUTER_LANES, OUTER_HOMES, OUTPOSTS, OUTPOST_IDS, mainRoadX, reservedGround } from './valley';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -131,6 +132,7 @@ export function exteriorFloorAt(x: number, z: number) {
 
 export interface TerrainHandles {
   streamWater: THREE.Mesh;
+  colliders: BoxCollider[];
   dispose: () => void;
 }
 
@@ -141,6 +143,7 @@ export function buildMountainTerrainAndForest(
   allocation: Allocation,
 ): TerrainHandles {
   const disposables: Array<{ dispose: () => void }> = [];
+  const colliders: BoxCollider[] = [];
 
   // 1. Valley Terrain Mesh (340m x 340m)
   const minimal = allocation === 'minimum',
@@ -405,7 +408,7 @@ export function buildMountainTerrainAndForest(
     const radius = 26 + rand() * 98;
     const tx = Math.cos(angle) * radius;
     const tz = Math.sin(angle) * radius;
-    if (reservedGround(tx, tz) || VILLAGE_GRAVES.some(g => Math.hypot(tx - g.x, tz - g.z) < 2.2)) continue;
+    if (reservedGround(tx, tz)) continue;
     // Clear landmark foundations; reservedGround handles the new road survey.
     if (Math.abs(tx) < 16.5 && tz > -46 && tz < 38) continue;
     if (Math.hypot(tx - CLINIC.x, tz - CLINIC.z) < 11.5) continue; // Clinic pad
@@ -433,6 +436,9 @@ export function buildMountainTerrainAndForest(
     [29, -12],
     [-21, -16],
   ]) {
+    // Older hand-placed trees may now be inside a relocated house or road.
+    if (reservedGround(x, z) || Math.hypot(x - CLINIC.x, z - CLINIC.z) < 7.5 ||
+        Math.hypot(x + 10.5, z - 6) < 7 || Math.hypot(x + 10.8, z + 10.5) < 5.5) continue;
     treeCoords.push({
       x,
       z,
@@ -441,6 +447,12 @@ export function buildMountainTerrainAndForest(
       leanX: 0.014,
       leanZ: -0.021,
     });
+  }
+  for (const tree of treeCoords) {
+    // A narrow trunk, not the wide transparent billboard canopy, is solid.
+    if (tree.x < -72 || tree.x > 76 || tree.z < -78 || tree.z > 62) continue;
+    const r = 0.22 * tree.scale;
+    colliders.push({ minX: tree.x - r, maxX: tree.x + r, minZ: tree.z - r, maxZ: tree.z + r });
   }
   // Two fixed crossed cutouts per tree: parallax as the player moves, one opaque/alpha-test
   // draw for the whole stand, no billboard sorting or extra point lights on the low tier.
@@ -533,13 +545,22 @@ export function buildMountainTerrainAndForest(
     rockData.push({
       x: rx,
       z: rz,
-      sx: 0.7 + rand() * 1.45,
-      sy: 0.45 + rand() * 0.75,
-      sz: 0.7 + rand() * 1.35,
+      sx: 0.38 + rand() * 0.72,
+      sy: 0.28 + rand() * 0.38,
+      sz: 0.38 + rand() * 0.68,
       ry: rand() * Math.PI * 2,
     });
   }
+  for (const rock of rockData) {
+    // Conservative rotated footprint keeps the visible boulders solid without
+    // blocking the cleared road or turning little stones into giant walls.
+    const c = Math.abs(Math.cos(rock.ry)), n = Math.abs(Math.sin(rock.ry));
+    const rx = 0.48 * (rock.sx * c + rock.sz * n);
+    const rz = 0.48 * (rock.sx * n + rock.sz * c);
+    colliders.push({ minX: rock.x - rx, maxX: rock.x + rx, minZ: rock.z - rz, maxZ: rock.z + rz });
+  }
   const rocks = new THREE.InstancedMesh(rockGeo, cutStone, rockData.length);
+  rocks.name = 'Küçük çevre kayaları';
   rocks.castShadow = false;
   rocks.receiveShadow = true;
   rockData.forEach((r, idx) => {
@@ -661,6 +682,7 @@ export function buildMountainTerrainAndForest(
 
   return {
     streamWater,
+    colliders,
     dispose: () => {
       disposables.forEach((d) => d.dispose());
     },

@@ -1,4 +1,4 @@
-import { LEGACY_OUTER_HOMES, REV1_CORE_HOME_CENTRES, REV1_OUTER_HOMES } from './valley';
+import { LEGACY_OUTER_HOMES, REV1_CORE_HOME_CENTRES, REV1_OUTER_HOMES, REV5_CORE_HOME_CENTRES, REV5_OUTER_HOMES } from './valley';
 import type { Home } from './homes';
 
 /** Survey of the original walk-in houses, in the same stable order as home door IDs. */
@@ -18,7 +18,7 @@ const oldHomes = [
 ];
 
 /** Preserve the local position of a player saved inside a house when its footprint moves. */
-export function migrateOldHomePosition(x: number, z: number, homes: Pick<Home, 'spec'>[], revision?: 1) {
+export function migrateOldHomePosition(x: number, z: number, homes: Pick<Home, 'spec'>[], revision?: 1 | 2 | 3 | 4 | 5) {
   const survey = revision === 1
     ? [
         ...oldCore.map(([, , rotation, width, depth], i) => [
@@ -28,7 +28,16 @@ export function migrateOldHomePosition(x: number, z: number, homes: Pick<Home, '
           a, b, rotation, 5.2 + (i % 3) * 0.4, 4.3 + (i % 2) * 0.3,
         ] as const),
       ]
-    : oldHomes;
+    : revision !== undefined
+      ? [
+          ...oldCore.map(([, , rotation, width, depth], i) => [
+            ...REV5_CORE_HOME_CENTRES[i], rotation, width, depth,
+          ] as const),
+          ...REV5_OUTER_HOMES.map(([a, b, rotation], i) => [
+            a, b, rotation, 5.2 + (i % 3) * 0.4, 4.3 + (i % 2) * 0.3,
+          ] as const),
+        ]
+      : oldHomes;
   for (let i = 0; i < survey.length; i++) {
     const [ox, oz, rotation, width, depth] = survey[i];
     const cos = Math.cos(rotation), sin = Math.sin(rotation);

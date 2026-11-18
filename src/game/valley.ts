@@ -181,7 +181,7 @@ export const REV1_CORE_HOME_CENTRES = [
   [21, 12], [-20, -5.5], [17.5, -36.5], [-15.5, -37.5],
 ] as const;
 // More organic settlement: houses sit in irregular clusters along the valley.
-export const CORE_HOME_CENTRES = [
+export const REV5_CORE_HOME_CENTRES = [
   [13.5, 3.5], [-10, 23.5], [14, -9.5], [-15, -22],
   [23, 11], [-20, -6.5], [17, -38], [-15, -39],
 ] as const;
@@ -210,12 +210,22 @@ export const REV1_OUTER_HOMES = [
   [46, -12, 1.38], [61, 3, -1.35], [38, 30, 2.42],
   [24, 50, 2.9], [-37, 55, 2.7], [-60, 31, 1.25], [-41, 17, 0.52],
 ] as const;
-export const OUTER_HOMES = [
+export const REV5_OUTER_HOMES = [
   [-10.0, -46.0, 1.34], [11.2, -43.5, -1.34],
   [-10.0, 34.0, 1.36], [11.0, 33.0, -1.32],
   [34.0, -49.0, 0.35], [47.5, -41.0, -1.48], [64.0, -31.0, -1.3],
   [47.5, -12.0, 1.38], [62.5, 4.0, -1.35], [39.0, 30.5, 2.42],
   [23.0, 51.0, 2.9], [-36.0, 56.0, 2.7], [-60.5, 33.0, 1.25], [-42.0, 17.0, 0.52],
+] as const;
+/** Street-facing homes form paired, evenly spaced frontages along the main road. */
+export const CORE_HOME_CENTRES = [
+  [14, 3], [-10, 23.5], [14, -10], [-15, -22],
+  [23, 11], [-20, -6.5], [17, -38], [-15, -39],
+] as const;
+export const OUTER_HOMES = [
+  [-10, -45, Math.PI / 2], [11, -45, -Math.PI / 2],
+  [-10, 33, Math.PI / 2], [10, 33, -Math.PI / 2],
+  ...REV5_OUTER_HOMES.slice(4),
 ] as const;
 export const RELAY = { x: -46, z: 27.8 };
 export function clearedForRoad(x: number, z: number, lanes: readonly Lane[]) {
