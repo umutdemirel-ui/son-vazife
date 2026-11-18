@@ -1,9 +1,12 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { houseFootprint, type BoxCollider } from './collision';
+import { ResidentVisual } from './residentVisual';
+import { VillageCraft, type HouseStyle } from './villageCraft';
 import { AutopsyBodyRefs, createAutopsyCadaverOverlay } from './autopsy';
 import { CC0AssetLibrary } from './cc0Assets';
 import {
   AbandonedHouseRefs,
-  BoxCollider,
   CemeteryCryptRefs,
   ClinicRefs,
   createAbandonedHouse,
@@ -19,11 +22,9 @@ import {
   createMuhtarHouse,
   createSisGozcusu,
   createStoneCourtyardWall,
-  createStoneFountain,
   createStreetLamp,
   createUtilityPole,
   createVillageBench,
-  createVillageHouse,
   createWatermillAndBridge,
   createWreckedMinibus,
   GasilhaneRefs,
@@ -33,12 +34,10 @@ import {
   WreckedMinibusRefs,
 } from './models';
 import {
-  attachCC0RigToNpc,
-  buildProceduralVillagerFallback,
   NpcRuntimeActor,
   VILLAGE_NPCS,
 } from './npcs';
-import { buildMountainTerrainAndForest, groundHeightAt } from './terrain';
+import { buildMountainTerrainAndForest, exteriorFloorAt, groundHeightAt } from './terrain';
 import { ProceduralTextureSet } from './textures';
 import { AutopsyCaseId, NpcId } from './types';
 
@@ -109,15 +108,17 @@ export function buildVillageWorld(
   getLabel: (id: string) => string | null,
 ): WorldHandles {
   const disposables: Array<{ dispose: () => void }> = [];
+  const craft = new VillageCraft(textures);
+  disposables.push(craft);
   const colliders: BoxCollider[] = [];
   const interactables: InteractableTarget[] = [];
   const itemMeshes: Record<string, THREE.Object3D> = {};
 
   // 1. Lighting Rig (Warm/Cool contrast + FogExp2)
-  const hemiLight = new THREE.HemisphereLight(0xa4b4bc, 0x605343, 1.0);
+  const hemiLight = new THREE.HemisphereLight(0xc1cdd1, 0x827d73, 1.28);
   scene.add(hemiLight);
 
-  const sunKeyLight = new THREE.DirectionalLight(0xc49c74, 1.35);
+  const sunKeyLight = new THREE.DirectionalLight(0xe1ccb7, 1.35);
   sunKeyLight.position.set(18, 26, 22);
   sunKeyLight.castShadow = true;
   sunKeyLight.shadow.mapSize.set(1024, 1024);
@@ -169,12 +170,12 @@ export function buildVillageWorld(
   disposables.push(moonGeo, moonMat);
 
   // 2. Expanded 5-District Terrain & Instanced Pine Forest
-  const terrainHandle = buildMountainTerrainAndForest(scene, textures);
+  const terrainHandle = buildMountainTerrainAndForest(scene, textures, craft.limestone);
   disposables.push(terrainHandle);
 
   // 3. Mosque & Gasilhane Complex at (-10.5, y, 6.0)
   const gasilPos = new THREE.Vector3(-10.5, groundHeightAt(-10.5, 6.0), 6.0);
-  const gasil = createMosqueAndGasilhane(textures);
+  const gasil = createMosqueAndGasilhane(textures, craft);
   gasil.group.position.copy(gasilPos);
   scene.add(gasil.group);
 
@@ -201,7 +202,7 @@ export function buildVillageWorld(
 
   // 4. Walk-in Abandoned Village House (Eski Köy Evi) at (-10.8, y, -10.5)
   const abandonedPos = new THREE.Vector3(-10.8, groundHeightAt(-10.8, -10.5), -10.5);
-  const abandoned = createAbandonedHouse(textures);
+  const abandoned = createAbandonedHouse(textures, craft);
   abandoned.group.position.copy(abandonedPos);
   scene.add(abandoned.group);
 
@@ -216,7 +217,7 @@ export function buildVillageWorld(
 
   // 5. Muhtar's House at (10.5, y, -18.0)
   const muhtarPos = new THREE.Vector3(10.5, groundHeightAt(10.5, -18.0), -18.0);
-  const muhtar = createMuhtarHouse(textures);
+  const muhtar = createMuhtarHouse(textures, craft);
   muhtar.group.position.copy(muhtarPos);
   scene.add(muhtar.group);
 
@@ -231,7 +232,7 @@ export function buildVillageWorld(
 
   // 5b. Sağlık Ocağı (District II: East Clinic) at (26.0, y, -28.0)
   const clinicPos = new THREE.Vector3(26.0, groundHeightAt(26.0, -28.0), -28.0);
-  const clinic = createClinicBuilding(textures);
+  const clinic = createClinicBuilding(textures, craft);
   clinic.group.position.copy(clinicPos);
   scene.add(clinic.group);
 
@@ -295,29 +296,22 @@ export function buildVillageWorld(
   colliders.push({ minX: 26.2, maxX: 30.6, minZ: 18.8, maxZ: 22.4 });
 
   // 6. Flanking & Perimeter Village Houses + Stone Courtyard Walls
-  const houseConfigs = [
-    { x: 10.6, z: 2.0, rotY: -Math.PI / 2, w: 6.2, d: 5.4, h: 4.3, collide: true },
-    { x: -11.2, z: 18.0, rotY: Math.PI / 2, w: 5.6, d: 4.8, h: 3.9, collide: true },
-    { x: 11.4, z: -8.6, rotY: -Math.PI / 2 + 0.08, w: 5.8, d: 5.0, h: 4.0, collide: true },
-    { x: -13.0, z: -20.5, rotY: Math.PI / 2 - 0.12, w: 6.0, d: 5.2, h: 4.1, collide: true },
-    { x: 19.5, z: 13.0, rotY: -Math.PI * 0.6, w: 6.4, d: 5.4, h: 4.2, collide: false },
-    { x: -19.2, z: -3.5, rotY: Math.PI * 0.45, w: 5.8, d: 5.0, h: 4.0, collide: false },
-    { x: 18.2, z: -34.5, rotY: -Math.PI * 0.25, w: 6.0, d: 5.2, h: 4.1, collide: false },
-    { x: -16.8, z: -35.5, rotY: Math.PI * 0.35, w: 5.8, d: 5.0, h: 4.0, collide: false },
+  const houseConfigs: { x: number; z: number; rotY: number; w: number; d: number; h: number; style: HouseStyle }[] = [
+    { x: 10.6, z: 2.0, rotY: -Math.PI / 2, w: 6.2, d: 5.4, h: 4.3, style: 'cumba' },
+    { x: -11.2, z: 18.0, rotY: Math.PI / 2, w: 5.6, d: 4.8, h: 3.9, style: 'himis' },
+    { x: 11.4, z: -8.6, rotY: -Math.PI / 2 + 0.08, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
+    { x: -13.0, z: -20.5, rotY: Math.PI / 2 - 0.12, w: 6.0, d: 5.2, h: 4.1, style: 'cumba' },
+    { x: 19.5, z: 13.0, rotY: -Math.PI * 0.6, w: 6.4, d: 5.4, h: 4.2, style: 'tas' },
+    { x: -19.2, z: -3.5, rotY: Math.PI * 0.45, w: 5.8, d: 5.0, h: 4.0, style: 'himis' },
+    { x: 18.2, z: -34.5, rotY: -Math.PI * 0.25, w: 6.0, d: 5.2, h: 4.1, style: 'himis' },
+    { x: -16.8, z: -35.5, rotY: Math.PI * 0.35, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
   ];
-  houseConfigs.forEach((hc) => {
-    const house = createVillageHouse(textures, hc.w, hc.d, hc.h);
+  houseConfigs.forEach((hc, i) => {
+    const house = craft.house(hc.style, i + 1, hc.w, hc.d, hc.h);
     house.position.set(hc.x, groundHeightAt(hc.x, hc.z), hc.z);
     house.rotation.y = hc.rotY;
     scene.add(house);
-    if (hc.collide) {
-      colliders.push({
-        minX: hc.x - hc.d * 0.52,
-        maxX: hc.x + hc.d * 0.52,
-        minZ: hc.z - hc.w * 0.52,
-        maxZ: hc.z + hc.w * 0.52,
-      });
-    }
+    colliders.push(houseFootprint(hc.x, hc.z, hc.w, hc.d, hc.rotY));
   });
 
   const stoneWallMat = new THREE.MeshStandardMaterial({
@@ -332,7 +326,7 @@ export function buildVillageWorld(
     { x: 4.6, z: -5.5, len: 8.6, rot: 0, gate: true },
     { x: 5.2, z: 4.8, len: 4.2, rot: 0, gate: false },
   ].forEach((sw) => {
-    const wallGroup = createStoneCourtyardWall(textures, sw.len, sw.gate);
+    const wallGroup = createStoneCourtyardWall(textures, craft, sw.len, sw.gate);
     wallGroup.position.set(sw.x, groundHeightAt(sw.x, sw.z), sw.z);
     wallGroup.rotation.y = sw.rot;
     scene.add(wallGroup);
@@ -363,13 +357,13 @@ export function buildVillageWorld(
     scene.add(stack);
   });
 
-  [
-    { x: -2.2, z: 6.2, rot: 0.3 },
-    { x: 2.8, z: -23.0, rot: -0.4 },
-    { x: -2.6, z: -28.0, rot: 0.45 },
-    { x: 3.1, z: 15.2, rot: -0.35 },
-  ].forEach((sp) => {
-    const post = createDistrictSignpost(textures);
+  ([
+    { x: -3.1, z: 10.5, rot: 0.30, text: '←  DEĞİRMEN' },
+    { x: 2.8, z: -23.0, rot: -0.4, text: 'SAĞLIK OCAĞI' },
+    { x: -2.6, z: -28.0, rot: 0.45, text: 'MEZARLIK  ←' },
+    { x: 3.1, z: 15.2, rot: -0.35, text: 'ÇEŞME  →' },
+  ] as const).forEach((sp) => {
+    const post = createDistrictSignpost(craft, sp.text);
     post.position.set(sp.x, groundHeightAt(sp.x, sp.z), sp.z);
     post.rotation.y = sp.rot;
     scene.add(post);
@@ -388,7 +382,7 @@ export function buildVillageWorld(
   colliders.push({ minX: 4.15, maxX: 4.85, minZ: 14.2, maxZ: 16.0 });
 
   const jug1 = createClayJug();
-  jug1.position.set(4.1, groundHeightAt(4.1, 13.45), 13.45);
+  jug1.position.set(4.06, groundHeightAt(4.06, 13.70), 13.70);
   const jug2 = createClayJug();
   jug2.position.set(abandonedPos.x + 3.55, abandonedPos.y + 0.14, abandonedPos.z + 1.15);
   scene.add(jug1, jug2);
@@ -417,7 +411,7 @@ export function buildVillageWorld(
 
   // 8. Stone Village Fountain (Çeşme) at (4.8, y, 12.5)
   const fountainPos = new THREE.Vector3(4.8, groundHeightAt(4.8, 12.5), 12.5);
-  const fountain = createStoneFountain(textures);
+  const fountain = craft.fountain();
   fountain.position.copy(fountainPos);
   fountain.rotation.y = -Math.PI / 2;
   fountain.updateMatrix();
@@ -534,6 +528,7 @@ export function buildVillageWorld(
 
   const ibrikMesh = createCopperEwerAndSoap('ibrik');
   ibrikMesh.position.set(fountainPos.x - 0.68, fountainPos.y + 0.56, fountainPos.z - 0.25);
+  ibrikMesh.rotation.y = -Math.PI * .39; // handle and pouring lip read in profile from the lane
   scene.add(ibrikMesh);
   itemMeshes['item_ibrik'] = ibrikMesh;
 
@@ -607,21 +602,18 @@ export function buildVillageWorld(
   registerTarget('clue_crash_manifest', new THREE.Vector3(crashPos.x - 2.2, crashPos.y + 0.25, crashPos.z + 1.35), [0.8, 0.45, 0.8], 3.3);
 
   // 14. Villager NPCs (4 interactive patrolling/standing residents)
+  const residentLoader = new GLTFLoader();
   const npcs = {} as Record<NpcId, NpcRuntimeActor>;
   (Object.keys(VILLAGE_NPCS) as NpcId[]).forEach((npcId) => {
     const def = VILLAGE_NPCS[npcId];
     const startWp = def.waypoints[0];
-    const startPos = new THREE.Vector3(startWp.x, groundHeightAt(startWp.x, startWp.z), startWp.z);
+    const startPos = new THREE.Vector3(startWp.x, exteriorFloorAt(startWp.x, startWp.z), startWp.z);
     const root = new THREE.Group();
     root.position.copy(startPos);
 
-    const fallbackGroup = buildProceduralVillagerFallback(
-      def.coatTint,
-      def.hasLantern,
-      def.hasShovel,
-      def.headscarf,
-    );
-    root.add(fallbackGroup);
+    const visual = new ResidentVisual(npcId, residentLoader);
+    root.add(visual.group);
+    disposables.push(visual);
     scene.add(root);
 
     // Attach raycast proxy directly to NPC root so it follows patrol movement automatically
@@ -630,19 +622,13 @@ export function buildVillageWorld(
     npcs[npcId] = {
       def,
       root,
-      mixer: null,
-      idleAction: null,
-      walkAction: null,
-      currentMode: 'idle',
+      visual,
       waypointIndex: 0,
       pauseTimer: 2.0,
       pos: startPos,
       yaw: 0,
-      talkCooldown: 0,
       spokenNodes: new Set<string>(),
       trust: 50,
-      cc0Attached: false,
-      fallbackGroup,
     };
   });
 
@@ -835,7 +821,7 @@ export function buildVillageWorld(
       if (!(object instanceof THREE.Mesh)) return;
       const materials = Array.isArray(object.material) ? object.material : [object.material];
       for (const mat of materials) {
-        if (!(mat instanceof THREE.MeshStandardMaterial) || !(mat.map instanceof THREE.CanvasTexture)) continue;
+        if (!(mat instanceof THREE.MeshStandardMaterial) || mat.userData.authoredFinish || !(mat.map instanceof THREE.CanvasTexture)) continue;
         const pack = surfaces.get(mat.map);
         if (!pack) continue;
         mat.map = pack.diffuse;
@@ -845,12 +831,7 @@ export function buildVillageWorld(
       }
     });
 
-    // B. Attach rigged CC0 Soldier.glb to all 4 NPCs
-    (Object.keys(npcs) as NpcId[]).forEach((npcId) => {
-      attachCC0RigToNpc(npcs[npcId], cc0);
-    });
-
-    // C. Place CC0 3D Props across the 5 districts
+    // B. Static props across the five districts. Resident rigs have their own lifecycle.
     const placeProp = (
       id: Parameters<CC0AssetLibrary['cloneModel']>[0],
       height: number,

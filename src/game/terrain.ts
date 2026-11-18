@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CC0TexturePack } from './cc0Assets';
 import { ProceduralTextureSet } from './textures';
 
@@ -61,6 +62,20 @@ export function groundHeightAt(x: number, z: number): number {
   return mountain + cemeteryRise + streamDip + gentleSlope * padMask;
 }
 
+// Raised exterior floors are not hills: leave the terrain mesh flat underneath.
+const porchPads = [
+  { x1:-7.8, x2:-6.3, z1:-12.1, z2:-8.9, y:groundHeightAt(-10.8,-10.5)+.14 },
+  { x1:5.5, x2:7.3, z1:-19.8, z2:-16.2, y:groundHeightAt(10.5,-18)+.14 },
+  { x1:-7.1, x2:-4.9, z1:-2.03, z2:2.63, y:groundHeightAt(-10.5,6)+.25 },
+  { x1:-7.12, x2:-6.17, z1:5, z2:7, y:groundHeightAt(-10.5,6)+.15 },
+];
+export function exteriorFloorAt(x: number, z: number) {
+  for (const pad of porchPads) {
+    if (x>=pad.x1 && x<=pad.x2 && z>=pad.z1 && z<=pad.z2) return pad.y;
+  }
+  return groundHeightAt(x,z);
+}
+
 export interface TerrainHandles {
   applyCC0Ground: (pack: CC0TexturePack) => void;
   applyCC0Road: (pack: CC0TexturePack) => void;
@@ -71,6 +86,7 @@ export interface TerrainHandles {
 export function buildMountainTerrainAndForest(
   scene: THREE.Scene,
   textures: ProceduralTextureSet,
+  cutStone: THREE.MeshStandardMaterial,
 ): TerrainHandles {
   const disposables: Array<{ dispose: () => void }> = [];
 
@@ -107,16 +123,33 @@ export function buildMountainTerrainAndForest(
   const roadMat = new THREE.MeshStandardMaterial({
     map: textures.road,
     normalMap: textures.roadNormal,
-    normalScale: new THREE.Vector2(0.95, 0.95),
+    normalScale: new THREE.Vector2(0.62, 0.62),
     roughnessMap: textures.roadRoughness,
     roughness: 0.88,
-    metalness: 0.08,
-    envMapIntensity: 1.3,
+    metalness: 0.025,
+    vertexColors: true, transparent: true, depthWrite: false,
     polygonOffset: true,
     polygonOffsetFactor: -1,
     polygonOffsetUnits: -1,
   });
   disposables.push(roadMat);
+
+  // Equal-size cobbles on the main lane and the much shorter branch paths.
+  // A feathered, irregular shoulder reveals the underlying soil, rather than a ruler-straight seam.
+  for (const tex of [textures.road,textures.roadNormal,textures.roadRoughness]) tex.repeat.set(1,1);
+  const dressLane = (geo: THREE.PlaneGeometry, width: number) => {
+    const p=geo.attributes.position, uv=geo.attributes.uv;
+    const color = new Float32Array(p.count*4);
+    for (let i=0; i<p.count; i++) {
+      const lateral=uv.getX(i)-.5;
+      const shoulder=Math.min(1,(.5-Math.abs(lateral))*width/.68);
+      const wheelRut=.12*Math.exp(-Math.pow((Math.abs(lateral)*width-.77)/.23,2));
+      const shade=.91+.08*shoulder-wheelRut;
+      color.set([shade,shade*.992,shade*.98,shoulder],i*4);
+      uv.setXY(i, p.getX(i)/3.4, p.getZ(i)/3.4);
+    }
+    geo.setAttribute('color',new THREE.BufferAttribute(color,4));
+  };
 
   // Main North-South Road (z: -48..42)
   const mainRoadGeo = new THREE.PlaneGeometry(5.2, 90, 10, 72);
@@ -126,11 +159,12 @@ export function buildMountainTerrainAndForest(
     const rx = mrPos.getX(i);
     const rz = mrPos.getZ(i) - 3;
     const curveOffset = Math.sin(rz * 0.08) * 1.4;
-    const worldX = rx + curveOffset;
+    const worldX = rx + curveOffset + Math.pow(Math.abs(rx)/2.6,3)*.14*Math.sin(rz*1.8+rx*2);
     mrPos.setX(i, worldX);
     mrPos.setZ(i, rz);
     mrPos.setY(i, groundHeightAt(worldX, rz) + 0.038);
   }
+  dressLane(mainRoadGeo,5.2);
   mainRoadGeo.computeVertexNormals();
   const mainRoadMesh = new THREE.Mesh(mainRoadGeo, roadMat);
   mainRoadMesh.receiveShadow = true;
@@ -153,14 +187,16 @@ export function buildMountainTerrainAndForest(
     const cosA = Math.cos(angle);
     const sinA = Math.sin(angle);
     for (let i = 0; i < p.count; i++) {
-      const lx = p.getX(i);
       const lz = p.getZ(i);
+      const lateral = p.getX(i);
+      const lx = lateral + Math.pow(2*Math.abs(lateral)/width,3)*.13*Math.sin(lz*1.7+lateral*2);
       const wx = cx + lx * cosA + lz * sinA;
       const wz = cz - lx * sinA + lz * cosA;
       p.setX(i, wx);
       p.setZ(i, wz);
       p.setY(i, groundHeightAt(wx, wz) + 0.036);
     }
+    dressLane(geo,width);
     geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, roadMat);
     m.receiveShadow = true;
@@ -175,7 +211,10 @@ export function buildMountainTerrainAndForest(
   // Branch 2: West to Mezarlık Tepesi (x: -1 -> -34, z: -29 -> -36)
   buildSideRoad(-1.0, -29, -34.0, -36, 3.4);
   // Branch 3: West to Dere Köprüsü & Eski Su Değirmeni (x: -1 -> -36, z: 8 -> 8)
-  buildSideRoad(-1.5, 8.0, -36.0, 8.0, 3.5);
+  // Follow the outer garden wall, not the gasilhane floor, to the bridge.
+  buildSideRoad(-1.0, 10.1, -14.7, 11.2, 2.7);
+  buildSideRoad(-14.7, 11.2, -20.8, 8.0, 2.7);
+  buildSideRoad(-20.8, 8.0, -36.0, 8.0, 2.7);
   // Branch 4: Southeast to Viraj Kaza Alanı (x: 1 -> 28, z: 16 -> 20)
   buildSideRoad(1.0, 16.0, 29.0, 20.5, 4.0);
 
@@ -217,34 +256,27 @@ export function buildMountainTerrainAndForest(
 
   // 2b. Roadside Cobble Curbs / Drainage Shoulder Stones (InstancedMesh)
   const curbGeo = new THREE.DodecahedronGeometry(0.24, 0);
-  const curbMat = new THREE.MeshStandardMaterial({
-    map: textures.stone,
-    normalMap: textures.stoneNormal,
-    normalScale: new THREE.Vector2(0.9, 0.9),
-    roughness: 0.88,
-    metalness: 0.03,
-    color: 0x79766f,
-  });
   const curbEntries: Array<{ x: number; y: number; z: number; sx: number; sy: number; sz: number; ry: number }> = [];
   for (let rz = -42; rz <= 36; rz += 1.05) {
     const center = Math.sin(rz * 0.08) * 1.4;
     for (const side of [-1, 1]) {
       if (side === -1 && ((rz > 1 && rz < 10.5) || (rz > -13.5 && rz < -7.5) || (rz > -34 && rz < -26))) continue;
       if (side === 1 && ((rz > 10.5 && rz < 22) || (rz > -29 && rz < -15))) continue;
+      if (rand()<.24 || (side<0 && Math.abs(rz-14)<.65)) continue;
       const cx = center + side * 2.68 + (rand() - 0.5) * 0.14;
       const cz = rz + (rand() - 0.5) * 0.16;
       curbEntries.push({
         x: cx,
         y: groundHeightAt(cx, cz) + 0.04,
         z: cz,
-        sx: 0.85 + rand() * 0.45,
-        sy: 0.42 + rand() * 0.25,
-        sz: 1.15 + rand() * 0.6,
+        sx: 0.52 + rand() * 0.64,
+        sy: 0.25 + rand() * 0.25,
+        sz: 0.68 + rand() * 0.7,
         ry: rand() * Math.PI,
       });
     }
   }
-  const curbs = new THREE.InstancedMesh(curbGeo, curbMat, curbEntries.length);
+  const curbs = new THREE.InstancedMesh(curbGeo, cutStone, curbEntries.length);
   curbs.receiveShadow = true;
   curbEntries.forEach((c, idx) => {
     dummy.position.set(c.x, c.y, c.z);
@@ -252,7 +284,7 @@ export function buildMountainTerrainAndForest(
     dummy.scale.set(c.sx, c.sy, c.sz);
     dummy.updateMatrix();
     curbs.setMatrixAt(idx, dummy.matrix);
-    const v = 0.85 + rand() * 0.25;
+    const v = 0.45 + rand() * 0.28;
     tint.setRGB(v, v * 0.98, v * 0.94);
     curbs.setColorAt(idx, tint);
   });
@@ -262,9 +294,9 @@ export function buildMountainTerrainAndForest(
   curbs.matrixAutoUpdate = false;
   curbs.updateMatrix();
   scene.add(curbs);
-  disposables.push(curbGeo, curbMat);
+  disposables.push(curbs, curbGeo);
 
-  // 3. Instanced 3-Tier Pine Forest bordering the expanded 5-district valley (~420 pines)
+  // 3. Outlying black pines, with deliberate clearings for roads and inhabited buildings.
   const treeCoords: Array<{ x: number; z: number; scale: number; rot: number; leanX: number; leanZ: number }> = [];
   for (let i = 0; i < 480; i++) {
     const angle = rand() * Math.PI * 2;
@@ -293,83 +325,38 @@ export function buildMountainTerrainAndForest(
     });
   }
 
-  const count = treeCoords.length;
-  const trunkGeo = new THREE.CylinderGeometry(0.16, 0.36, 3.2, 7);
-  trunkGeo.translate(0, 1.6, 0);
-  const trunkMat = new THREE.MeshStandardMaterial({
-    map: textures.timber,
-    normalMap: textures.timberNormal,
-    color: 0x453224,
-    roughness: 0.94,
-    metalness: 0.0,
+  for (const [x, z] of [[15,7], [-16,14], [-16.4,-14], [14.9,-12.8], [-18,24], [4,-43]]) {
+    treeCoords.push({ x,z,scale:.88+rand()*.34,rot:rand()*Math.PI,leanX:.014,leanZ:-.021 });
+  }
+  // Two fixed crossed cutouts per tree: parallax as the player moves, one opaque/alpha-test
+  // draw for the whole stand, no billboard sorting or extra point lights on the low tier.
+  const plane = new THREE.PlaneGeometry(4.68,8.72).translate(0,4.36,0);
+  const cross = plane.clone().rotateY(Math.PI/2);
+  const pineGeo = mergeGeometries([plane, cross])!;
+  plane.dispose(); cross.dispose();
+  const pineMat = new THREE.MeshLambertMaterial({color:0xc1c7b7,side:THREE.DoubleSide,alphaTest:.32});
+  const forest = new THREE.InstancedMesh(pineGeo,pineMat,treeCoords.length);
+  forest.name='Karaçam korusu'; forest.visible=false;
+  const pineMap=new THREE.TextureLoader().load('/assets/village/karacam.webp',() => { forest.visible=true; });
+  pineMap.colorSpace=THREE.SRGBColorSpace; pineMat.map=pineMap;
+  treeCoords.forEach((tree,i)=>{
+    dummy.position.set(tree.x,groundHeightAt(tree.x,tree.z)-.09,tree.z);
+    dummy.rotation.set(tree.leanX,tree.rot,tree.leanZ);
+    dummy.scale.set(tree.scale*(.88+rand()*.22),tree.scale,tree.scale);
+    dummy.updateMatrix(); forest.setMatrixAt(i,dummy.matrix);
+    const shade=.73+rand()*.27; tint.setRGB(shade,shade*.99,shade*.91);
+    forest.setColorAt(i,tint);
   });
-
-  const coneLowGeo = new THREE.ConeGeometry(2.25, 3.8, 9);
-  coneLowGeo.translate(0, 3.6, 0);
-  const coneMidGeo = new THREE.ConeGeometry(1.72, 3.4, 9);
-  coneMidGeo.translate(0, 5.4, 0);
-  const coneTopGeo = new THREE.ConeGeometry(1.15, 3.1, 8);
-  coneTopGeo.translate(0, 7.1, 0);
-
-  const foliageMat = new THREE.MeshStandardMaterial({
-    color: 0x213224,
-    roughness: 0.89,
-    metalness: 0.02,
-  });
-
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, count);
-  const conesLow = new THREE.InstancedMesh(coneLowGeo, foliageMat, count);
-  const conesMid = new THREE.InstancedMesh(coneMidGeo, foliageMat, count);
-  const conesTop = new THREE.InstancedMesh(coneTopGeo, foliageMat, count);
-  trunks.castShadow = false;
-  conesLow.castShadow = false;
-  conesMid.castShadow = false;
-  conesTop.castShadow = false;
-
-  treeCoords.forEach((t, idx) => {
-    const gy = groundHeightAt(t.x, t.z);
-    dummy.position.set(t.x, gy - 0.12, t.z);
-    dummy.rotation.set(t.leanX, t.rot, t.leanZ);
-    dummy.scale.setScalar(t.scale);
-    dummy.updateMatrix();
-    trunks.setMatrixAt(idx, dummy.matrix);
-    conesLow.setMatrixAt(idx, dummy.matrix);
-    conesMid.setMatrixAt(idx, dummy.matrix);
-    conesTop.setMatrixAt(idx, dummy.matrix);
-
-    const gShift = 0.76 + (idx % 6) * 0.075;
-    tint.setRGB(0.82 * gShift, gShift, 0.86 * gShift);
-    conesLow.setColorAt(idx, tint);
-    conesMid.setColorAt(idx, tint);
-    conesTop.setColorAt(idx, tint);
-  });
-
-  [trunks, conesLow, conesMid, conesTop].forEach((im) => {
-    im.instanceMatrix.needsUpdate = true;
-    if (im.instanceColor) im.instanceColor.needsUpdate = true;
-    im.computeBoundingSphere();
-    im.matrixAutoUpdate = false;
-    im.updateMatrix();
-  });
-
-  scene.add(trunks, conesLow, conesMid, conesTop);
-  disposables.push(trunkGeo, trunkMat, coneLowGeo, coneMidGeo, coneTopGeo, foliageMat);
+  forest.computeBoundingSphere(); forest.matrixAutoUpdate=false; forest.updateMatrix();
+  scene.add(forest); disposables.push(forest,pineGeo,pineMat,pineMap);
 
   // 4. Instanced Mossy Mountain Boulders along edges, stream banks & slopes
   const rockGeo = new THREE.IcosahedronGeometry(0.65, 1);
-  const rockMat = new THREE.MeshStandardMaterial({
-    map: textures.stone,
-    normalMap: textures.stoneNormal,
-    normalScale: new THREE.Vector2(1.1, 1.1),
-    roughness: 0.9,
-    metalness: 0.04,
-    color: 0x6f736a,
-  });
   const rockData: Array<{ x: number; z: number; sx: number; sy: number; sz: number; ry: number }> = [];
   for (let i = 0; i < 110; i++) {
     const rx = -48 + rand() * 90;
     const rz = -50 + rand() * 90;
-    if (Math.abs(rx) < 4.5) continue;
+    if (Math.abs(rx) < 4.5 || Math.hypot(rx-4.8,rz-12.5)<2.5) continue;
     if (Math.abs(rx + 10.5) < 5.5 && Math.abs(rz - 6.0) < 5.5) continue;
     if (Math.abs(rx + 10.8) < 5.0 && Math.abs(rz + 10.5) < 4.5) continue;
     if (Math.abs(rx - 10.5) < 5.0 && Math.abs(rz + 18.0) < 4.5) continue;
@@ -386,7 +373,7 @@ export function buildMountainTerrainAndForest(
       ry: rand() * Math.PI * 2,
     });
   }
-  const rocks = new THREE.InstancedMesh(rockGeo, rockMat, rockData.length);
+  const rocks = new THREE.InstancedMesh(rockGeo, cutStone, rockData.length);
   rocks.castShadow = false;
   rocks.receiveShadow = true;
   rockData.forEach((r, idx) => {
@@ -396,7 +383,7 @@ export function buildMountainTerrainAndForest(
     dummy.scale.set(r.sx, r.sy, r.sz);
     dummy.updateMatrix();
     rocks.setMatrixAt(idx, dummy.matrix);
-    const s = 0.76 + rand() * 0.32;
+    const s = 0.51 + rand() * 0.26;
     tint.setRGB(s * 0.94, s, s * 0.9);
     rocks.setColorAt(idx, tint);
   });
@@ -406,16 +393,26 @@ export function buildMountainTerrainAndForest(
   rocks.matrixAutoUpdate = false;
   rocks.updateMatrix();
   scene.add(rocks);
-  disposables.push(rockGeo, rockMat);
+  disposables.push(rocks, rockGeo);
 
-  // 5. Instanced Mountain Scrub / Wild Ferns across all 5 districts
-  const shrubGeo = new THREE.DodecahedronGeometry(0.45, 0);
-  shrubGeo.translate(0, 0.25, 0);
-  const shrubMat = new THREE.MeshStandardMaterial({
-    color: 0x263723,
-    roughness: 0.92,
-    metalness: 0.0,
-  });
+  // Late-autumn grass tussocks. Folded, bent blades have volume even edge-on;
+  // the whole patch is instanced, with no alpha sorting or per-stem draw calls.
+  const blades: number[] = [], bladeColor: number[] = [];
+  for (let i=0; i<26; i++) {
+    const angle=rand()*Math.PI*2, x=(rand()-.5)*.37, z=(rand()-.5)*.37;
+    const dx=Math.sin(angle), dz=Math.cos(angle), h=.16+rand()*.35, s=.009+rand()*.013;
+    const l=[x-dz*s,0,z+dx*s], r=[x+dz*s,0,z-dx*s];
+    const fold=[x+dx*.06,h*.56,z+dz*.06], tip=[x+dx*h*.57,h,z+dz*h*.57];
+    const edge=[x+dz*s+dx*.04,h*.52,z-dx*s+dz*.04];
+    blades.push(...l,...r,...fold,...r,...edge,...fold,...fold,...edge,...tip);
+    const shade=.65+rand()*.35;
+    for (let j=0;j<9;j++) bladeColor.push(.45*shade,.40*shade,.23*shade);
+  }
+  const shrubGeo = new THREE.BufferGeometry();
+  shrubGeo.setAttribute('position', new THREE.Float32BufferAttribute(blades,3));
+  shrubGeo.setAttribute('color', new THREE.Float32BufferAttribute(bladeColor,3));
+  shrubGeo.computeVertexNormals();
+  const shrubMat = new THREE.MeshLambertMaterial({vertexColors:true,side:THREE.DoubleSide});
   const shrubData: Array<{ x: number; z: number; s: number }> = [];
   for (let i = 0; i < 150; i++) {
     const sx = -44 + rand() * 82;
@@ -428,6 +425,9 @@ export function buildMountainTerrainAndForest(
     if (Math.hypot(sx + 36, sz - 8) < 5.5) continue;
     if (Math.hypot(sx + 34, sz + 36) < 6.5) continue;
     shrubData.push({ x: sx, z: sz, s: 0.65 + rand() * 0.95 });
+  }
+  for (const [x,z] of [[-4.01,13],[-4.13,15.1],[-4.06,16.2],[4.1,11.2],[5.21,13.80],[4.12,-9.2],[-6.65,9.6]]) {
+    shrubData.push({x,z,s:.8+rand()*.3});
   }
   const shrubs = new THREE.InstancedMesh(shrubGeo, shrubMat, shrubData.length);
   shrubData.forEach((sh, idx) => {
@@ -447,7 +447,7 @@ export function buildMountainTerrainAndForest(
   shrubs.matrixAutoUpdate = false;
   shrubs.updateMatrix();
   scene.add(shrubs);
-  disposables.push(shrubGeo, shrubMat);
+  disposables.push(shrubs, shrubGeo, shrubMat);
 
   return {
     streamWater,
@@ -462,7 +462,7 @@ export function buildMountainTerrainAndForest(
       roadMat.map = pack.diffuse;
       roadMat.normalMap = pack.normal;
       roadMat.roughnessMap = pack.roughness;
-      roadMat.color.setHex(0xb8b2a8);
+      roadMat.color.setHex(0xd5d3cc);
       roadMat.needsUpdate = true;
     },
     dispose: () => {

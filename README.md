@@ -4,6 +4,8 @@
 
 Türkçe, tek oyunculu bir tarayıcı korku oyunu. Bu prototip, köye varıştan şafağa uzanan bir nöbete odaklanır. Köy ve olaylar kurmacadır.
 
+![Oyun içinden: elinde feneriyle Bekçi Hasan, gasilhane ve Kuzdağ meydanındaki evler.](docs/kuzdag-meydani.webp)
+
 ## Oynamak
 
 - **Oyuna başla** ile ilk nöbete gir. Fişi eski kayıtlarla karşılaştır; telefon çalınca vereceğin karşılık sana kalmış. Önsöz atlanabilir.
@@ -34,3 +36,5 @@ npm run build   # Üretim çıktısı: dist/
 ## Varlıklar
 
 `public/assets/archive/` altındaki sahne ve arşiv görselleri oyun için üretilmiştir. Yazı tipleri Türkçe karakterleri içeren yerel alt kümelerdir; lisansları `public/fonts/licenses/` içindedir. Üç boyutlu köy mevcut `public/assets/cc0/` modellerini ve doku paketlerini kullanır. Bu paketler ana menü için indirilmez.
+
+Dört köylünün kendine ait iskeletli modeli, kıyafeti ve taşıdığı eşya var: Hasan'ın feneri, Şerife Nine'nin bastonu, Kenan'ın evrak dosyası, İdris'in küreği. Aynı modeller düşük kalite ayarında da kullanılır. Meydandaki cumbalı, hımış ve taş evler; kitabeli çeşme ve gasilhane girişi oyun dünyasının parçasıdır. Modellerin ve yüzeylerin çalışma kaynakları için [Kuzdağ atölyesine](art/README.md) bakın.

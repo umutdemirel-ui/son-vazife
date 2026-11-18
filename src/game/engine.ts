@@ -22,7 +22,7 @@ import {
   SaveGamePayload,
   writeAutoSave,
 } from './saveSystem';
-import { groundHeightAt } from './terrain';
+import { exteriorFloorAt, groundHeightAt } from './terrain';
 import { DELIVERY_FILES, validDelivery } from './registry';
 import { readControls, readMuted, storeControls, storeMuted } from './preferences';
 import { createProceduralTextures, ProceduralTextureSet } from './textures';
@@ -52,6 +52,7 @@ import {
   PlayerGlossaryNote,
   SaveSummary,
 } from './types';
+import { pushOutsideBox } from './collision';
 import { buildVillageWorld, VirtualPointLight, WorldHandles } from './world';
 
 // Module-scope reusable math objects (Zero GC inside render loop)
@@ -229,6 +230,7 @@ export class SonVazifeEngine {
   private isContextLost = false;
   private envTexture: THREE.Texture | null = null;
   private frameId = 0;
+  private softwareFence: WebGLSync | null = null;
   private disposed = false;
   private elapsedTime = 0;
 
@@ -454,7 +456,7 @@ export class SonVazifeEngine {
     const height = this.container.clientHeight || window.innerHeight;
     const nativeDpr = window.devicePixelRatio || 1;
     const targetDpr = this.isSoftwareGl
-      ? Math.min(0.83, 900 / Math.max(width, height))
+      ? Math.min(0.83, 760 / Math.max(width, height))
       : effectiveTier === 'high'
         ? Math.min(nativeDpr, 1.4)
         : effectiveTier === 'medium'
@@ -661,7 +663,7 @@ export class SonVazifeEngine {
         actor.trust = 50;
         actor.waypointIndex = 0;
         const wp = actor.def.waypoints[0];
-        actor.pos.set(wp.x, groundHeightAt(wp.x, wp.z), wp.z);
+        actor.pos.set(wp.x, exteriorFloorAt(wp.x, wp.z), wp.z);
         actor.root.position.copy(actor.pos);
       });
     }
@@ -2176,6 +2178,7 @@ export class SonVazifeEngine {
   private onWebGlContextLost = (e: Event): void => {
     e.preventDefault();
     this.isContextLost = true;
+    this.softwareFence = null;
   };
 
   private onWebGlContextRestored = (): void => {
@@ -2451,32 +2454,7 @@ export class SonVazifeEngine {
     nextPos.x = THREE.MathUtils.clamp(nextPos.x, -46.5, 38.5);
     nextPos.z = THREE.MathUtils.clamp(nextPos.z, -48.5, 39.5);
 
-    for (const c of this.world.colliders) {
-      const closestX = THREE.MathUtils.clamp(nextPos.x, c.minX, c.maxX);
-      const closestZ = THREE.MathUtils.clamp(nextPos.z, c.minZ, c.maxZ);
-      const dx = nextPos.x - closestX;
-      const dz = nextPos.z - closestZ;
-      const distSq = dx * dx + dz * dz;
-
-      if (distSq < PLAYER_RADIUS * PLAYER_RADIUS) {
-        const dist = Math.sqrt(distSq) || 0.0001;
-        const push = PLAYER_RADIUS - dist;
-        if (distSq > 0.00001) {
-          nextPos.x += (dx / dist) * push;
-          nextPos.z += (dz / dist) * push;
-        } else {
-          const penLeft = Math.abs(nextPos.x - c.minX);
-          const penRight = Math.abs(c.maxX - nextPos.x);
-          const penTop = Math.abs(nextPos.z - c.minZ);
-          const penBot = Math.abs(c.maxZ - nextPos.z);
-          const minPen = Math.min(penLeft, penRight, penTop, penBot);
-          if (minPen === penLeft) nextPos.x = c.minX - PLAYER_RADIUS;
-          else if (minPen === penRight) nextPos.x = c.maxX + PLAYER_RADIUS;
-          else if (minPen === penTop) nextPos.z = c.minZ - PLAYER_RADIUS;
-          else nextPos.z = c.maxZ + PLAYER_RADIUS;
-        }
-      }
-    }
+    for (const c of this.world.colliders) pushOutsideBox(nextPos, c, PLAYER_RADIUS);
 
     if (!this.gasilDoorOpen && Math.abs(nextPos.x - -7.1) < 0.45 && nextPos.z > 5.2 && nextPos.z < 6.8) {
       nextPos.x = nextPos.x > -7.1 ? -7.1 + 0.45 : -7.1 - 0.45;
@@ -2540,6 +2518,13 @@ export class SonVazifeEngine {
 
   private startLoop(): void {
     let lastFrameAt = performance.now();
+    let lastSoftwareDraw = -Infinity;
+    const gl = this.isSoftwareGl ? this.renderer.getContext() as WebGL2RenderingContext : null;
+    // Service controls independently of a busy software GPU. Only submit a new
+    // frame when the previous one has finished; never gate simulation on a fence.
+    const schedule = () => {
+      this.frameId = gl ? window.setTimeout(tick, 40) : requestAnimationFrame(tick);
+    };
     const tick = () => {
       if (this.disposed) return;
 
@@ -2552,11 +2537,13 @@ export class SonVazifeEngine {
         this.frameId = window.setTimeout(tick, 100);
         return;
       }
-      const dt = Math.min(rawDt, 0.05);
-      this.elapsedTime += dt;
-
+      const dt = Math.min(rawDt, this.isSoftwareGl ? 0.12 : 0.05);
+      const steps = Math.max(1, Math.ceil(dt / 0.05));
       this.evaluateAdaptiveQuality(rawDt);
-      this.updateSimulation(dt);
+      for (let i = 0; i < steps; i++) {
+        this.elapsedTime += dt / steps;
+        this.updateSimulation(dt / steps);
+      }
 
       if (this.renderer.shadowMap.enabled && !this.isSoftwareGl && this.shadowRefreshStride > 0) {
         this.shadowFrameCounter += 1;
@@ -2566,37 +2553,26 @@ export class SonVazifeEngine {
         }
       }
 
-      this.renderFrame();
-
-      if (this.isSoftwareGl) {
-        this.afterDraw(tick);
-      } else {
-        this.frameId = requestAnimationFrame(tick);
+      if (gl && this.softwareFence) {
+        const status = gl.clientWaitSync(this.softwareFence, gl.SYNC_FLUSH_COMMANDS_BIT, 0);
+        // Some drivers never signal after context restoration. Retry a draw,
+        // not a blocking wait, if the fence has outlived a full second.
+        if (status !== gl.TIMEOUT_EXPIRED || now - lastSoftwareDraw > 1000) {
+          gl.deleteSync(this.softwareFence);
+          this.softwareFence = null;
+        }
       }
-    };
-
-    if (this.isSoftwareGl) {
-      this.afterDraw(tick);
-    } else {
-      this.frameId = requestAnimationFrame(tick);
-    }
-  }
-
-  private afterDraw(cb: () => void): void {
-    const gl = this.renderer.getContext() as WebGL2RenderingContext;
-    const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-    gl.flush();
-    const poll = () => {
-      if (this.disposed) return;
-      const state = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS);
-      if (state === gl.UNSIGNALED) {
-        this.frameId = window.setTimeout(poll, 5);
-      } else {
-        if (sync) gl.deleteSync(sync);
-        this.frameId = window.setTimeout(cb, 80);
+      if (!gl || (!this.softwareFence && now - lastSoftwareDraw >= 95)) {
+        this.renderFrame();
+        if (gl && !this.isContextLost) {
+          this.softwareFence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+          gl.flush();
+          lastSoftwareDraw = now;
+        }
       }
+      schedule();
     };
-    this.frameId = window.setTimeout(poll, 5);
+    schedule();
   }
 
   private updateSimulation(dt: number): void {
@@ -2695,7 +2671,8 @@ export class SonVazifeEngine {
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
         this.targetYaw += diff * Math.min(1, dt * 5);
-        this.targetPitch = THREE.MathUtils.damp(this.targetPitch, -0.05, 5, dt);
+        const facePitch = Math.atan2(actor.pos.y + actor.visual.eyeHeight - this.camera.position.y, Math.max(.3, Math.hypot(dx, dz)));
+        this.targetPitch = THREE.MathUtils.damp(this.targetPitch, facePitch, 5, dt);
       }
     }
 
@@ -2802,7 +2779,7 @@ export class SonVazifeEngine {
                   : groundHeightAt(-34.0, -36.0) + 0.14)
       : onBridge
         ? 0.44
-        : groundHeightAt(this.playerPos.x, this.playerPos.z);
+        : exteriorFloorAt(this.playerPos.x, this.playerPos.z);
 
     const bobAmp = THREE.MathUtils.clamp(horizSpeed / 3.5, 0, 1.2) * (crouching ? 0.02 : 0.032);
     const targetEyeY = groundY + (crouching ? 1.12 : PLAYER_EYE_HEIGHT) + Math.sin(this.headBobPhase) * bobAmp;
@@ -3163,7 +3140,7 @@ export class SonVazifeEngine {
     this.world.sunKeyLight.intensity = THREE.MathUtils.damp(this.world.sunKeyLight.intensity, targetKey, 4, dt);
     this.world.hemiLight.intensity = THREE.MathUtils.damp(
       this.world.hemiLight.intensity,
-      (dusk ? 1.05 : 0.48) + iblBoost,
+      (dusk ? 1.30 : 0.42) + iblBoost,
       2,
       dt,
     );
@@ -3505,6 +3482,8 @@ export class SonVazifeEngine {
     this.disposed = true;
     cancelAnimationFrame(this.frameId);
     clearTimeout(this.frameId);
+    if (this.softwareFence) (this.renderer.getContext() as WebGL2RenderingContext).deleteSync(this.softwareFence);
+    this.softwareFence = null;
 
     window.removeEventListener('resize', this.onResize);
     window.removeEventListener('keydown', this.onKeyDown);

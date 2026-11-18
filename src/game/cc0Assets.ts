@@ -1,9 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/addons/loaders/GLTFLoader.js';
-import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 export type CC0ModelId =
-  | 'soldier'
   | 'lantern'
   | 'table'
   | 'chair'
@@ -31,7 +29,6 @@ export interface CC0TexturePack {
 }
 
 const MODEL_PATHS: Record<CC0ModelId, string> = {
-  soldier: '/assets/cc0/models/Soldier.glb',
   lantern: '/assets/cc0/models/Lantern_01/Lantern_01_1k.gltf',
   table: '/assets/cc0/models/WoodenTable_01/WoodenTable_01_1k.gltf',
   chair: '/assets/cc0/models/WoodenChair_01/WoodenChair_01_1k.gltf',
@@ -52,6 +49,13 @@ const TEXTURE_DIRS: Record<CC0TextureId, string> = {
   clay_plaster: '/assets/cc0/textures/clay_plaster',
   mud_leaves: '/assets/cc0/textures/brown_mud_leaves_01',
   brown_planks: '/assets/cc0/textures/brown_planks_04',
+};
+
+// Graded albedos are derivative finishes of the bundled CC0 scans. Keep their matching
+// linear normal/roughness maps and UVs; do not request both diffuse versions.
+const VILLAGE_ALBEDO: Record<CC0TextureId, string> = {
+  cobblestone: 'lane-cobble', clay_plaster: 'limewash', roof_tiles: 'pantile',
+  mud_leaves: 'forest-floor', brown_planks: 'aged-planks',
 };
 
 const _box = new THREE.Box3();
@@ -145,9 +149,9 @@ export class CC0AssetLibrary {
       const texPromises = (Object.entries(TEXTURE_DIRS) as Array<[CC0TextureId, string]>).map(
         async ([id, dir]) => {
           try {
-            const rep = id === 'cobblestone' ? [2, 16] : id === 'mud_leaves' ? [22, 22] : [2, 2];
+            const rep = id === 'cobblestone' ? [1, 1] : id === 'mud_leaves' ? [64, 64] : [2, 2];
             const [diffuse, normal, roughness] = await Promise.all([
-              loadTex(`${dir}/Diffuse.jpg`, true, rep[0], rep[1]),
+              loadTex(`/assets/village/${VILLAGE_ALBEDO[id]}.webp`, true, rep[0], rep[1]),
               loadTex(`${dir}/nor_gl.jpg`, false, rep[0], rep[1]),
               loadTex(`${dir}/Rough.jpg`, false, rep[0], rep[1]),
             ]);
@@ -213,52 +217,6 @@ export class CC0AssetLibrary {
 
     wrapper.add(cloned);
     return wrapper;
-  }
-
-  /**
-   * Returns a SkeletonUtils-cloned animated character with clips so each NPC has its own AnimationMixer.
-   */
-  public cloneSkinnedNpc(
-    id: CC0ModelId,
-    targetHeight: number,
-  ): { root: THREE.Group; model: THREE.Object3D; clips: THREE.AnimationClip[] } | null {
-    const gltf = this.models.get(id);
-    if (!gltf) return null;
-
-    const root = new THREE.Group();
-    const cloned = SkeletonUtils.clone(gltf.scene);
-    cloned.traverse((obj) => {
-      const mesh = obj as THREE.Mesh;
-      if (mesh.isMesh) {
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        if (mesh.material) {
-          mesh.material = Array.isArray(mesh.material)
-            ? mesh.material.map((m) => m.clone())
-            : mesh.material.clone();
-        }
-      }
-    });
-
-    cloned.updateMatrixWorld(true);
-    _box.setFromObject(cloned);
-    _box.getSize(_size);
-    const scale = targetHeight / Math.max(0.1, _size.y);
-    cloned.scale.setScalar(scale);
-
-    cloned.updateMatrixWorld(true);
-    _box.setFromObject(cloned);
-    _box.getCenter(_center);
-    cloned.position.x -= _center.x;
-    cloned.position.z -= _center.z;
-    cloned.position.y -= _box.min.y;
-
-    root.add(cloned);
-    return {
-      root,
-      model: cloned,
-      clips: gltf.animations || [],
-    };
   }
 
   public dispose(): void {
