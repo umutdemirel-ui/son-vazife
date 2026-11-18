@@ -1,5 +1,5 @@
 import { CEMETERY, VILLAGE_GRAVES } from './cemetery';
-import { CLINIC, CORE_LANES, OUTER_LANES, OUTER_HOMES, OUTPOSTS, OUTPOST_IDS, mainRoadX, reservedGround } from './valley';
+import { CLINIC, MUHTAR, CORE_LANES, OUTER_LANES, OUTER_HOMES, OUTPOSTS, OUTPOST_IDS, mainRoadX, reservedGround } from './valley';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { surfaceUrl, type Allocation } from './quality';
@@ -48,7 +48,7 @@ function valleyHeight(x: number, z: number): number {
   // Flatten building pads so interiors sit flush on ground
   const dMosque = Math.hypot(x + 10.5, z - 6.0);
   const dAbandoned = Math.hypot(x + 10.8, z + 10.5);
-  const dMuhtar = Math.hypot(x - 10.5, z + 18.0);
+  const dMuhtar = Math.hypot(x - MUHTAR.x, z - MUHTAR.z);
   const dFountain = Math.hypot(x - 4.8, z - 12.5);
   const dClinic = Math.hypot(x - CLINIC.x, z - CLINIC.z);
   const dMill = Math.hypot(x + 36.0, z - 8.0);
@@ -97,6 +97,13 @@ export function groundHeightAt(x: number, z: number): number {
     const level = valleyHeight(CEMETERY.x, CEMETERY.z);
     return level + (natural - level) * t * t * (3 - 2 * t);
   }
+  // A level pad keeps the office and porch flush with the new hillside.
+  const officeEdge = Math.max(Math.abs(x - MUHTAR.x), Math.abs(z - MUHTAR.z));
+  if (officeEdge < 10) {
+    const t = Math.max(0, (officeEdge - 6) / 4);
+    const level = valleyHeight(MUHTAR.x, MUHTAR.z);
+    return level + (natural - level) * t * t * (3 - 2 * t);
+  }
   for (const b of homePads) {
     const dx = x - b.x,
       dz = z - b.z,
@@ -111,7 +118,7 @@ export function groundHeightAt(x: number, z: number): number {
 // Raised exterior floors are not hills: leave the terrain mesh flat underneath.
 const porchPads = [
   { x1:-7.8, x2:-6.3, z1:-12.1, z2:-8.9, y:groundHeightAt(-10.8,-10.5)+.14 },
-  { x1:5.5, x2:7.3, z1:-19.8, z2:-16.2, y:groundHeightAt(10.5,-18)+.14 },
+  { x1:MUHTAR.x-5, x2:MUHTAR.x-3.2, z1:MUHTAR.z-1.8, z2:MUHTAR.z+1.8, y:groundHeightAt(MUHTAR.x,MUHTAR.z)+.14 },
   { x1:-7.1, x2:-4.9, z1:-2.03, z2:2.63, y:groundHeightAt(-10.5,6)+.25 },
   { x1:-7.12, x2:-6.17, z1:5, z2:7, y:groundHeightAt(-10.5,6)+.15 },
 ];
@@ -518,7 +525,7 @@ export function buildMountainTerrainAndForest(
     if (Math.abs(rx) < 4.5 || Math.hypot(rx - 4.8, rz - 12.5) < 2.5) continue;
     if (Math.abs(rx + 10.5) < 5.5 && Math.abs(rz - 6.0) < 5.5) continue;
     if (Math.abs(rx + 10.8) < 5.0 && Math.abs(rz + 10.5) < 4.5) continue;
-    if (Math.abs(rx - 10.5) < 5.0 && Math.abs(rz + 18.0) < 4.5) continue;
+    if (Math.abs(rx - MUHTAR.x) < 5.0 && Math.abs(rz - MUHTAR.z) < 4.5) continue;
     if (Math.hypot(rx - CLINIC.x, rz - CLINIC.z) < 7.5) continue;
     if (Math.hypot(rx + 36, rz - 8) < 7.5) continue;
     if (Math.hypot(rx + 34, rz + 36) < 8.5) continue;
@@ -588,7 +595,7 @@ export function buildMountainTerrainAndForest(
     if (Math.abs(sx) < 3.6) continue;
     if (Math.abs(sx + 10.5) < 4.5 && Math.abs(sz - 6.0) < 4.5) continue;
     if (Math.abs(sx + 10.8) < 4.0 && Math.abs(sz + 10.5) < 4.0) continue;
-    if (Math.abs(sx - 10.5) < 4.2 && Math.abs(sz + 18.0) < 4.2) continue;
+    if (Math.abs(sx - MUHTAR.x) < 4.2 && Math.abs(sz - MUHTAR.z) < 4.2) continue;
     if (Math.hypot(sx - CLINIC.x, sz - CLINIC.z) < 6.0) continue;
     if (Math.hypot(sx + 36, sz - 8) < 5.5) continue;
     if (Math.hypot(sx + 34, sz + 36) < 6.5) continue;

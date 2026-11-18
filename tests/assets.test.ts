@@ -144,7 +144,7 @@ test('porch witnesses stand on the boards; the lane still follows the terrain', 
   const { exteriorFloorAt, groundHeightAt } = await import('../src/game/terrain');
   for (const [actor, padX, padZ] of [
     [VILLAGE_NPCS.serife, -10.8, -10.5],
-    [VILLAGE_NPCS.kenan, 10.5, -18],
+    [VILLAGE_NPCS.kenan, 18, -57],
   ] as const) {
     const { x, z } = actor.waypoints[0];
     assert.equal(exteriorFloorAt(x, z), groundHeightAt(padX, padZ) + 0.14);

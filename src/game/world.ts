@@ -2,7 +2,7 @@ import { buildHome, type Home } from './homes';
 import { CEMETERY, CEMETERY_GRAVES, MOSQUE_GRAVES, VILLAGE_GRAVES } from './cemetery';
 import { receivingBay, STRETCHERS } from './funerary';
 import { NightArt, watcherFigure } from './nightArt';
-import { CLINIC, CORE_HOME_CENTRES, OUTER_HOMES, type Outpost } from './valley';
+import { CLINIC, MUHTAR, CORE_HOME_CENTRES, OUTER_HOMES, type Outpost } from './valley';
 import { buildOutposts } from './outposts';
 import { bakeStaticChildrenByMaterial } from './meshBatch';
 import * as THREE from 'three';
@@ -308,8 +308,8 @@ export function buildVillageWorld(
     { minX: 2.75, maxX: 3.25, minZ: 0.8, maxZ: 3.0 },
     { minX: -1.9, maxX: -0.7, minZ: -0.4, maxZ: 1.2 },
   ]));
-  // 5. Muhtar's House at (10.5, y, -18.0)
-  const muhtarPos = new THREE.Vector3(10.5, groundHeightAt(10.5, -18.0), -18.0);
+  // 5. Muhtar's office on the upper village slope.
+  const muhtarPos = new THREE.Vector3(MUHTAR.x, groundHeightAt(MUHTAR.x, MUHTAR.z), MUHTAR.z);
   const muhtar = createMuhtarHouse(textures, craft);
   muhtar.group.position.copy(muhtarPos);
   cells.add(scene, muhtar.group, 28, 49);
@@ -456,6 +456,7 @@ export function buildVillageWorld(
 
   (
     [
+      { x: 1.5, z: -49, rot: 0.2, text: 'MUHTARLIK' },
       { x: -3.1, z: 10.5, rot: 0.3, text: '←  DEĞİRMEN' },
       { x: 2.8, z: -23.0, rot: -0.4, text: 'SAĞLIK OCAĞI' },
       { x: -2.6, z: -28.0, rot: 0.45, text: 'MEZARLIK  ←' },

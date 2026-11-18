@@ -3,6 +3,7 @@ import type { DistrictId } from './types';
 /** Metres, north = -Z. Collision, clearing, wayfinding and the notebook share this survey. */
 export const VALLEY = { x1: -72, x2: 76, z1: -78, z2: 62 } as const;
 /** Shared anchor for the rebuilt hillside clinic. */
+export const MUHTAR = { x: 18, z: -57 } as const;
 export const CLINIC = { x: 32, z: -10 } as const;
 export const OUTPOSTS = {
   school: { x: 43, z: -65, w: 11.4, d: 5.9, door: 1.29, y: 1.8, name: 'Sarı Mektep' },
@@ -30,7 +31,7 @@ export const LANDMARKS: {
     id: 'square',
     name: 'Köy Meydanı & Gasilhane',
     short: 'Meydan',
-    sub: 'Cami · Çeşme · Muhtarlık',
+    sub: 'Cami · Çeşme · Gasilhane',
     x: 0,
     z: 4,
   },
@@ -125,6 +126,10 @@ export const CORE_LANES: readonly Lane[] = [
   [12, 19, 24, 19.7, 3.8],
 ];
 export const OUTER_LANES: readonly Lane[] = [
+  // Upper hamlet: a new approach to the muhtarlık on the northern slope.
+  [-2, -48, 3, -54, 3.0],
+  [3, -54, 11, -57, 3.0],
+  [11, -57, 14.8, -57, 2.8],
   // Hillside clinic spur leaves the old northern road and approaches its west door.
   [20, -22.5, 24, -19, 3.1],
   [24, -19, 26, -10, 3.1],
@@ -223,6 +228,7 @@ export function clearedForRoad(x: number, z: number, lanes: readonly Lane[]) {
 }
 export function reservedGround(x: number, z: number) {
   return (
+    (Math.abs(x - MUHTAR.x) < 8 && Math.abs(z - MUHTAR.z) < 8) ||
     Object.values(OUTPOSTS).some(
       (b) => Math.abs(x - b.x) < b.w / 2 + 4.5 && Math.abs(z - b.z) < b.d / 2 + 6,
     ) ||

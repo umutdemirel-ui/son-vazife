@@ -64,3 +64,10 @@ export function migrateClinicPosition(x: number, z: number) {
     ? { x: x + 6, z: z + 18 }
     : { x, z };
 }
+
+/** Preserve local room position for saves from before the upper village was built. */
+export function migrateMuhtarPosition(x: number, z: number) {
+  return Math.abs(x - 10.5) < 3.2 && Math.abs(z + 18) < 3
+    ? { x: x + 7.5, z: z - 39 }
+    : { x, z };
+}

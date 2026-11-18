@@ -1,5 +1,5 @@
 import { insideHome } from './homes';
-import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition } from './homeMigration';
+import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition, migrateMuhtarPosition } from './homeMigration';
 import { atEscapePoint, isEvening, survivalDay } from './survival';
 import {
   FIELD_NOTES,
@@ -13,7 +13,7 @@ import {
   PAGES,
   type NightId,
 } from './nightWatch';
-import { CLINIC, districtAt, insideOutpost, OUTPOSTS, OUTPOST_IDS, VALLEY, type Outpost } from './valley';
+import { CLINIC, MUHTAR, districtAt, insideOutpost, OUTPOSTS, OUTPOST_IDS, VALLEY, type Outpost } from './valley';
 import { NightPatrol } from './nightPatrol';
 import * as THREE from 'three';
 import { HorrorAudioEngine } from './audio';
@@ -135,10 +135,10 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
   {
     id: 'muhtar_office_boards',
     zoneName: 'Muhtarlık Odası',
-    centerX: 10.5,
-    centerZ: -18.0,
+    centerX: MUHTAR.x,
+    centerZ: MUHTAR.z,
     radius: 4.2,
-    bounds: { minX: 7.3, maxX: 13.7, minZ: -21.0, maxZ: -15.0 },
+    bounds: { minX: MUHTAR.x - 3.2, maxX: MUHTAR.x + 3.2, minZ: MUHTAR.z - 3, maxZ: MUHTAR.z + 3 },
     dreadThreshold: 70,
     minStationarySec: 1.8,
     cooldownSec: 18,
@@ -1071,13 +1071,15 @@ export class SonVazifeEngine {
     this.act = save.act;
     this.survivalSeconds = save.survivalSeconds ?? 0;
     this.caughtCount = save.caughtCount ?? 0;
-    const homePosition = save.villageRevision === 2 || save.villageRevision === 3 || save.villageRevision === 4
+    const homePosition = save.villageRevision === 2 || save.villageRevision === 3 || save.villageRevision === 4 || save.villageRevision === 5
       ? save.playerPos
       : migrateOldHomePosition(save.playerPos.x, save.playerPos.z, this.world.homes, save.villageRevision);
-    const outpostPosition = save.villageRevision === 3 || save.villageRevision === 4
+    const outpostPosition = save.villageRevision === 3 || save.villageRevision === 4 || save.villageRevision === 5
       ? homePosition : migrateOutpostPosition(homePosition.x, homePosition.z);
-    const restoredPosition = save.villageRevision === 4
+    const clinicPosition = save.villageRevision === 4 || save.villageRevision === 5
       ? outpostPosition : migrateClinicPosition(outpostPosition.x, outpostPosition.z);
+    const restoredPosition = save.villageRevision === 5
+      ? clinicPosition : migrateMuhtarPosition(clinicPosition.x, clinicPosition.z);
     this.playerPos.set(
       restoredPosition.x,
       groundHeightAt(restoredPosition.x, restoredPosition.z),
@@ -1142,7 +1144,7 @@ export class SonVazifeEngine {
     }
     // A pre-rebuild outdoor save may now intersect a moved wall or grave. Resolve
     // after restoring door states, so resuming never traps a player in new geometry.
-    if (save.villageRevision !== 4) {
+    if (save.villageRevision !== 5) {
       this.resolveCollisions(this.playerPos);
       this.playerPos.y = groundHeightAt(this.playerPos.x, this.playerPos.z);
     }
@@ -1232,7 +1234,7 @@ export class SonVazifeEngine {
     const meta = this.getObjectiveText();
     const payload: SaveGamePayload = {
       version: 2,
-      villageRevision: 4,
+      villageRevision: 5,
       survivalSeconds: this.survivalSeconds,
       caughtCount: this.caughtCount,
       openHomes: this.world.homes.flatMap((home, i) => home.open ? [i] : []),
@@ -2932,7 +2934,7 @@ export class SonVazifeEngine {
   }
 
   private isInsideMuhtar(p: THREE.Vector3): boolean {
-    return p.x >= 7.3 && p.x <= 13.7 && p.z >= -21.0 && p.z <= -15.0;
+    return Math.abs(p.x - MUHTAR.x) <= 3.2 && Math.abs(p.z - MUHTAR.z) <= 3;
   }
 
   private isInsideClinic(p: THREE.Vector3): boolean {
@@ -2952,7 +2954,7 @@ export class SonVazifeEngine {
   }
 
   private isUnderPorchOrAlcove(p: THREE.Vector3): boolean {
-    const muhtarPorch = p.x >= 5.3 && p.x <= 7.4 && p.z >= -19.8 && p.z <= -16.2;
+    const muhtarPorch = p.x >= MUHTAR.x - 5.2 && p.x <= MUHTAR.x - 3.1 && Math.abs(p.z - MUHTAR.z) <= 1.8;
     const abandonedPorch = p.x >= -7.8 && p.x <= -6.1 && p.z >= -12.3 && p.z <= -8.7;
     const mosquePorch = p.x >= -6.3 && p.x <= -4.4 && p.z >= -1.8 && p.z <= 4.5;
     return muhtarPorch || abandonedPorch || mosquePorch;
@@ -2998,11 +3000,11 @@ export class SonVazifeEngine {
     }
     if (
       !this.muhtarDoorOpen &&
-      Math.abs(nextPos.x - 7.3) < 0.45 &&
-      nextPos.z > -18.8 &&
-      nextPos.z < -17.2
+      Math.abs(nextPos.x - (MUHTAR.x - 3.2)) < 0.45 &&
+      nextPos.z > MUHTAR.z - 0.8 &&
+      nextPos.z < MUHTAR.z + 0.8
     ) {
-      nextPos.x = nextPos.x > 7.3 ? 7.3 + 0.45 : 7.3 - 0.45;
+      nextPos.x = nextPos.x > MUHTAR.x - 3.2 ? MUHTAR.x - 2.75 : MUHTAR.x - 3.65;
     }
     if (
       !this.clinicDoorOpen &&
@@ -3397,7 +3399,7 @@ export class SonVazifeEngine {
           : insideAbandoned
             ? groundHeightAt(-10.8, -10.5) + 0.16
             : insideMuhtar
-              ? groundHeightAt(10.5, -18.0) + 0.16
+              ? groundHeightAt(MUHTAR.x, MUHTAR.z) + 0.16
               : insideClinic
                 ? groundHeightAt(CLINIC.x, CLINIC.z) + 0.16
                 : insideMill

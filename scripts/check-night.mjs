@@ -226,7 +226,7 @@ try {
   await use('clue_crash_manifest', 25.2, 22.75);
   await doorway('abandoned_door', -6.06, -10.5, 'x', -1);
   await use('item_gulsuyu', -10.1, -11.13);
-  await use('npc_kenan', 5.15, -16.15);
+  await use('npc_kenan', 12.65, -55.15);
   await btn(/Rapor ve Değirmen/).click();
   await btn(/Tepesine çıkıp/).click();
   assert.equal(await val('act'), 4);
@@ -236,8 +236,8 @@ try {
   await doorway('crypt_door', -32.4, -35.2, 'z', -1);
   await use('autopsy_case_unknown', -32.4, -38.02);
   await form('case_unknown');
-  await doorway('muhtar_door', 5.75, -18, 'x', 1);
-  await use('item_kafur', 9.66, -18.36);
+  await doorway('muhtar_door', 13.25, -57, 'x', 1);
+  await use('item_kafur', 17.16, -57.36);
   for (let i = 0; i < 5; i++) await use(...slab);
   assert.equal(await val('act'), 5);
   await use(...slab);

@@ -30,3 +30,9 @@ test('clinic saves follow the rebuilt clinic but outdoor saves stay put', async 
   assert.deepEqual(migrateClinicPosition(25, -28), { x: 31, z: -10 });
   assert.deepEqual(migrateClinicPosition(20, -28), { x: 20, z: -28 });
 });
+
+test('muhtarlık room saves move with the new upper village office', async () => {
+  const { migrateMuhtarPosition } = await import('../src/game/homeMigration');
+  assert.deepEqual(migrateMuhtarPosition(8, -18), { x: 15.5, z: -57 });
+  assert.deepEqual(migrateMuhtarPosition(0, 0), { x: 0, z: 0 });
+});

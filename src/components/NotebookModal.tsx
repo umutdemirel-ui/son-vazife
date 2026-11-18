@@ -1,5 +1,5 @@
 import { ESCAPE_POINT } from '../game/survival';
-import { VALLEY, LANDMARKS as MAP_LANDMARKS, CORE_LANES, OUTER_LANES } from '../game/valley';
+import { VALLEY, LANDMARKS as MAP_LANDMARKS, MAIN_LANES, CORE_LANES, OUTER_LANES, MUHTAR } from '../game/valley';
 import React, { useState } from 'react';
 import {
   AutopsyCaseId,
@@ -504,15 +504,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                   strokeWidth="8"
                   opacity="0.7"
                 />
-                <line
-                  x1={toSvgX(0)}
-                  y1={toSvgY(-48)}
-                  x2={toSvgX(0)}
-                  y2={toSvgY(42)}
-                  stroke="#745f44"
-                  strokeWidth="3.3"
-                />
-                {[...CORE_LANES, ...OUTER_LANES].map(([x1, z1, x2, z2, w]) => (
+                {[...MAIN_LANES, ...CORE_LANES, ...OUTER_LANES].map(([x1, z1, x2, z2, w]) => (
                   <line
                     key={`${x1},${z1}:${x2},${z2}`}
                     x1={toSvgX(x1)}
@@ -556,6 +548,11 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
                   );
                 })}
 
+                <g transform={`translate(${toSvgX(MUHTAR.x)}, ${toSvgY(MUHTAR.z)})`}>
+                  <rect x="-5" y="-5" width="10" height="10" fill="#2f452d" stroke="#1f160d" />
+                  <text y="-10" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#1f160d">Muhtarlık</text>
+                </g>
+
                 {clues.some((clue) => clue.id === 'night_call' && clue.discovered) && (
                   <g transform={`translate(${toSvgX(ESCAPE_POINT.x)}, ${toSvgY(ESCAPE_POINT.z)})`}>
                     <circle r="9" fill="none" stroke="#9e241b" strokeWidth="2" strokeDasharray="3 2" />
@@ -595,7 +592,7 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
               })}
               <p className="text-[11px] text-[#5c4730] pt-1">
                 Kırmızı ok bulunduğun yeri ve baktığın yönü gösterir. Son telefonun ardından kaçış noktası peronda işaretlenir. Sağlık ocağından mektebe, virajdan
-                istasyona, değirmenden sırt santraline yol çıkar.
+                istasyona, değirmenden sırt santraline yol çıkar. Muhtarlık kuzeydeki yukarı mahallededir.
               </p>
             </div>
           </div>

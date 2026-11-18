@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { ResidentVisual } from './residentVisual';
 import { exteriorFloorAt } from './terrain';
+import { MUHTAR } from './valley';
 import {
   AutopsyCaseId,
   AutopsyCaseState,
@@ -224,11 +225,12 @@ export const VILLAGE_NPCS: Record<NpcId, NpcDefinition> = {
     role: 'Muhtarlık Katibi & Sağlık Memuru',
     pace: 1.17,
     waypoints: [
-      { x: 6.2, z: -16.47, pauseSec: 5.5 },
-      { x: 6.0, z: -22.5, pauseSec: 0.3 }, // skirt the muhtarlık, rather than walking through it
-      { x: 16.5, z: -23.5, pauseSec: 5.0 },
-      { x: 21.0, z: -26.5, pauseSec: 5.5 },
-      { x: 6.0, z: -22.5, pauseSec: 0.3 },
+      { x: MUHTAR.x - 4.3, z: MUHTAR.z + 1.53, pauseSec: 5.5 },
+      { x: MUHTAR.x - 4.5, z: MUHTAR.z - 4.5, pauseSec: 0.3 },
+      { x: MUHTAR.x + 4.5, z: MUHTAR.z - 5, pauseSec: 5.0 },
+      { x: MUHTAR.x + 6, z: MUHTAR.z - 0.5, pauseSec: 5.5 },
+      { x: MUHTAR.x + 4.5, z: MUHTAR.z - 5, pauseSec: 0.3 },
+      { x: MUHTAR.x - 4.5, z: MUHTAR.z - 4.5, pauseSec: 0.3 },
     ],
     nodes: {
       root: {
