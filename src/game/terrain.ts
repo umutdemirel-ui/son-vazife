@@ -1,5 +1,5 @@
 import { CEMETERY, VILLAGE_GRAVES } from './cemetery';
-import { CLINIC, CORE_LANES, OUTER_LANES, OUTER_HOMES, OUTPOSTS, OUTPOST_IDS, reservedGround } from './valley';
+import { CLINIC, CORE_LANES, OUTER_LANES, OUTER_HOMES, OUTPOSTS, OUTPOST_IDS, mainRoadX, reservedGround } from './valley';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { surfaceUrl, type Allocation } from './quality';
@@ -23,7 +23,12 @@ function valleyHeight(x: number, z: number): number {
       ? (Math.sin(x * 0.085 + z * 0.06) * 1.15 + Math.cos(x * 0.045 - z * 0.075) * 1.45) *
         Math.min(1, (edgeDist - 2) / 18)
       : 0;
-  const mountain = 23 * (1 - Math.exp(-Math.pow(edgeDist / 44, 1.8))) + ridgeDetail * 1.5;
+  // Separate wooded ridges on the western and eastern slopes, rather than
+  // the old uniform circular wall. The broad valley floor remains walkable.
+  const ridgeRise = 1 - Math.exp(-Math.pow(edgeDist / 38, 1.75));
+  const westernRidge = 1.5 * Math.sin(z * 0.025 + 0.8) * Math.max(0, -x / 80);
+  const easternRidge = 2.2 * Math.cos(z * 0.032 - 0.3) * Math.max(0, x / 80);
+  const mountain = (21 + westernRidge + easternRidge) * ridgeRise + ridgeDetail * 1.25;
 
   // Gentle natural undulation along the village roads
   const gentleSlope = Math.sin(z * 0.055) * 0.14 + Math.cos(x * 0.065) * 0.08
@@ -237,7 +242,7 @@ export function buildMountainTerrainAndForest(
   for (let i = 0; i < mrPos.count; i++) {
     const rx = mrPos.getX(i);
     const rz = mrPos.getZ(i) - 3;
-    const curveOffset = Math.sin(rz * 0.08) * 1.8;
+    const curveOffset = mainRoadX(rz);
     const worldX =
       rx + curveOffset + Math.pow(Math.abs(rx) / 2.3, 3) * 0.14 * Math.sin(rz * 1.8 + rx * 2);
     mrPos.setX(i, worldX);
@@ -340,7 +345,7 @@ export function buildMountainTerrainAndForest(
     ry: number;
   }> = [];
   for (let rz = -42; rz <= 36; rz += 1.05) {
-    const center = Math.sin(rz * 0.08) * 1.8;
+    const center = mainRoadX(rz);
     for (const side of [-1, 1]) {
       if (side === -1 && ((rz > 1 && rz < 10.5) || (rz > -13.5 && rz < -7.5) || (rz > -34 && rz < -26)))
         continue;

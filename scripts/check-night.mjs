@@ -97,10 +97,10 @@ try {
   };
   // Check the whole survey with the real colliders, not just teleports to destinations.
   const obstructed = await page.evaluate(async () => {
-    const { CORE_LANES, OUTER_LANES } = await import('/src/game/valley.ts'),
+    const { MAIN_LANES, CORE_LANES, OUTER_LANES } = await import('/src/game/valley.ts'),
       { pushOutsideBox } = await import('/src/game/collision.ts');
     const hits = [];
-    for (const [a, b, c, d] of [...CORE_LANES, ...OUTER_LANES]) {
+    for (const [a, b, c, d] of [...MAIN_LANES, ...CORE_LANES, ...OUTER_LANES]) {
       const count = Math.ceil(Math.hypot(c - a, d - b) / 0.25);
       for (let i = 0; i <= count; i++) {
         const x = a + ((c - a) * i) / count,

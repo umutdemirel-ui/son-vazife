@@ -81,6 +81,28 @@ export function districtAt(x: number, z: number): DistrictId {
   return 'square';
 }
 export type Lane = readonly [number, number, number, number, number];
+/** New village spine, ordered from the northern slope to the southern crossing. */
+export const MAIN_ROAD_POINTS = [
+  [-2, -48], [-1, -39], [1, -30], [2, -22], [0.5, -14],
+  [-0.5, -5], [1, 4], [0, 12], [1, 20], [-1, 30], [0, 42],
+] as const;
+export const MAIN_LANES: readonly Lane[] = MAIN_ROAD_POINTS.slice(1).map(([x, z], i) => {
+  const [px, pz] = MAIN_ROAD_POINTS[i];
+  return [px, pz, x, z, 4.6] as const;
+});
+/** Same interpolated centre is used by road mesh and roadside dressing. */
+export function mainRoadX(z: number): number {
+  const points = MAIN_ROAD_POINTS;
+  if (z <= points[0][1]) return points[0][0];
+  for (let i = 1; i < points.length; i++) {
+    const [x, end] = points[i], [startX, start] = points[i - 1];
+    if (z <= end) {
+      const t = (z - start) / (end - start);
+      return startX + (x - startX) * t;
+    }
+  }
+  return points[points.length - 1][0];
+}
 export const CORE_LANES: readonly Lane[] = [
   [0.5, -24, 9, -26.4, 3.4],
   [9, -26.4, 21.5, -28, 3.4],
@@ -192,6 +214,7 @@ export function reservedGround(x: number, z: number) {
     [...CORE_HOME_CENTRES, ...OUTER_HOMES].some(([a, b]) => Math.hypot(x - a, z - b) < 5.3) ||
     clearedForRoad(x, z, OUTER_LANES) ||
     clearedForRoad(x, z, CORE_LANES) ||
+    clearedForRoad(x, z, MAIN_LANES) ||
     Math.hypot(x - RELAY.x, z - RELAY.z) < 3.5
   );
 }
