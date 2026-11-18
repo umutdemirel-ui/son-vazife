@@ -80,9 +80,12 @@ export function districtAt(x: number, z: number): DistrictId {
 }
 export type Lane = readonly [number, number, number, number, number];
 export const CORE_LANES: readonly Lane[] = [
-  [0.5, -24, 21.5, -28, 3.8],
-  [-1, -29, -18, -30.4, 3.4],
-  [-18, -30.4, -32, -34.5, 3.4],
+  [0.5, -24, 9, -26.4, 3.4],
+  [9, -26.4, 21.5, -28, 3.4],
+  [-1, -29, -9, -30.8, 3.0],
+  [-9, -30.8, -18, -30.4, 3.0],
+  [-18, -30.4, -24.5, -32.0, 3.0],
+  [-24.5, -32.0, -32, -34.5, 3.0],
   [-1, 10.1, -14.7, 11.2, 2.7],
   [-14.7, 11.2, -20.8, 8, 2.7],
   [-20.8, 8, -32, 8, 2.7],
@@ -121,9 +124,15 @@ export const OUTER_LANES: readonly Lane[] = [
   [-47, 31, -43, 47, 2.9],
 ];
 /** Shared house centres for foundations, vegetation clearings and world construction. */
-export const CORE_HOME_CENTRES = [
+// Revision 1 survey retained only to migrate saved positions.
+export const REV1_CORE_HOME_CENTRES = [
   [12.5, 2], [-10.6, 21.5], [13, -8.6], [-14, -21.5],
   [21, 12], [-20, -5.5], [17.5, -36.5], [-15.5, -37.5],
+] as const;
+// More organic settlement: houses sit in irregular clusters along the valley.
+export const CORE_HOME_CENTRES = [
+  [13.5, 3.5], [-10, 23.5], [14, -9.5], [-15, -22],
+  [23, 11], [-20, -6.5], [17, -38], [-15, -39],
 ] as const;
 export const LEGACY_OUTER_HOMES = [
   // A closer, staggered street frontage frames the muddy north–south lane,
@@ -143,12 +152,19 @@ export const LEGACY_OUTER_HOMES = [
   [-58, 31, 1.3],
   [-40, 16, 0.6],
 ] as const;
-export const OUTER_HOMES = [
+export const REV1_OUTER_HOMES = [
   [-9.0, -45, 1.38], [10.2, -42, -1.38],
   [-9.0, 32, 1.40], [10.0, 31, -1.35],
   [34, -49, 0.35], [47, -42, -1.48], [64, -29, -1.3],
   [46, -12, 1.38], [61, 3, -1.35], [38, 30, 2.42],
   [24, 50, 2.9], [-37, 55, 2.7], [-60, 31, 1.25], [-41, 17, 0.52],
+] as const;
+export const OUTER_HOMES = [
+  [-10.0, -46.0, 1.34], [11.2, -43.5, -1.34],
+  [-10.0, 34.0, 1.36], [11.0, 33.0, -1.32],
+  [34.0, -49.0, 0.35], [47.5, -41.0, -1.48], [64.0, -31.0, -1.3],
+  [47.5, -12.0, 1.38], [62.5, 4.0, -1.35], [39.0, 30.5, 2.42],
+  [23.0, 51.0, 2.9], [-36.0, 56.0, 2.7], [-60.5, 33.0, 1.25], [-42.0, 17.0, 0.52],
 ] as const;
 export const RELAY = { x: -46, z: 27.8 };
 export function clearedForRoad(x: number, z: number, lanes: readonly Lane[]) {

@@ -55,7 +55,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
       craft.window(root, side * w * 0.24, height + 0.82, d / 2 + 0.04, 0.72, 0.92, 0, number % 2 ? craft.shutters[number % craft.shutters.length] : undefined);
     }
   }
-  const roof = craft.roofVariants[number % craft.roofVariants.length];
+  const roof = number % 4 === 1 ? craft.metalRoof : craft.roofVariants[number % craft.roofVariants.length];
   pitchedRoof(root, roof, roof, w + 0.5, d + 0.5, roofY, 0.68 + (number % 3) * 0.08, Math.max(0.45, w * (spec.style === 'tas' ? 0.12 : 0.22)));
   // Rough timber eaves and projecting lintels add depth without covering openings.
   block(root, craft.wood, w + 0.48, 0.12, 0.12, 0, roofY - 0.04, d / 2 + 0.18, 1.5);

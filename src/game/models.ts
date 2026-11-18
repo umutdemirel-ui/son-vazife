@@ -512,8 +512,8 @@ export function createMosqueAndGasilhane(
     normalScale: new THREE.Vector2(0.4, 0.4), roughness: 0.95,
   });
   const gasilFloorMat = new THREE.MeshStandardMaterial({
-    map: textures.flagstone, normalMap: textures.flagstoneNormal,
-    normalScale: new THREE.Vector2(0.65, 0.65), roughness: 0.87,
+    map: textures.mortuaryTile, normalMap: textures.flagstoneNormal,
+    normalScale: new THREE.Vector2(0.35, 0.35), color: 0xaaa7a0, roughness: 0.87,
   });
   const marbleMat = new THREE.MeshStandardMaterial({
     map: textures.marble,
@@ -736,6 +736,26 @@ export function createMosqueAndGasilhane(
   drainGroup.add(drainRim, drainHole, grateBar1, grateBar2);
   gasilGroup.add(drainGroup);
 
+  // Separate interior ceramic lining keeps the weathered clay exterior intact.
+  // Panels stop at the actual door and window openings and do not alter collision.
+  const ceramic = new THREE.MeshStandardMaterial({ map: textures.mortuaryTile, color: 0xb2ada5, roughness: 0.8 });
+  block(gasilGroup, ceramic, rw - 0.25, rh - 0.08, 0.025, 0, rh / 2, -rd / 2 + 0.135, 2);
+  block(gasilGroup, ceramic, rw - 0.25, rh - 0.08, 0.025, 0, rh / 2, rd / 2 - 0.135, 2);
+  for (const side of [-1, 1]) {
+    block(gasilGroup, ceramic, 0.025, rh - 0.08, 2.25, -rw / 2 + 0.135, rh / 2, side * 2.0, 2);
+    block(gasilGroup, ceramic, 0.025, rh - 0.08, 2.25, rw / 2 - 0.135, rh / 2, side * 1.98, 2);
+  }
+  block(gasilGroup, ceramic, 0.025, 1.5, 1.8, -rw / 2 + 0.135, 0.75, 0, 2);
+  block(gasilGroup, ceramic, 0.025, rh - 2.66, 1.8, -rw / 2 + 0.135, (rh + 2.66) / 2, 0, 2);
+  block(gasilGroup, ceramic, 0.025, rh - 2.35, 1.6, rw / 2 - 0.135, (rh + 2.35) / 2, 0, 2);
+  // Shallow wall-mounted cupboards and stacks of folded linen, away from the slab.
+  for (const x of [-1.8, -0.65]) {
+    block(gasilGroup, craft.shutters[0], 1.0, 0.86, 0.26, x, 2.35, rd / 2 - 0.28, 1.4);
+    block(gasilGroup, craft.metal, 0.03, 0.12, 0.035, x + 0.34, 2.35, rd / 2 - 0.43);
+  }
+  for (let i = 0; i < 3; i++)
+    block(gasilGroup, craft.limestone, 0.55, 0.055, 0.3, -2.45, 0.76 + i * 0.06, rd / 2 - 0.36);
+
   // Folded linens and wash vessels sit on the upper shelves without narrowing the aisle.
   block(gasilGroup, craft.wood, 1.25, 0.08, 0.36, 2.35, 1.78, -rd / 2 + 0.28, 1);
   for (let i = 0; i < 3; i++)
@@ -745,6 +765,15 @@ export function createMosqueAndGasilhane(
     const jar = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.24, 10), i === 1 ? brassMat : craft.limestone);
     jar.position.set(2.02 + i * 0.31, 2.41, -rd / 2 + 0.28);
     gasilGroup.add(jar);
+  }
+
+  // Folded white towels and small bottles on the existing shelf, like the reference.
+  for (let i = 0; i < 4; i++)
+    block(gasilGroup, craft.limestone, 0.35, 0.045, 0.25, 2.22, 1.87 + i * 0.045, -rd / 2 + 0.28);
+  for (let i = 0; i < 4; i++) {
+    const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.047, 0.16 + (i % 2) * 0.035, 8), craft.shutters[i % craft.shutters.length]);
+    bottle.position.set(2.0 + i * 0.2, 2.42, -rd / 2 + 0.3);
+    gasilGroup.add(bottle);
   }
 
   // Cupboards with actual inset doors. The row of candleholders sits on the LOW cabinet.
@@ -964,7 +993,8 @@ export function createMuhtarHouse(textures: VillageTextures, craft: VillageCraft
   const rd = 6.0;
   const rh = 3.2;
 
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.16, rd), timberMat);
+  const officeFloor = new THREE.MeshStandardMaterial({ map: textures.timber, normalMap: textures.timberNormal, color: 0x6d4e37, roughness: 0.9 });
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.16, rd), officeFloor);
   floor.position.y = 0.08;
   floor.receiveShadow = true;
   g.add(floor);
@@ -1003,11 +1033,33 @@ export function createMuhtarHouse(textures: VillageTextures, craft: VillageCraft
   southW.position.set(0, rh / 2, rd / 2);
   g.add(eastW, northW, southW);
 
-  const wainEast = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, rd - 0.3), timberMat);
+  const officeWood = new THREE.MeshStandardMaterial({ map: textures.officePanel, color: 0xa18d7d, roughness: 0.86 });
+  const wainEast = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, rd - 0.3), officeWood);
   wainEast.position.set(rw / 2 - 0.14, 0.72, 0);
-  const wainNorth = new THREE.Mesh(new THREE.BoxGeometry(rw - 0.3, 1.2, 0.08), timberMat);
+  const wainNorth = new THREE.Mesh(new THREE.BoxGeometry(rw - 0.3, 1.2, 0.08), officeWood);
   wainNorth.position.set(0, 0.72, -rd / 2 + 0.14);
   g.add(wainEast, wainNorth);
+
+  // Warm aged plaster is an interior lining, leaving the exterior untouched.
+  const officePlaster = new THREE.MeshStandardMaterial({ map: textures.wornPlaster, color: 0xb9a079, roughness: 0.95 });
+  block(g, officePlaster, rw - 0.3, rh - 1.37, 0.025, 0, (rh + 1.37) / 2, -rd / 2 + 0.135, 2);
+  block(g, officePlaster, rw - 0.3, rh - 1.37, 0.025, 0, (rh + 1.37) / 2, rd / 2 - 0.135, 2);
+  block(g, officePlaster, 0.025, rh - 1.37, rd - 0.3, rw / 2 - 0.135, (rh + 1.37) / 2, 0, 2);
+
+  // Dark timber wainscoting, mouldings and inset panels from the office reference.
+  block(g, officeWood, rw - 0.3, 1.16, 0.045, 0, 0.7, rd / 2 - 0.14, 2);
+  for (const z of [-rd / 2 + 0.18, rd / 2 - 0.18]) {
+    block(g, officeWood, rw - 0.28, 0.1, 0.12, 0, 1.32, z);
+    for (let i = -3; i <= 3; i++)
+      block(g, officeWood, 0.06, 1.02, 0.09, i * 0.82, 0.7, z);
+  }
+  block(g, officeWood, 0.1, 0.1, rd - 0.3, rw / 2 - 0.17, 1.32, 0);
+  // An independent landscape frame complements the existing quest photograph.
+  const landscapeMat = new THREE.MeshStandardMaterial({ map: textures.landscape, roughness: 0.9 });
+  block(g, officeWood, 1.65, 0.9, 0.08, -1.6, 2.2, rd / 2 - 0.18);
+  face(g, landscapeMat, 1.5, 0.75, -1.6, 2.2, rd / 2 - 0.23, Math.PI);
+  block(g, officeWood, 0.08, 0.9, 1.6, rw / 2 - 0.18, 2.15, 0);
+  face(g, landscapeMat, 1.45, 0.74, rw / 2 - 0.23, 2.15, 0, -Math.PI / 2);
 
   const westL = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.2), plasterMat);
   westL.position.set(-rw / 2, rh / 2, -1.9);
@@ -1032,11 +1084,11 @@ export function createMuhtarHouse(textures: VillageTextures, craft: VillageCraft
 
   const desk = new THREE.Group();
   desk.position.set(1.2, 0.16, -0.2);
-  const deskTop = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.09, 2.1), timberMat);
+  const deskTop = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.09, 2.1), officeWood);
   deskTop.position.y = 0.78;
-  const deskPed1 = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.74, 0.55), timberMat);
+  const deskPed1 = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.74, 0.55), officeWood);
   deskPed1.position.set(0, 0.37, -0.7);
-  const deskPed2 = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.74, 0.55), timberMat);
+  const deskPed2 = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.74, 0.55), officeWood);
   deskPed2.position.set(0, 0.37, 0.7);
   desk.add(deskTop, deskPed1, deskPed2);
   g.add(desk);

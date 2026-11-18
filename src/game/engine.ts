@@ -1071,9 +1071,9 @@ export class SonVazifeEngine {
     this.act = save.act;
     this.survivalSeconds = save.survivalSeconds ?? 0;
     this.caughtCount = save.caughtCount ?? 0;
-    const restoredPosition = save.villageRevision === 1
+    const restoredPosition = save.villageRevision === 2
       ? save.playerPos
-      : migrateOldHomePosition(save.playerPos.x, save.playerPos.z, this.world.homes);
+      : migrateOldHomePosition(save.playerPos.x, save.playerPos.z, this.world.homes, save.villageRevision);
     this.playerPos.set(
       restoredPosition.x,
       groundHeightAt(restoredPosition.x, restoredPosition.z),
@@ -1135,6 +1135,12 @@ export class SonVazifeEngine {
       this.millDoorOpen = Boolean(save.doors.mill);
       this.cryptDoorOpen = Boolean(save.doors.crypt);
       this.shutterClosed = Boolean(save.doors.shutter);
+    }
+    // A pre-rebuild outdoor save may now intersect a moved wall or grave. Resolve
+    // after restoring door states, so resuming never traps a player in new geometry.
+    if (save.villageRevision !== 2) {
+      this.resolveCollisions(this.playerPos);
+      this.playerPos.y = groundHeightAt(this.playerPos.x, this.playerPos.z);
     }
     if (save.ritual) {
       this.stepPrepDone = Boolean(save.ritual.prep);
@@ -1222,7 +1228,7 @@ export class SonVazifeEngine {
     const meta = this.getObjectiveText();
     const payload: SaveGamePayload = {
       version: 2,
-      villageRevision: 1,
+      villageRevision: 2,
       survivalSeconds: this.survivalSeconds,
       caughtCount: this.caughtCount,
       openHomes: this.world.homes.flatMap((home, i) => home.open ? [i] : []),

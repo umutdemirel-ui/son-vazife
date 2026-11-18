@@ -67,3 +67,7 @@ node /tmp/kuzdag-art/compact.mjs
 ### Sonbahar meşesi
 
 `environment/reference/autumn-oak.png` proje için üretilmiş kurmaca ağaç görselidir; üçüncü taraf taraması değildir. `environment/oak.py` pembe fonu şeffaflaştırır, renk sızıntısını giderir ve `public/assets/village/` ile `compact/` içinde iki WebP üretir. Oyun bunları ağaç konumlarında çapraz alfa-testli düzlemler olarak, mevcut karaçamla birlikte örnekler. Yeniden üretmek için Pillow gerekir: `python art/environment/oak.py`.
+
+### İç mekân yüzeyleri
+
+`environment/reference/gasil-ceramic.png` ve `office-panel.png` gönderilen gasilhane ve muhtarlık görsellerinin paletinden esinlenerek proje için üretilmiş malzeme referanslarıdır. Orijinal ekran görüntüleri dağıtıma eklenmez. `environment/interior-materials.py`, bunlardan tam ve kompakt WebP dokuları üretir; Pillow ile `python art/environment/interior-materials.py` çalıştırılır. İç duvar kaplamaları kapı ve pencere boşluklarını kapatmaz.

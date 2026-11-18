@@ -102,5 +102,15 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await btn('Devam et').click(); await btn('Duraklat').waitFor();
   assert.deepEqual(await page.evaluate(() => [fixture.world.homes[0].open, fixture.world.outpostDoors.school.open, fixture.mosqueDoorOpen]), [true, false, true]);
+  // A revision-one save made inside the first home must follow that home.
+  await page.evaluate(() => {
+    const key = 'son_vazife_save_v2', save = JSON.parse(localStorage.getItem(key));
+    save.villageRevision = 1; save.playerPos.x = 12.5; save.playerPos.z = 2;
+    localStorage.setItem(key, JSON.stringify(save));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await btn('Devam et').click(); await btn('Duraklat').waitFor();
+  const migrated = await page.evaluate(() => [fixture.playerPos.x, fixture.playerPos.z]);
+  assert.ok(Math.abs(migrated[0] - 13.5) < 0.1 && Math.abs(migrated[1] - 3.5) < 0.1, `revision-one migration: ${migrated}`);
   console.log(`OK: ${result.count + 2} empty houses, doors, collisions and save restoration`);
 } finally { await browser.close(); }

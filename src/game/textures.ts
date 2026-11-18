@@ -124,9 +124,35 @@ export function loadVillageTextures(maxAnisotropy: number, compact: boolean) {
   ctxMs.fillRect(0, 0, 128, 128);
   const mistSprite = finalizeColorTex(cMist, 1, 1, 1);
 
+  // Corrugated galvanised roofs seen among the older tile-roofed houses.
+  const [cMetal, ctxMetal] = makeCanvas(256, 256);
+  for (let x = 0; x < 256; x++) {
+    const ripple = Math.round(12 * Math.cos(x * Math.PI * 2 / 16));
+    ctxMetal.fillStyle = `rgb(${128+ripple},${132+ripple},${129+ripple})`;
+    ctxMetal.fillRect(x, 0, 1, 256);
+  }
+  ctxMetal.fillStyle = 'rgba(70,55,42,.11)';
+  for (let i = 0; i < 140; i++) ctxMetal.fillRect((i * 67) % 256, (i * 113) % 256, 1 + i % 3, 2 + i % 5);
+  const metalSheet = finalizeColorTex(cMetal, maxAnisotropy, 2, 2);
+  const [cLandscape, ctxLandscape] = makeCanvas(512, 256);
+  ctxLandscape.fillStyle = '#77705b'; ctxLandscape.fillRect(0, 0, 512, 256);
+  for (const [color, points] of [
+    ['#585a4d', [0,148, 90,74, 164,127, 267,50, 365,124, 445,80, 512,120]],
+    ['#373e34', [0,180, 90,128, 160,167, 272,115, 374,172, 454,129, 512,159]],
+  ] as const) {
+    ctxLandscape.fillStyle = color; ctxLandscape.beginPath(); ctxLandscape.moveTo(0,256);
+    for (let i=0;i<points.length;i+=2) ctxLandscape.lineTo(points[i],points[i+1]);
+    ctxLandscape.lineTo(512,256); ctxLandscape.closePath(); ctxLandscape.fill();
+  }
+  const landscape = finalizeColorTex(cLandscape, maxAnisotropy);
+
   const ground = load('forest-floor', 64),
     road = load('mud-road');
   return {
+    mortuaryTile: load('mortuary-ceramic'),
+    officePanel: load('office-panel'),
+    metalSheet,
+    landscape,
     stone: load('fieldstone', 2),
     stoneNormal: linear('fieldstone-normal', 2),
     plaster: load('limewash', 2),
@@ -162,7 +188,7 @@ export function loadVillageTextures(maxAnisotropy: number, compact: boolean) {
     sign,
     mistSprite,
     disposeAll: () => {
-      for (const t of [...owned, kilim, photo, sign, mistSprite]) t.dispose();
+      for (const t of [...owned, kilim, photo, sign, mistSprite, landscape, metalSheet]) t.dispose();
       owned.clear();
     },
   };

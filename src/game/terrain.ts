@@ -12,8 +12,10 @@ import { VillageTextures } from './textures';
  */
 function valleyHeight(x: number, z: number): number {
   // Ridges begin beyond the original village; the outlying wards cut level pads into them.
-  const laneDistX = Math.max(0, Math.abs(x + 3) - 46);
-  const laneDistZ = z < -54 ? -54 - z : z > 46 ? z - 46 : 0;
+  // An asymmetric forested upland encloses the village rather than a flat
+  // bowl with a uniform circular rim. Paths and buildings retain surveyed pads.
+  const laneDistX = Math.max(0, Math.abs(x + 3) - 42);
+  const laneDistZ = z < -50 ? -50 - z : z > 42 ? z - 42 : 0;
   const edgeDist = Math.hypot(laneDistX, laneDistZ);
 
   const ridgeDetail =
@@ -21,10 +23,11 @@ function valleyHeight(x: number, z: number): number {
       ? (Math.sin(x * 0.085 + z * 0.06) * 1.15 + Math.cos(x * 0.045 - z * 0.075) * 1.45) *
         Math.min(1, (edgeDist - 2) / 18)
       : 0;
-  const mountain = 18 * (1 - Math.exp(-Math.pow(edgeDist / 48, 1.8))) + ridgeDetail * 1.5;
+  const mountain = 23 * (1 - Math.exp(-Math.pow(edgeDist / 44, 1.8))) + ridgeDetail * 1.5;
 
   // Gentle natural undulation along the village roads
-  const gentleSlope = Math.sin(z * 0.055) * 0.14 + Math.cos(x * 0.065) * 0.08;
+  const gentleSlope = Math.sin(z * 0.055) * 0.14 + Math.cos(x * 0.065) * 0.08
+    + 0.22 * Math.sin(x * 0.045 + z * 0.035) * Math.min(1, Math.hypot(x, z) / 40);
 
   // Slight elevation bump for Mezarlık Tepesi (-34, -36)
   const dCemeteryHill = Math.hypot(x + 34, z + 36);
@@ -143,9 +146,22 @@ export function buildMountainTerrainAndForest(
     pos.setY(i, groundHeightAt(vx, vz));
   }
   terrainGeo.computeVertexNormals();
+  // Muted grassy slopes outside the earthen village, inspired by the wooded
+  // uplands; the soil textures and surveyed pads still drive the ground.
+  const groundColors = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    const distance = Math.hypot(x * 0.85, z * 0.8);
+    const green = THREE.MathUtils.smoothstep(distance, 14, 65) * (0.75 + 0.25 * Math.sin(x * 0.045 + z * 0.06));
+    groundColors[i * 3] = 1 - 0.19 * green;
+    groundColors[i * 3 + 1] = 1 - 0.07 * green;
+    groundColors[i * 3 + 2] = 1 - 0.22 * green;
+  }
+  terrainGeo.setAttribute('color', new THREE.BufferAttribute(groundColors, 3));
 
   const terrainMat = new THREE.MeshStandardMaterial({
     map: textures.ground,
+    vertexColors: true,
     normalMap: textures.groundNormal,
     normalScale: new THREE.Vector2(0.85, 0.85),
     roughness: 0.94,
@@ -215,20 +231,20 @@ export function buildMountainTerrainAndForest(
   };
 
   // Main North-South Road (z: -48..42)
-  const mainRoadGeo = new THREE.PlaneGeometry(5.2, 90, 10, 72);
+  const mainRoadGeo = new THREE.PlaneGeometry(4.6, 90, 10, 72);
   mainRoadGeo.rotateX(-Math.PI / 2);
   const mrPos = mainRoadGeo.attributes.position;
   for (let i = 0; i < mrPos.count; i++) {
     const rx = mrPos.getX(i);
     const rz = mrPos.getZ(i) - 3;
-    const curveOffset = Math.sin(rz * 0.08) * 1.4;
+    const curveOffset = Math.sin(rz * 0.08) * 1.8;
     const worldX =
-      rx + curveOffset + Math.pow(Math.abs(rx) / 2.6, 3) * 0.14 * Math.sin(rz * 1.8 + rx * 2);
+      rx + curveOffset + Math.pow(Math.abs(rx) / 2.3, 3) * 0.14 * Math.sin(rz * 1.8 + rx * 2);
     mrPos.setX(i, worldX);
     mrPos.setZ(i, rz);
     mrPos.setY(i, surfaceY(worldX, rz) + 0.045);
   }
-  dressLane(mainRoadGeo, 5.2);
+  dressLane(mainRoadGeo, 4.6);
   mainRoadGeo.computeVertexNormals();
   const mainRoadMesh = new THREE.Mesh(mainRoadGeo, roadMat);
   mainRoadMesh.receiveShadow = true;
@@ -324,13 +340,13 @@ export function buildMountainTerrainAndForest(
     ry: number;
   }> = [];
   for (let rz = -42; rz <= 36; rz += 1.05) {
-    const center = Math.sin(rz * 0.08) * 1.4;
+    const center = Math.sin(rz * 0.08) * 1.8;
     for (const side of [-1, 1]) {
       if (side === -1 && ((rz > 1 && rz < 10.5) || (rz > -13.5 && rz < -7.5) || (rz > -34 && rz < -26)))
         continue;
       if (side === 1 && ((rz > 10.5 && rz < 22) || (rz > -29 && rz < -15))) continue;
       if (rand() < 0.64 || (side < 0 && Math.abs(rz - 14) < 0.65)) continue;
-      const cx = center + side * 2.68 + (rand() - 0.5) * 0.75;
+      const cx = center + side * 2.38 + (rand() - 0.5) * 0.75;
       const cz = rz + (rand() - 0.5) * 0.16;
       curbEntries.push({
         x: cx,
@@ -372,7 +388,7 @@ export function buildMountainTerrainAndForest(
     leanX: number;
     leanZ: number;
   }> = [];
-  for (let i = 0; i < (minimal ? 140 : 480); i++) {
+  for (let i = 0; i < (minimal ? 160 : 560); i++) {
     const angle = rand() * Math.PI * 2;
     const radius = 26 + rand() * 98;
     const tx = Math.cos(angle) * radius;
@@ -405,6 +421,9 @@ export function buildMountainTerrainAndForest(
     [-16.4, -14],
     [14.9, -12.8],
     [4, -43],
+    [25, 1],
+    [29, -12],
+    [-21, -16],
   ]) {
     treeCoords.push({
       x,
