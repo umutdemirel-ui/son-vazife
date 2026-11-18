@@ -12,20 +12,20 @@ Türkçe, tek oyunculu bir tarayıcı korku oyunu. Önsöz ve sekiz bölüm boyu
 - **Meydana çık** üç boyutlu keşfi başlatır. Bulduğun kayıt defterine taşınır ve Bekçi Hasan’la yeni bir konuşma seçeneği açar.
 - Gasilhanede, sağlık ocağında ve taş mahzende **teslim dosyaları** var. Belgeleri karşılaştırıp iki alanı doğru doldurarak dosyayı mühürleyebilirsin. Adli inceleme tezgâhı alternatif bir yoldur; hikâyede ilerlemek için onu kullanmak gerekmez.
 - Meydanı, değirmeni, mezarlığı ve virajı araştır; malzemeleri topla ve gasilhaneye dön. Köyün gerçekleri tanıklar, eşyalar ve çelişkili tutanaklarda saklı.
-- **Kefenin son düğümü oyunun sonu değil.** Nakil sedyesine bağlanmış etiket seni Sarı Mektep’e götürür. Yolcu etiketini mektebin işaret anahtarıyla, istasyon cetvelini biletle ve banttaki yerleri santral numaralarıyla karşılaştır; ardından aile yoklamasını, mezarlık kaydını ve ikinci bandı, çocuk çizimini ve santral kesinti kaydını karşılaştırıp gasilhanede son çağrıyı yanıtla. Her yeni kayıt bir devam noktasıdır; işaretleri duyamıyorsan yazılı ipuçları da yeterlidir.
+- **Kefenin son düğümü oyunun sonu değil.** Nakil sedyesine bağlanmış etiket seni Sarı Mektep’e götürür. Yolcu etiketini mektebin işaret anahtarıyla, istasyon cetvelini biletle ve banttaki yerleri santral numaralarıyla karşılaştır; ardından aile yoklamasını, mezarlık kaydını ve ikinci bandı, çocuk çizimini ve santral kesinti kaydını ve mezarlık mührünü karşılaştırıp gasilhanede son çağrıyı yanıtla. Her yeni kayıt bir devam noktasıdır; işaretleri duyamıyorsan yazılı ipuçları da yeterlidir.
 - **Köy arşivi** menüde dört fotoğraf ve kenar notu içerir. Oyun içindeki **defter** ise topladığın kanıtları, haritayı ve kendi notlarını tutar.
 
 **Kontroller:** WASD ile yürü, fareyle bak, E ile etkileşime gir. Shift koşu, C veya basılı Ctrl eğilme, F mum, Tab defter/harita, M ses ve Esc duraklatmadır. Fare kilidi yoksa basılı tutup sürükle. Dokunmatikte sol hareket pedi ve sağ bakış alanı kullanılır.
 
 Önsöz, köy ilerlemesi ve tercihler bu tarayıcıda saklanır. **Devam et** son kaydı açar. Menü ve önsöz WebGL gerektirmez; üç boyutlu keşif WebGL 2 gerektirir. Sesler Web Audio ile ilk kullanıcı etkileşiminden sonra üretilir.
 
-Teneşirde hazırlıktan sonra yüz ve eller, sağ taraf, sol taraf ve durulama ayrı ayrı tamamlanır; kafurlu son su da üç kez uygulanır. Yıkama sırasında bir el animasyonu görünür; cenazeyi serbestçe taşıma veya fiziksel olarak kaldırma henüz yoktur. Çan ve santral sıraları yeni oyunlarda değişir ve kayıtla birlikte korunur.
+Teneşirde hazırlıktan sonra yüz ve eller, sağ taraf, sol taraf ve durulama ayrı ayrı tamamlanır; kafurlu son su da üç kez uygulanır. Yıkama sırasında bir el animasyonu görünür. Kefenledikten sonra E ile cenazeyi kaldırıp kapı dışındaki nakil sedyesine taşıyabilir veya teneşire geri bırakabilirsin; taşırken yürüyüş yavaşlar. Çan ve santral sıraları yeni oyunlarda değişir ve kayıtla birlikte korunur.
 
 Köy evleri boşaltılmıştır; içlerindeki sakinler kaldırıldı. Kapıları **E** ile açıp içeriyi araştırabilirsin.
 
 ## Hayatta kalma ve kaçış
 
-Köyde geçirdiğin her **10 dakikalık aktif oyun simülasyonu** bir hayatta kalma günü sayılır. Defter, diyalog ve duraklatma sırasında sayaç ilerlemez. Kara Basma ve Sis Gözcüsü üç kez yakalarsa gece sona erer; ilk iki karşılaşma kaydedilir. Son telefonu yanıtladıktan sonra defter haritasında işaretlenen **istasyon peronuna** yürüyerek köyden çıkabilirsin. Her günün ilk beş dakikası gündüz, ikinci beş dakikası akşamdır; ışık ve sis buna göre değişir. İlk korku görüntüsü yaklaşık 35 saniye aktif keşiften sonra ortaya çıkar; ilerleyen bölümlerde ve akşamları karşılaşmalar sıklaşır. El mumunun yağı zamanla biter; gazı gasilhanede sabır mumunun yanında doldurabilirsin. Mum karanlıkta görüş sağlar ama dışarıda saklanmayı güçleştirir.
+Köyde geçirdiğin her **10 dakikalık aktif oyun simülasyonu** bir hayatta kalma günü sayılır. Defter, diyalog ve duraklatma sırasında sayaç ilerlemez. Kara Basma ve Sis Gözcüsü üç kez yakalarsa gece sona erer; ilk iki karşılaşma kaydedilir. Son telefonu yanıtladıktan sonra defter haritasında işaretlenen **istasyon peronuna** yürüyerek köyden çıkabilirsin. Her günün ilk beş dakikası gündüz, ikinci beş dakikası akşamdır; ışık ve sis buna göre değişir. Ekranı kaplayan jumpscare görüntüsü yoktur; tehlike figürlerin hareketleri ve yakından gelen seslerle hissedilir. Sabır mumu yanmadan hazırlığı yarım bırakıp gasilhaneden çıkarsan cenaze doğrulur; dönüp mumu yakman gerekir. El mumunun yağı zamanla biter; gazı gasilhanede sabır mumunun yanında doldurabilirsin. Mum karanlıkta görüş sağlar ama dışarıda saklanmayı güçleştirir.
 
 ### Mektep yolu ve son peron
 

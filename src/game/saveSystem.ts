@@ -18,6 +18,8 @@ export interface SaveGamePayload {
   closedOutposts?: string[];
   mosqueDoorOpen?: boolean;
   finalCall?: 'report' | 'farewell';
+  bodyTransport?: 'slab' | 'carried' | 'delivered';
+  bodyRisen?: boolean;
   windowActive?: boolean;
   windowResolved?: boolean;
   savedAt: string;
@@ -95,6 +97,8 @@ export function readAutoSave(): SaveGamePayload | null {
       ) ||
       Math.abs(parsed.playerPos.x) > 1000 ||
       Math.abs(parsed.playerPos.z) > 1000 ||
+      (parsed.bodyTransport !== undefined && !['slab', 'carried', 'delivered'].includes(parsed.bodyTransport)) ||
+      (parsed.bodyRisen !== undefined && typeof parsed.bodyRisen !== 'boolean') ||
       (parsed.puzzleSeed !== undefined && (!Number.isInteger(parsed.puzzleSeed) || parsed.puzzleSeed < 0 || parsed.puzzleSeed > 3)) ||
       (parsed.survivalSeconds !== undefined &&
         (!Number.isFinite(parsed.survivalSeconds) ||

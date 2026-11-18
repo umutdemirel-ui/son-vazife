@@ -239,6 +239,13 @@ try {
   await doorway('muhtar_door', 5.75, -18, 'x', 1);
   await use('item_kafur', 9.66, -18.36);
   for (let i = 0; i < 5; i++) await use(...slab);
+  assert.equal(await val('act'), 5);
+  await use(...slab);
+  assert.equal(await val('bodyTransport'), 'carried');
+  await reload();
+  assert.equal(await val('bodyTransport'), 'carried');
+  await use('transport_bed', -5.9, 3.7);
+  assert.equal(await val('bodyTransport'), 'delivered');
   assert.equal(await val('act'), 6);
   assert.equal(await val('screen'), 'playing');
   assert.deepEqual(
@@ -283,6 +290,7 @@ try {
     ['night_verdict', 59, 27.8],
     ['night_drawing', 48.1, -60.33],
     ['night_echo', -52.35, 44.3],
+    ['night_seal', -28.9, -29.9],
     ['night_call', -8.85, 7.42],
   ];
   async function outpostCross(id) {
@@ -436,7 +444,7 @@ try {
   assert.ok(urls.every((url) => url.includes('/compact/')));
   assert.ok(missing ? assets.length === 0 : assets.every(([status]) => status === 200));
   console.log(
-    `OK: three cases, eight chapters, fifteen records, three endings, old and new checkpoints (${missing ? 'fallback' : 'compact'}).`,
+    `OK: three cases, eight chapters, sixteen records, three endings, old and new checkpoints (${missing ? 'fallback' : 'compact'}).`,
   );
 } finally {
   await browser.close();

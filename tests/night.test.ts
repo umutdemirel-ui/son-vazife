@@ -295,6 +295,8 @@ test('bell and exchange sequences vary by saved seed, with evidence in separate 
     bells.add(bell.join('')); lines.add(line.join(''));
     assert.ok(correctPage('night_bell', bell, seed));
     assert.ok(correctPage('night_line', line, seed));
+    assert.ok(correctPage('night_seal', [seed], seed));
+    assert.ok(!correctPage('night_seal', [(seed + 1) % 4], seed));
     assert.match(nightPageFor('night_tag', seed).entry, /işaret/);
     assert.match(nightPageFor('night_roll', seed).entry, /anahtar/);
   }

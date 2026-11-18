@@ -143,9 +143,6 @@ export const GameHud: React.FC<GameHudProps> = ({
 
   return (
     <>
-      {hud.screen === 'playing' && !overlayActive && hud.scareVisible && (
-        <div className="village-scare" aria-hidden="true" />
-      )}
       {/* Subtle Danger Vignette when Kara Basma or Sis Gözcüsü is close */}
       {hud.screen === 'playing' && hud.dangerProximity > 0.15 && (
         <div

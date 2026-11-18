@@ -1,5 +1,4 @@
 import { insideHome } from './homes';
-import { ScareClock } from './scares';
 import { atEscapePoint, isEvening, survivalDay } from './survival';
 import {
   FIELD_NOTES,
@@ -310,6 +309,7 @@ export class SonVazifeEngine {
   private vigilLit = false;
   private vigilTimer = 180;
   private dreadLevel = 8; // 0..100
+  private creatureSoundCooldown = 0;
   private dangerProximity = 0; // 0..1
   private violations = 0;
 
@@ -326,6 +326,8 @@ export class SonVazifeEngine {
   private stepFinalCamphorDone = false;
   private stepDryDone = false;
   private stepShroudDone = false;
+  private bodyTransport: 'slab' | 'carried' | 'delivered' = 'slab';
+  private bodyRisen = false;
 
   // Autopsy Workbench State
   private autopsyCases: Record<AutopsyCaseId, AutopsyCaseState> = createInitialAutopsyCases();
@@ -356,8 +358,6 @@ export class SonVazifeEngine {
   // Modular Dread Listener & Zero-GC Loop Caches
   private dreadListener = new DreadLevelListener();
   private hallucinationPulse = 0;
-  private scareClock = new ScareClock();
-  private scareVisible = false;
   private lastHallucinationCaptionTime = -20;
   private raycastTimer = 0;
   private npcKeys: NpcId[] = [];
@@ -729,6 +729,8 @@ export class SonVazifeEngine {
     this.stepFinalCamphorDone = false;
     this.stepDryDone = false;
     this.stepShroudDone = false;
+    this.bodyTransport = 'slab';
+    this.bodyRisen = false;
 
     this.registryCaseId = null;
     this.activeAutopsyCaseId = null;
@@ -767,8 +769,6 @@ export class SonVazifeEngine {
 
     this.dreadListener.reset();
     this.hallucinationPulse = 0;
-    this.scareClock.reset();
-    this.scareVisible = false;
     this.lastHallucinationCaptionTime = -20;
 
     if (this.world?.autopsyLights) {
@@ -908,6 +908,21 @@ export class SonVazifeEngine {
     this.pushHudState(true);
   }
 
+  private placeTransportBody() {
+    const body = this.world.gasil.kefenWrapGroup;
+    const parent = this.bodyTransport === 'carried' ? this.camera
+      : this.bodyTransport === 'delivered' ? this.world.transportBed : this.world.gasil.deceasedGroup;
+    if (body.parent !== parent) parent.add(body);
+    body.rotation.set(0, 0, 0);
+    body.scale.setScalar(1);
+    if (this.bodyTransport === 'carried') {
+      body.position.set(0, -0.55, -1.35);
+      body.rotation.y = Math.PI / 2;
+      body.scale.setScalar(0.78);
+    } else if (this.bodyTransport === 'delivered') body.position.set(0, 0.78, 0);
+    else body.position.set(0, 0, 0);
+  }
+
   private syncVisualMeshes(): void {
     Object.entries(this.world.itemMeshes).forEach(([key, mesh]) => {
       const invId = key.replace('item_', '');
@@ -928,6 +943,7 @@ export class SonVazifeEngine {
 
     this.world.gasil.pestemalMesh.visible = !inspectArif && this.stepPrepDone && !this.stepShroudDone;
     this.world.gasil.kefenWrapGroup.visible = !inspectArif && this.stepShroudDone;
+    this.placeTransportBody();
     this.world.receiving.mahmut.visible = movedMahmut;
     this.world.receiving.yolcu.visible = movedYolcu;
     if (movedMahmut) void this.world.nightArt.request('mahmut');
@@ -946,7 +962,7 @@ export class SonVazifeEngine {
     const windowGlowMat = this.world.gasil.windowGlowMesh.material as THREE.MeshStandardMaterial;
     windowGlowMat.emissive.copy(_whisperBaseEmissive);
     windowGlowMat.emissiveIntensity = 0.85;
-    this.world.gasil.deceasedGroup.rotation.y = this.leftGasilWithoutVigilFlagged ? 0.14 : 0;
+    this.world.gasil.deceasedGroup.rotation.y = 0;
 
     // Sync all 3 autopsy cadaver visual overlays
     (Object.keys(this.world.autopsyBodies) as AutopsyCaseId[]).forEach((cid) => {
@@ -1085,7 +1101,7 @@ export class SonVazifeEngine {
     if (clueSet.has('night_call') && (save.finalCall === 'report' || save.finalCall === 'farewell')) {
       this.finalCall = save.finalCall;
       // Completed older campaigns keep their ending rather than reopening new records.
-      for (const id of ['night_register', 'night_memorial', 'night_verdict', 'night_drawing', 'night_echo']) clueSet.add(id);
+      for (const id of ['night_register', 'night_memorial', 'night_verdict', 'night_drawing', 'night_echo', 'night_seal']) clueSet.add(id);
     } else {
       clueSet.delete('night_call'); // An incomplete checkpoint can always reopen the last decision.
     }
@@ -1128,12 +1144,14 @@ export class SonVazifeEngine {
       this.stepDryDone = Boolean(save.ritual.dry);
       this.stepShroudDone = Boolean(save.ritual.shroud);
     }
+    this.bodyTransport = save.bodyTransport ?? (this.stepShroudDone ? 'delivered' : 'slab');
+    this.bodyRisen = Boolean(save.bodyRisen) && !this.vigilLit && !this.stepShroudDone;
     this.windowAnomalyResolved = save.windowResolved ?? (this.shutterClosed && this.stepWashDone);
     this.windowAnomalyActive =
       save.windowActive ?? (this.stepWashDone && !this.dirtyBasinDrained && !this.shutterClosed);
     this.leftGasilWithoutVigilFlagged = this.rules.find((r) => r.id === 'rule_alone')?.violated ?? false;
     // A v2 save at the old final knot continues at the first unfiled night record, never resets.
-    if (this.stepShroudDone || this.act >= 6) this.act = nightAct((id) => this.hasEntry(id));
+    if (this.bodyTransport === 'delivered' || this.act >= 6) this.act = nightAct((id) => this.hasEntry(id));
     if (this.act >= 4) this.clues.find((c) => c.id === 'clue_kenan_confession')!.discovered = true;
     if (save.autopsyCases) {
       const defaults = createInitialAutopsyCases();
@@ -1206,6 +1224,8 @@ export class SonVazifeEngine {
       mosqueDoorOpen: this.mosqueDoorOpen,
       closedOutposts: OUTPOST_IDS.filter(id => !this.world.outpostDoors[id].open),
       finalCall: this.finalCall,
+      bodyTransport: this.bodyTransport,
+      bodyRisen: this.bodyRisen,
       puzzleSeed: this.puzzleSeed,
       windowActive: this.windowAnomalyActive,
       windowResolved: this.windowAnomalyResolved,
@@ -2016,6 +2036,7 @@ export class SonVazifeEngine {
   private getInteractLabel(id: string): string | null {
     if (!this.accessFromHere(id)) return null;
     if (id === 'mosque_door') return `[E] Cami kapısını ${this.mosqueDoorOpen ? 'kapat' : 'aç'}`;
+    if (id === 'transport_bed') return this.bodyTransport === 'carried' ? '[E] Cenazeyi nakil sedyesine yerleştir' : null;
     if (id.startsWith('outpost_door_')) {
       const name = id.slice('outpost_door_'.length) as Outpost;
       const door = this.world.outpostDoors[name];
@@ -2099,6 +2120,7 @@ export class SonVazifeEngine {
           );
           return ready ? '[E] Gusül Hazırlığına Başla' : 'Önce köydeki 4 malzemeyi topla';
         }
+        if (this.bodyRisen) return 'Sabır mumunu yak; cenaze teneşire geri uzansın';
         if (this.act === 2) {
           if (!this.stepPrepDone) return '[E] Örtüyü (Setr-i Avret) Ser ve Suyu Hazırla';
           if (!this.stepWashDone) return `[E] ${['Yüzü ve elleri temizle', 'Sağ tarafı sabunla', 'Sol tarafı sabunla', 'Temiz suyla durula'][this.washStage]}`;
@@ -2120,6 +2142,8 @@ export class SonVazifeEngine {
           if (!this.stepFinalCamphorDone) return '[E] Kafurlu Su ile Üç Kez Son Durulamayı Yap';
           if (!this.stepDryDone) return '[E] Temiz Havlu ve Gülsuyu ile Kurula';
           if (!this.stepShroudDone) return '[E] Kefenle ve Baş-Bel-Ayak Bağlarını Bağla';
+          if (this.bodyTransport === 'slab') return '[E] Kefenli cenazeyi dikkatle kaldır';
+          if (this.bodyTransport === 'carried') return '[E] Cenazeyi teneşire geri bırak';
         }
         return null;
       }
@@ -2160,6 +2184,15 @@ export class SonVazifeEngine {
       this.audio.playDoorCreak();
       this.triggerAutoSave(false);
       this.pushHudState(true);
+      return;
+    }
+    if (id === 'transport_bed' && this.bodyTransport === 'carried') {
+      this.bodyTransport = 'delivered';
+      this.act = 6;
+      this.audio.playTelephone();
+      this.syncVisualMeshes();
+      this.showCaption('Cenaze nakil sedyesine yerleştirildi. Gasilhanedeki yolcu etiketini incele.', 6);
+      this.triggerAutoSave(true); this.pushHudState(true);
       return;
     }
     if (id.startsWith('outpost_door_')) {
@@ -2352,9 +2385,12 @@ export class SonVazifeEngine {
     if (id === 'vigil_candle') {
       if (this.act >= 2 && !this.vigilLit) {
         this.vigilLit = true;
+        if (this.vigilTimer <= 0) this.vigilTimer = 180;
+        const wasRisen = this.bodyRisen;
+        this.bodyRisen = false;
         this.audio.playCandleToggle(true);
         this.syncVisualMeshes();
-        this.showCaption('Başucunda Sabır Mumu yakıldı. Şimdi gecikmeden köye çıkabilirsin.', 4.5);
+        this.showCaption(wasRisen ? 'Mum yanınca cenaze yavaşça teneşire geri uzandı.' : 'Başucunda Sabır Mumu yakıldı. Şimdi gecikmeden köye çıkabilirsin.', 5);
         this.triggerAutoSave(false);
         this.pushHudState(true);
       } else if (this.act >= 2 && this.candleOil < 100) {
@@ -2440,6 +2476,7 @@ export class SonVazifeEngine {
 
     // 7. Marble Tenesir (Case I Autopsy -> Respectful Gusül Steps)
     if (id === 'tenesir_slab') {
+      if (this.bodyRisen) { this.showCaption('Önce başucundaki Sabır Mumunu yak.', 3.5); return; }
       if (!this.autopsyCases.case_arif.completed) {
         this.openDeliveryFile('case_arif');
         return;
@@ -2531,13 +2568,13 @@ export class SonVazifeEngine {
           this.showCaption('Kurulama ve gülsuyu tamamlandı. Son adım: kefenle ve bağları bağla.', 4.2);
         } else if (!this.stepShroudDone) {
           this.stepShroudDone = true;
-          this.act = 6;
-          this.audio.playTelephone();
+          this.bodyRisen = false;
           this.syncVisualMeshes();
-          this.showCaption(
-            'Kefen bağlandı. İdris öteki sedyeyi de getirmiş. Yolcunun ayak ucunda bir mektep etiketi var.',
-            6.5,
-          );
+          this.showCaption('Kefen bağlandı. Cenazeyi kaldırıp kapı dışındaki nakil sedyesine taşı.', 6.5);
+        } else if (this.bodyTransport !== 'delivered') {
+          this.bodyTransport = this.bodyTransport === 'slab' ? 'carried' : 'slab';
+          this.syncVisualMeshes();
+          this.showCaption(this.bodyTransport === 'carried' ? 'Cenazeyi taşıyorsun. Dışarıdaki sedyeye götür.' : 'Cenaze teneşire geri bırakıldı.', 4);
         }
         this.triggerAutoSave(true);
         this.pushHudState(true);
@@ -3126,15 +3163,6 @@ export class SonVazifeEngine {
     if (this.screen !== 'playing') return;
 
     if (this.registryCaseId || this.nightPage) return;
-    const wasScareVisible = this.scareVisible;
-    const scare = this.scareClock.tick(dt, this.act, !this.isOverlayBlockingMove(), isEvening(this.survivalSeconds));
-    this.scareVisible = scare.visible;
-    if (wasScareVisible !== scare.visible && !scare.triggered) this.pushHudState(true);
-    if (scare.triggered) {
-      this.audio.playViolationSting();
-      this.hallucinationPulse = 0.8;
-      this.pushHudState(true);
-    }
     if (!this.isOverlayBlockingMove()) {
       const oldDay = survivalDay(this.survivalSeconds);
       this.survivalSeconds += dt;
@@ -3276,6 +3304,7 @@ export class SonVazifeEngine {
     const wantsSprint =
       Boolean(this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.virtualSprint) &&
       wantsMove &&
+      this.bodyTransport !== 'carried' &&
       !crouching &&
       !this.isZooming;
 
@@ -3294,7 +3323,7 @@ export class SonVazifeEngine {
       this.isSprinting = false;
     }
 
-    const targetSpeed = crouching ? 2.2 : this.isSprinting ? 5.2 : 3.7;
+    const targetSpeed = this.bodyTransport === 'carried' ? 1.8 : crouching ? 2.2 : this.isSprinting ? 5.2 : 3.7;
     const insideGasil = this.isInsideGasilhane(this.playerPos);
     const insideMosque = this.playerPos.x > -13.9 && this.playerPos.x < -7.1 && this.playerPos.z > -2 && this.playerPos.z < 2.6;
     const insideAbandoned = this.isInsideAbandoned(this.playerPos);
@@ -3467,26 +3496,33 @@ export class SonVazifeEngine {
       this.handCandle.light.intensity = 0;
     }
 
-    // 7. Rule 1: Sabır Mumu Vigil outside Gasilhane once gusül has started
+    // Leaving an unfinished preparation without the vigil disturbs the body.
+    if (this.act >= 2 && this.act <= 5 && this.stepPrepDone && !this.stepShroudDone && !insideGasil && !this.vigilLit && !this.leftGasilWithoutVigilFlagged) {
+      this.leftGasilWithoutVigilFlagged = true;
+      this.bodyRisen = true;
+      this.unlockGlossaryEntry('anom_vigil');
+      this.violateRule('rule_alone', 'Sabır mumu yanmıyor. Gasilhaneden taş üzerinde sürtünme sesi geldi.');
+      this.audio.playFloorboardCreak(1);
+      this.triggerAutoSave(false);
+    }
+    const body = this.world.gasil.deceasedGroup;
+    body.rotation.z = THREE.MathUtils.damp(body.rotation.z, this.bodyRisen ? -Math.PI / 2 : 0, 1.4, dt);
+    body.position.y = THREE.MathUtils.damp(body.position.y, this.bodyRisen ? 0.95 : 0.862, 1.4, dt);
+    // The vigil slowly burns down while away after the wash.
     if ((this.act === 3 || this.act === 4) && this.stepWashDone && !insideGasil) {
-      if (!this.vigilLit && !this.leftGasilWithoutVigilFlagged) {
-        this.leftGasilWithoutVigilFlagged = true;
-        this.unlockGlossaryEntry('anom_vigil');
-        this.violateRule(
-          'rule_alone',
-          'KURAL İHLALİ: Ölüyü Sabır Mumu yakmadan yalnız bıraktın! Arkandan bir kapı çarptı.',
-        );
-        this.syncVisualMeshes();
-      }
-      this.vigilTimer = Math.max(0, this.vigilTimer - dt * (this.vigilLit ? 0.55 : 1.5));
-      if (this.vigilTimer <= 0 && !this.leftGasilWithoutVigilFlagged) {
-        this.leftGasilWithoutVigilFlagged = true;
-        this.unlockGlossaryEntry('anom_vigil');
-        this.violateRule(
-          'rule_alone',
-          'Sabır Mumu söndü! Gasilhanede mermer taş üzerinden bir sürtünme sesi geldi.',
-        );
-        this.syncVisualMeshes();
+      if (this.vigilLit) {
+        this.vigilTimer = Math.max(0, this.vigilTimer - dt * 0.55);
+        if (this.vigilTimer <= 0) {
+          this.vigilLit = false;
+          this.bodyRisen = true;
+          this.unlockGlossaryEntry('anom_vigil');
+          if (!this.leftGasilWithoutVigilFlagged) {
+            this.leftGasilWithoutVigilFlagged = true;
+            this.violateRule('rule_alone', 'Sabır Mumu söndü! Gasilhaneden taş üzerinde bir sürtünme sesi geldi.');
+          } else this.showCaption('Sabır Mumu söndü. Gasilhaneden bir sürtünme sesi geldi.', 5);
+          this.syncVisualMeshes();
+          this.triggerAutoSave(false);
+        }
       }
     }
 
@@ -3622,6 +3658,11 @@ export class SonVazifeEngine {
       const closestThreat = Math.min(dKara, dSis);
       const catchDistance = Math.min(a ? dKara : Infinity, b ? dSis : Infinity);
       dangerProximity = THREE.MathUtils.clamp(1 - (closestThreat - 2.2) / 14.0, 0, 1);
+      this.creatureSoundCooldown = Math.max(0, this.creatureSoundCooldown - dt);
+      if (!blocked && dangerProximity > 0.38 && this.creatureSoundCooldown === 0) {
+        this.audio.playWhisper(0.5 + dangerProximity * 0.5);
+        this.creatureSoundCooldown = 12 + Math.random() * 8;
+      }
 
       if (this.karaCatchCooldown > 0) this.karaCatchCooldown -= dt;
 
@@ -4016,7 +4057,7 @@ export class SonVazifeEngine {
             ? 'Gasilhaneye dön ve teneşirde kafurlu su ile son durulamayı yap'
             : !this.stepDryDone
               ? 'Temiz havlu ve gülsuyu ile cenazeyi kurula'
-              : 'Cenazeyi kefenle ve nakil sedyelerini teslim al',
+              : !this.stepShroudDone ? 'Cenazeyi kefenle' : this.bodyTransport === 'carried' ? 'Cenazeyi gasilhane dışındaki nakil sedyesine taşı' : 'Teneşirdeki cenazeyi kaldır',
       location,
     };
   }
@@ -4096,7 +4137,6 @@ export class SonVazifeEngine {
       isPointerLocked: this.isPointerLocked,
       isHiding,
       dangerProximity,
-      scareVisible: this.scareVisible,
       windowAnomalyActive: this.windowAnomalyActive,
       dirtyBasinReady: this.dirtyBasinReady,
       inventory: this.inventory.map((i) => ({ ...i })),

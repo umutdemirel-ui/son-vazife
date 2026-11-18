@@ -177,7 +177,6 @@ export interface GameHudState {
   isPointerLocked: boolean;
   isHiding: boolean;
   dangerProximity: number;
-  scareVisible: boolean;
   windowAnomalyActive: boolean;
   dirtyBasinReady: boolean;
   inventory: InventoryItem[];

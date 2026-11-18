@@ -93,6 +93,7 @@ export interface WorldHandles {
   karaBasma: ReturnType<typeof watcherFigure>;
   nightArt: NightArt;
   receiving: ReturnType<typeof receivingBay>;
+  transportBed: THREE.Group;
   keeper: ReturnType<typeof buildOutposts>['keeper'];
   setSignal: (aligned: boolean) => void;
   poseWatchers: (time: number, karaFollows: boolean, mistFollows: boolean) => void;
@@ -233,6 +234,19 @@ export function buildVillageWorld(
       minZ: gasilPos.z + z - 0.36,
       maxZ: gasilPos.z + z + 0.36,
     });
+
+  // Independent outdoor transfer stretcher, clear of the entrance and village lane.
+  const transportBed = new THREE.Group();
+  transportBed.position.set(-4.4, groundHeightAt(-4.4, 3.7), 3.7);
+  const bedMaterials = [craft.wood, craft.metal];
+  const bedPart = (w: number, h: number, d: number, x: number, y: number, z: number, material: THREE.Material) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    mesh.position.set(x, y, z); transportBed.add(mesh); disposables.push(mesh.geometry);
+  };
+  bedPart(2.05, 0.12, 0.8, 0, 0.72, 0, bedMaterials[0]);
+  for (const x of [-0.8, 0.8]) for (const z of [-0.3, 0.3]) bedPart(0.07, 0.7, 0.07, x, 0.35, z, bedMaterials[1]);
+  cells.add(scene, transportBed, 30, 50);
+  colliders.push({ minX: -5.425, maxX: -3.375, minZ: 3.3, maxZ: 4.1 });
 
   colliders.push(
     { minX: -14.1, maxX: -6.9, minZ: 2.55, maxZ: 3.05 }, // Gasil North
@@ -691,6 +705,7 @@ export function buildVillageWorld(
     [0.6, 2.2, 1.5],
     3.1,
   );
+  registerTarget('transport_bed', new THREE.Vector3(-4.4, transportBed.position.y + 0.8, 3.7), [2.05, 0.5, 0.8], 2.8);
   registerTarget(
     'tenesir_slab',
     new THREE.Vector3(gasilPos.x, gasilPos.y + 1.05, gasilPos.z),
@@ -824,6 +839,10 @@ export function buildVillageWorld(
   scene.add(memorialStand, memorialBook);
   disposables.push(memorialBook.geometry, memorialStand.geometry);
   registerTarget('night_memorial', memorialBook.position.clone(), [0.7, 0.45, 0.55], 2.8);
+  const sealBox = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.42, 0.5), craft.wood);
+  sealBox.position.set(-28.9, cemPos.y + 0.21, -31.1);
+  scene.add(sealBox); disposables.push(sealBox.geometry);
+  registerTarget('night_seal', sealBox.position.clone(), [0.7, 0.6, 0.6], 2.8);
 
   // Viraj Kaza Alanı targets
   registerTarget(
@@ -1183,6 +1202,7 @@ export function buildVillageWorld(
     cemetery,
     crashSite,
     gasilAutopsy,
+    transportBed,
     autopsyBodies: {
       case_arif: gasilAutopsy,
       case_mahmut: clinic.autopsyBody,

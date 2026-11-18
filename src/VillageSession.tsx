@@ -59,7 +59,6 @@ const INITIAL_HUD: GameHudState = {
   isPointerLocked: false,
   isHiding: false,
   dangerProximity: 0,
-  scareVisible: false,
   windowAnomalyActive: false,
   dirtyBasinReady: false,
   inventory: INITIAL_INVENTORY,

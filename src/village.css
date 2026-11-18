@@ -253,24 +253,3 @@
     min-height: 41px;
   }
 }
-
-/* A single brief apparition, not a repeating flash; never intercepts controls. */
-.village-scare {
-  position: fixed;
-  inset: 0;
-  z-index: 45;
-  pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 30%, #050405bb 100%),
-    url('/assets/night/apparition.webp') center 38% / cover no-repeat #050405;
-  opacity: 0.91;
-  animation: apparition-emerge 1.35s ease-out both;
-}
-@keyframes apparition-emerge {
-  0% { opacity: 0; transform: scale(1.02); }
-  12% { opacity: .9; }
-  75% { opacity: .94; }
-  100% { opacity: 0; transform: scale(1.12); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .village-scare { opacity: 0.65; animation: none; }
-}

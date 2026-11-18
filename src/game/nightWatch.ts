@@ -16,6 +16,7 @@ export const NIGHT_ORDER = [
   'night_verdict',
   'night_drawing',
   'night_echo',
+  'night_seal',
   'night_call',
 ] as const;
 export type NightId = (typeof NIGHT_ORDER)[number];
@@ -217,13 +218,23 @@ export const PAGES: Record<NightId, Page> = {
     objective: 'Santrale dön ve servis masasındaki kesinti kaydını oku.',
     prompt: 'Kesinti kaydını incele',
     text: 'Teknisyenin notunda 06 hattının iki kez koptuğu, üçüncü aramanın hiçbir aboneye bağlanmadığı yazıyor. Buna rağmen ahizeden bir çocuk sesi duyulmuş: “Kapıyı açma, ben hâlâ sıradayım.” Şimdi bile hat açık; karşı tarafta biri senin nefes alışını taklit ediyor. Hangi hat kesilmişti?',
-    entry: '06 hattı iki kez kesilmiş; üçüncü sesin kaynağı kayıtlarda yok. Son çağrıda yalnız kanıtlanmış isimleri bildir.',
+    entry: 'Üçüncü sesin kaynağı kayıtlarda yok. Mezarlıkta bakım taşının yanındaki mühür kutusuna dön.',
     kind: 'select', choices: ['00', '06', '14'], answer: [1],
     action: 'Kesintiyi kaydet', hint: 'Gasilhanenin numarası 06 idi.',
   },
+  night_seal: {
+    act: 8, folio: 'Z / 15', title: 'Dört mühür',
+    place: 'Mezarlık · Bakım sandığı',
+    objective: 'Mezarlık bakım sandığına dön; yolcunun etiketindeki işaretle mührü aç.',
+    prompt: 'Bakım sandığının mührünü incele',
+    text: 'Sandığın kapağında dört farklı oyuk ve öğretmenin notu var: “Kayıt yolcuyla eşleşmedikçe defteri açma.” Her oyuk ayrı bir mühür taşıyor. Hangi işaret yolcunun etiketindeydi?',
+    entry: 'Sandıktan çıkan boş kâğıt, hatırlamadığın bir ismin yerini tutuyor. Artık son çağrıya dönebilirsin.',
+    kind: 'select', choices: ['Daire', 'Üçgen', 'Kare', 'Yıldız'], answer: [0],
+    action: 'Mührü aç',
+  },
   night_call: {
     act: 8,
-    folio: 'G / 15',
+    folio: 'G / 16',
     title: 'Şafak hattı',
     place: 'Gasilhane · Kabul telefonu',
     objective: 'Meydana dön. Gasilhane kapısının iç yanındaki telefondan son çağrıya cevap ver.',
@@ -274,6 +285,7 @@ export function nightPageFor(id: NightId, seed: number): Page {
       entry: `Banttaki yer sırası: ${order}. Sağlam kordon eski düğün kuşağının renginde.` };
   }
   if (id === 'night_line') return { ...page, answer: sequences[n], hint: undefined };
+  if (id === 'night_seal') return { ...page, answer: [n] };
   return page;
 }
 export function correctPage(id: NightId, input: readonly number[], seed = 0) {

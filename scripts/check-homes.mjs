@@ -34,10 +34,20 @@ try {
     e.act = 1; e.vigilLit = false;
     return [expired, refilled];
   }), [true, true], 'candle fuel depletes and can be refilled');
-  await page.evaluate(() => { fixture.scareClock.reset(); fixture.scareClock.remaining = 0.01; fixture.updateSimulation(0.05); });
-  await page.locator('.village-scare').waitFor({ state: 'visible', timeout: 5000 });
-  await page.evaluate(() => fixture.updateSimulation(1.5));
-  await page.locator('.village-scare').waitFor({ state: 'hidden', timeout: 5000 });
+  assert.deepEqual(await page.evaluate(() => {
+    const e = fixture;
+    e.act = 2; e.stepPrepDone = true; e.stepShroudDone = false; e.vigilLit = false;
+    e.leftGasilWithoutVigilFlagged = false; e.playerPos.set(-5, 0, 7);
+    e.updateSimulation(0.1);
+    const rose = e.bodyRisen && e.rules.find(r => r.id === 'rule_alone').violated;
+    for (let i = 0; i < 30; i++) e.updateSimulation(0.1);
+    const upright = e.world.gasil.deceasedGroup.rotation.z < -1;
+    e.playerPos.set(-12, 0, 5); e.activeInteractId = 'vigil_candle'; e.handleInteract();
+    const settled = !e.bodyRisen && e.vigilLit;
+    e.act = 1; e.stepPrepDone = false; e.vigilLit = false; e.leftGasilWithoutVigilFlagged = false;
+    e.rules.find(r => r.id === 'rule_alone').violated = false;
+    return [rose, upright, settled];
+  }), [true, true, true], 'unattended body rises and the vigil calms it');
   const result = await page.evaluate(async () => {
     const { Vector3 } = await import('/node_modules/three/build/three.module.js');
     const e = window.fixture, failures = [];

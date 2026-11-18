@@ -34,19 +34,6 @@ test('malformed saved positions and survival values are rejected', () => {
   assert.ok(readAutoSave());
 });
 
-test('first scare appears in active exploration and evenings are more dangerous', async () => {
-  const { ScareClock, scareInterval } = await import('../src/game/scares');
-  const clock = new ScareClock();
-  assert.equal(clock.tick(100, 1, false).triggered, false);
-  assert.equal(clock.tick(34, 1, true).triggered, false);
-  assert.equal(clock.tick(1, 1, true).triggered, true);
-  assert.equal(clock.tick(1.4, 1, true).visible, false);
-  assert.ok(scareInterval(8, true) < scareInterval(2, true));
-  assert.ok(scareInterval(3, true) < scareInterval(3, false));
-  clock.reset();
-  assert.equal(clock.tick(1, 8, true).triggered, false);
-});
-
 test('evening follows the active day clock, repeating at the next dawn', async () => {
   const { isEvening, SECONDS_PER_DAY } = await import('../src/game/survival');
   assert.equal(isEvening(0), false);
