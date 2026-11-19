@@ -1,4 +1,4 @@
-import { createWorkHands } from './handRig';
+import { armSwing, createWorkHands } from './handRig';
 import { requiredWashTool, washInstruction, type WashPerson, type WashTool } from './washing';
 import { atmosphereTargets } from './atmosphere';
 import { insideHome } from './homes';
@@ -796,6 +796,7 @@ export class SonVazifeEngine {
       this.world.autopsyLights.flashLight.intensity = 0;
     }
     if (this.handCandle?.light) {
+      this.handCandle.root.visible = false;
       this.handCandle.light.intensity = 0;
     }
 
@@ -910,10 +911,12 @@ export class SonVazifeEngine {
     this.handCandle.light.position.set(0.32, -0.09, -0.57);
     this.handCandle.light.intensity = 0;
     this.handCandle.light.visible = true;
-    this.camera.add(this.handCandle.root);
     this.camera.add(this.handCandle.light);
     // Anatomical palm, articulated digits and thumb in place of mitten-like spheres.
     this.washingHand = createWorkHands();
+    const rightHand = this.washingHand.getObjectByName('Sağ el')!;
+    this.handCandle.root.position.set(0.08, 0.08, 0.13);
+    rightHand.add(this.handCandle.root);
     const clothTool = new THREE.Group();
     const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.12), new THREE.MeshStandardMaterial({ color: 0xb9b29e, roughness: 1 }));
     cloth.position.set(0.2, -0.14, -0.10); clothTool.add(cloth);
@@ -3260,7 +3263,7 @@ export class SonVazifeEngine {
   private updateHeldWashVisual(): void {
     if (!this.washingHand || !this.washTools) return;
     const held = this.heldWashTool;
-    this.washingHand.visible = !this.activeAutopsyCaseId && (this.washAnim > 0 || held !== 'empty');
+    this.washingHand.visible = this.screen === 'playing' && !this.activeAutopsyCaseId;
     if (this.washAnim <= 0) for (const [name, group] of Object.entries(this.washTools))
       group.visible = name === (held === 'dirty' ? 'bucket' : held);
   }
@@ -3320,6 +3323,9 @@ export class SonVazifeEngine {
     if (this.world?.millAndBridge) {
       this.world.millAndBridge.wheelPivot.rotation.x += dt * 0.72;
     }
+
+    this.washingHand.visible = (this.screen === 'playing' || this.screen === 'paused') && !this.activeAutopsyCaseId;
+    this.handCandle.root.visible = this.candleLit;
 
     // 1. Title Screen Camera Orbit
     if (this.screen === 'title') {
@@ -3644,8 +3650,13 @@ export class SonVazifeEngine {
     this.world.gasil.shutterPivot.rotation.y = this.shutterAngle;
 
     if (this.washAnim > 0) {
+      for (const side of [-1, 1]) {
+        const hand = this.washingHand.getObjectByName(side < 0 ? 'Sol el' : 'Sağ el')!;
+        hand.position.set(side * 0.24, -0.12, 0);
+        hand.rotation.set(0, 0, side * -0.12);
+      }
       this.washAnim = Math.max(0, this.washAnim - dt);
-      this.washingHand.visible = this.washAnim > 0 || this.heldWashTool !== 'empty';
+      this.washingHand.visible = !this.activeAutopsyCaseId;
       if (this.washAnim === 0) this.updateHeldWashVisual();
       const phase = 1.5 - this.washAnim;
       this.washingHand.position.x = Math.sin(phase * 12) * 0.10;
@@ -3653,6 +3664,19 @@ export class SonVazifeEngine {
       this.washingHand.rotation.z = Math.sin(phase * 8) * 0.12;
       this.washingHand.rotation.x = (this.washTools.bucket.visible || this.washTools.ewer.visible) ? -0.35 * Math.sin(Math.min(1, phase / 1.5) * Math.PI) : 0;
       this.washingHand.traverse(o => { if (o.name === 'parmak') o.rotation.x = 0.15 + Math.sin(phase * 9) * 0.12; });
+    } else {
+      const restrained = this.heldWashTool !== 'empty' || this.bodyTransport === 'carried';
+      const motion = armSwing(this.headBobPhase, blocked ? 0 : horizSpeed, this.isSprinting, restrained);
+      this.washingHand.position.set(0, -0.3 + motion.bounce * 0.015, -0.65);
+      this.washingHand.rotation.set(0, 0, 0);
+      for (const side of [-1, 1]) {
+        const hand = this.washingHand.getObjectByName(side < 0 ? 'Sol el' : 'Sağ el')!;
+        // Held equipment stays aligned with the shared tool rig; empty arms swing independently.
+        const swing = restrained ? 0 : motion.swing * side * (this.candleLit && side === 1 ? 0.25 : 1);
+        hand.position.set(side * 0.24, -0.12 + swing * 0.045, swing * 0.075);
+        hand.rotation.set(swing * 0.25, 0, side * -0.12 + swing * 0.06);
+      }
+      this.washingHand.traverse(o => { if (o.name === 'parmak') o.rotation.x = 0.1; });
     }
     // 6. Candle Flicker, Sway & Oil
     if (this.candleLit) {
@@ -3667,12 +3691,7 @@ export class SonVazifeEngine {
         0.88 + Math.sin(this.elapsedTime * 19) * 0.08 + Math.sin(this.elapsedTime * 31) * 0.06;
       this.handCandle.light.intensity = 4.4 * flicker;
       this.handCandle.flame.scale.set(1, flicker, 1);
-      const swayAmp = THREE.MathUtils.clamp(horizSpeed / 4.2, 0.08, 1);
-      this.handCandle.root.position.set(
-        0.32 + Math.cos(this.headBobPhase * 0.5) * 0.014 * swayAmp,
-        -0.34 + Math.sin(this.headBobPhase) * 0.015 * swayAmp,
-        -0.52,
-      );
+
     } else {
       this.handCandle.light.intensity = 0;
     }

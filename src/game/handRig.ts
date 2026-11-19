@@ -11,8 +11,10 @@ export function createWorkHands() {
     hand.name = side < 0 ? 'Sol el' : 'Sağ el';
     hand.position.set(side * 0.24, -0.12, 0);
     hand.rotation.z = side * -0.12;
-    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.105, 0.26, 12), cloth);
-    sleeve.rotation.x = Math.PI / 2.6; sleeve.position.set(side * 0.04, -0.12, 0.19); hand.add(sleeve);
+    const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.105, 0.43, 16), cloth);
+    sleeve.rotation.x = Math.PI / 2.6; sleeve.position.set(side * 0.025, -0.15, 0.25); hand.add(sleeve);
+    const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.062, 0.09, 12), skin);
+    wrist.rotation.x = Math.PI / 2.6; wrist.position.set(0, -0.035, 0.09); hand.add(wrist);
     const palm = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), skin);
     palm.scale.set(0.087, 0.043, 0.115); hand.add(palm);
     for (let i = 0; i < 4; i++) {
@@ -33,4 +35,10 @@ export function createWorkHands() {
     root.add(hand);
   }
   return root;
+}
+
+/** Alternating arm swing uses the same phase as the player's footsteps. */
+export function armSwing(phase: number, speed: number, sprinting: boolean, restrained: boolean) {
+  const amount = THREE.MathUtils.clamp(speed / 3.7, 0, 1) * (restrained ? 0.18 : sprinting ? 1 : 0.5);
+  return { swing: Math.sin(phase * 0.5) * amount, bounce: Math.sin(phase) * amount };
 }
