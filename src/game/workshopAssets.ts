@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { Allocation } from './quality';
+import { createModelLoader } from './modelLoader';
 
 export const BUILD_KIT = ['cumba', 'himis', 'tas', 'hayrat', 'emanet'] as const;
 export const DRESSING = [
@@ -57,7 +58,7 @@ export function releaseTemplate(root: THREE.Object3D) {
 export class WorkshopAssets {
   private models = new Map<ModelId, THREE.Group>();
   private disposed = false;
-  constructor(private loader: Pick<GLTFLoader, 'loadAsync'> = new GLTFLoader()) {}
+  constructor(private loader: Pick<GLTFLoader, 'loadAsync'> = createModelLoader()) {}
   async load(profile: Allocation, onModel: (id: ModelId, percent: number) => void) {
     const queue = workshopManifest(profile);
     let next = 0,

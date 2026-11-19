@@ -6,7 +6,7 @@ import { CLINIC, MUHTAR, CORE_HOME_CENTRES, OUTER_HOMES, type Outpost } from './
 import { buildOutposts } from './outposts';
 import { bakeStaticChildrenByMaterial } from './meshBatch';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createModelLoader } from './modelLoader';
 import { houseFootprint, translateColliders, type BoxCollider } from './collision';
 import { ResidentVisual } from './residentVisual';
 import { VillageCraft, type HouseStyle } from './villageCraft';
@@ -918,7 +918,7 @@ export function buildVillageWorld(
     hinge.attach(target.mesh);
   }
   // 14. Villager NPCs (4 interactive patrolling/standing residents)
-  const residentLoader = new GLTFLoader();
+  const residentLoader = createModelLoader();
   const npcs = {} as Record<NpcId, NpcRuntimeActor>;
   (Object.keys(VILLAGE_NPCS) as NpcId[]).forEach((npcId) => {
     const def = VILLAGE_NPCS[npcId];

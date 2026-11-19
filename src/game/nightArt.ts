@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { releaseTemplate } from './workshopAssets';
+import { createModelLoader } from './modelLoader';
 
 export const NIGHT_MODELS = [
   'arif',
@@ -37,7 +38,7 @@ export class NightArt {
   constructor(
     private compact: boolean,
     private ready: (root: THREE.Object3D) => void,
-    private loader: Pick<GLTFLoader, 'loadAsync'> = new GLTFLoader(),
+    private loader: Pick<GLTFLoader, 'loadAsync'> = createModelLoader(),
   ) {}
   mount(id: NightModel, fallback: THREE.Object3D, parts: readonly string[] = [id], fit?: Slot['fit']) {
     const parent = new THREE.Group();

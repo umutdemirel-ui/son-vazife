@@ -11,15 +11,17 @@ try {
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', e => errors.push(e.message));
   await page.route('**/__model-csp-test', route => route.fulfill({ contentType: 'text/html',
-    headers: { 'Content-Security-Policy': csp }, body: '<!doctype html><title>Model texture test</title>' }));
+    headers: { 'Content-Security-Policy': csp.replace("connect-src 'self' blob:", "connect-src 'self'") }, body: '<!doctype html><title>Model texture test</title>' }));
   await page.goto((process.env.VILLAGE_URL || 'http://localhost:3000') + '/__model-csp-test');
   const result = await page.evaluate(async () => {
-    const { GLTFLoader } = await import('/node_modules/three/examples/jsm/loaders/GLTFLoader.js');
+    // Simulate browsers where ImageBitmap decoding is broken, and an old cached CSP.
+    window.createImageBitmap = () => Promise.reject(new Error('ImageBitmap unavailable'));
+    const { createModelLoader } = await import('/src/game/modelLoader.ts');
     const urls = ['/assets/residents/compact/bekci.glb', '/assets/night/compact/karabasma.glb',
       '/assets/night/compact/sis-gozcusu.glb', '/assets/night/compact/arif.glb', '/assets/workshop/compact/cumba.glb'];
     const rows = [];
     for (const url of urls) {
-      const { scene } = await new GLTFLoader().loadAsync(url);
+      const { scene } = await createModelLoader().loadAsync(url);
       let meshes = 0, mapped = 0;
       scene.traverse(o => {
         if (!o.isMesh) return;
@@ -32,5 +34,5 @@ try {
   });
   for (const row of result) assert.ok(row.meshes > 0 && row.mapped > 0, JSON.stringify(row));
   assert.deepEqual(errors, []);
-  console.log('OK: resident, creature, cadaver and workshop GLB textures decode under production CSP.');
+  console.log('OK: resident, creature, cadaver and workshop GLB textures decode with restricted CSP and unavailable ImageBitmap.');
 } finally { await browser.close(); }
