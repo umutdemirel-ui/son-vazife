@@ -1595,7 +1595,7 @@ export interface MillAndBridgeRefs {
   lanternLight: THREE.PointLight;
 }
 
-export function createWatermillAndBridge(textures: VillageTextures): MillAndBridgeRefs {
+export function createWatermillAndBridge(textures: VillageTextures, bridgeFinish: 'wood' | 'stone' = 'wood'): MillAndBridgeRefs {
   const stoneMat = new THREE.MeshStandardMaterial({
     map: textures.stone,
     normalMap: textures.stoneNormal,
@@ -1614,21 +1614,27 @@ export function createWatermillAndBridge(textures: VillageTextures): MillAndBrid
 
   // 1. Wooden & Stone Stream Bridge (spanning ~6.6m across stream at x=-24, z=8)
   const bridgeGroup = new THREE.Group();
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.22, 3.2), woodMat);
+  const bridgeMat=bridgeFinish==='stone'?stoneMat:woodMat;
+  const deck = bridgeFinish==='stone'
+    ? block(bridgeGroup,bridgeMat,6.8,.22,3.2,0,.28,0,1.8)
+    : new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.22, 3.2), bridgeMat);
   deck.position.y = 0.28;
   deck.castShadow = true;
   deck.receiveShadow = true;
-  bridgeGroup.add(deck);
+  if(bridgeFinish!=='stone')bridgeGroup.add(deck);
 
   [-1.5, 1.5].forEach((rz) => {
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.1, 0.1), woodMat);
-    rail.position.set(0, 1.05, rz);
-    bridgeGroup.add(rail);
-    [-3.1, -1.5, 0, 1.5, 3.1].forEach((px) => {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.95, 0.14), woodMat);
-      post.position.set(px, 0.72, rz);
-      bridgeGroup.add(post);
-    });
+    if(bridgeFinish==='stone') {
+      block(bridgeGroup,stoneMat,6.8,.72,.22,0,.75,rz,1.8);
+      block(bridgeGroup,stoneMat,6.8,.12,.34,0,1.17,rz,1.8);
+    } else {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.1, 0.1), bridgeMat);
+      rail.position.set(0, 1.05, rz);bridgeGroup.add(rail);
+      [-3.1, -1.5, 0, 1.5, 3.1].forEach((px) => {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.95, 0.14), bridgeMat);
+        post.position.set(px, 0.72, rz);bridgeGroup.add(post);
+      });
+    }
   });
 
   [-3.25, 3.25].forEach((ax) => {
@@ -1647,6 +1653,9 @@ export function createWatermillAndBridge(textures: VillageTextures): MillAndBrid
   floor.position.y = 0.08;
   floor.receiveShadow = true;
   millGroup.add(floor);
+  // The pitched exterior is front-sided; a ceiling prevents seeing the sky from inside.
+  const ceiling=new THREE.Mesh(new THREE.BoxGeometry(rw,.12,rd),woodMat);
+  ceiling.position.y=rh-.06;millGroup.add(ceiling);
 
   const westW = new THREE.Mesh(new THREE.BoxGeometry(0.26, rh, rd), stoneMat);
   westW.position.set(-rw / 2, rh / 2, 0);

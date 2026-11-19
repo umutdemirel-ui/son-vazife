@@ -3,7 +3,7 @@ import { createDermanliTerrain, dermanliSurfaceHeight } from './dermanliTerrain'
 import { DERMANLI_PATHS, DERMANLI_SITES as S, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
 import { VillageCraft } from './villageCraft';
-import { createMosqueAndGasilhane, createKaraBasma, createSisGozcusu, createCopperEwerAndSoap, createMuhtarHouse, createVillageBench } from './models';
+import { createMosqueAndGasilhane, createKaraBasma, createSisGozcusu, createCopperEwerAndSoap, createMuhtarHouse, createVillageBench, createWatermillAndBridge } from './models';
 import { buildHome, homeCollider, type HomeSpec } from './homes';
 import { NightArt, watcherFigure } from './nightArt';
 import {ResidentVisual} from './residentVisual';
@@ -100,7 +100,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
     const openDoor=homeCollider(spec,-.725,d/2+.75,.14,1.5);colliders.push(openDoor);occluders.push(openDoor);
     target(id, id === 'home' ? 'Gassalın evi · Günlük' : id === 'school' ? 'Eski okul · Tahta ve dolap' : id === 'mill' ? 'Değirmen · Defter' : id === 'coffee' ? 'Kahvehane · Eski ilan' : 'Terk edilmiş ev', [site[0],site[1]+d/2+1.0],2.6);
   };
-  addHome(S.gassalHome,'home',0,7,5); addHome(S.school,'school',1,8,6); addHome(S.mill,'mill',2,6,5);
+  addHome(S.gassalHome,'home',0,7,5); addHome(S.school,'school',1,8,6);
   const coffeeSite=S.coffee;addHome(coffeeSite,'coffee',8,7,5);
   S.abandonedHomes.forEach((p,i)=>addHome(p,`abandoned${i}`,i+3));
   const coffeeCanvas=document.createElement('canvas');coffeeCanvas.width=512;coffeeCanvas.height=128;
@@ -115,12 +115,24 @@ export function createDermanliWorld(scene: THREE.Scene) {
   });
   const emptyHomeLight=new THREE.PointLight(0xffa354,0,5,2);objects.add(emptyHomeLight);
   addHome(S.barn,'barn',7,7,5);
-  // A wheel on the mill and a chalkboard inside the school make both landmarks legible at close range.
-  const wheel=new THREE.Group();wheel.position.set(S.mill[0]+3.2,1.9,S.mill[1]-.5);
-  const wheelGeo=new THREE.TorusGeometry(1.5,.12,8,24);ownGeometry.push(wheelGeo);
-  wheel.add(new THREE.Mesh(wheelGeo,wood));
-  for(let angle=0;angle<Math.PI;angle+=Math.PI/4){const g=new THREE.BoxGeometry(3,.12,.12);ownGeometry.push(g);const spoke=new THREE.Mesh(g,wood);spoke.rotation.z=angle;wheel.add(spoke);}
-  wheel.rotation.y=Math.PI/2;objects.add(wheel);
+  // Detailed walk-in watermill from the previous village, relocated to the Dermanlı stream.
+  const millAndBridge=createWatermillAndBridge(textures,'stone');
+  const [mx,mz]=S.mill,my=dermanliSurfaceHeight(mx,mz);
+  millAndBridge.millGroup.position.set(mx,my,mz);millAndBridge.doorPivot.rotation.y=-Math.PI/2;objects.add(millAndBridge.millGroup);
+  const millWalls=translateColliders({x:mx,z:mz},[
+    {minX:-3.3,maxX:-2.85,minZ:-3.05,maxZ:3.05},{minX:-3.2,maxX:3.2,minZ:-3.1,maxZ:-2.7},
+    {minX:-3.2,maxX:3.2,minZ:2.7,maxZ:3.1},{minX:2.9,maxX:3.3,minZ:-3,maxZ:-.8},
+    {minX:2.9,maxX:3.3,minZ:.8,maxZ:3},
+  ]);colliders.push(...millWalls);occluders.push(...millWalls);
+  const millFurniture=translateColliders({x:mx,z:mz},[
+    {minX:-2,maxX:-.6,minZ:-1.8,maxZ:-.4},{minX:-2.1,maxX:-.9,minZ:.65,maxZ:1.55},
+    {minX:3.15,maxX:4.2,minZ:1.2,maxZ:3.3},{minX:1.55,maxX:3.1,minZ:-.86,maxZ:-.7},
+  ]);colliders.push(...millFurniture);occluders.push(millFurniture[3]);
+  target('mill','Değirmen · Defter',[mx-1.5,mz+1.1],1.6);
+  const wheel=millAndBridge.wheelPivot;
+  // A narrow water channel leads from the wheel to the larger stream.
+  const channelGeo=new THREE.PlaneGeometry(8.4,1.25);ownGeometry.push(channelGeo);
+  const channel=new THREE.Mesh(channelGeo,craft.water);channel.rotation.x=-Math.PI/2;channel.position.set(mx+8,dermanliSurfaceHeight(mx+8,mz+2.2)+.07,mz+2.2);objects.add(channel);
   // The physical positions provide the symbol-to-bell mapping; the sequence is
   // written separately in the gassal's journal, and varies by saved seed.
   const bellCanvas=document.createElement('canvas');bellCanvas.width=768;bellCanvas.height=256;
@@ -148,7 +160,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
   box(.06,.06,.06,S.school[0]+1.38,.85,S.school[1]+3.3,craft.metal);
   // Reuse the detailed old-world hayrat and furnishings rather than primitive cylinders.
   const detailGeometry=new Set<THREE.BufferGeometry>();
+  const millMaterials=new Set<THREE.Material>();
   const ownDetails=(group:THREE.Object3D)=>group.traverse(o=>{if(o instanceof THREE.Mesh)detailGeometry.add(o.geometry);});
+  for(const group of [millAndBridge.millGroup,millAndBridge.bridgeGroup]){ownDetails(group);group.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])millMaterials.add(m);});}
   for(const [x,z,angle] of [[-10.25,16.3,0],[-7.75,16.3,0]] as const){const bench=createVillageBench(craft);bench.position.set(x,dermanliSurfaceHeight(x,z),z);bench.rotation.y=angle;objects.add(bench);ownDetails(bench);colliders.push({minX:x-.9,maxX:x+.9,minZ:z-.3,maxZ:z+.3});}
   const coffeeTable=box(1.1,.09,.72,coffeeSite[0],.77,coffeeSite[1]-.8,craft.wood);
   for(const dx of [-.45,.45])for(const dz of [-.25,.25])box(.09,.72,.09,coffeeSite[0]+dx,.36,coffeeSite[1]-.8+dz,craft.wood);
@@ -181,7 +195,8 @@ export function createDermanliWorld(scene: THREE.Scene) {
   colliders.push({minX:wx-1,maxX:wx+1,minZ:wz-1,maxZ:wz+1});target('well','Kuyu · Kayıt',[wx+1.6,wz],2.4);
   // Reuse the previous textured fountain asset when available; the solid fallback stays until then.
   const workshop=new WorkshopAssets();void workshop.load('minimum',(id)=>{if(id==='hayrat')craft.install(workshop,'hayrat');});
-  const [bx,bz] = S.bridge; box(7,.35,2.8,bx,.2,bz,stone); for (const side of [-1,1]) {box(7,.85,.15,bx,.66,bz+side*1.3,stone);colliders.push({minX:bx-3.5,maxX:bx+3.5,minZ:bz+side*1.3-.075,maxZ:bz+side*1.3+.075});}
+  const [bx,bz]=S.bridge;millAndBridge.bridgeGroup.position.set(bx,dermanliSurfaceHeight(bx,bz),bz);objects.add(millAndBridge.bridgeGroup);
+  for(const side of [-1,1])colliders.push({minX:bx-3.4,maxX:bx+3.4,minZ:bz+side*1.5-.08,maxZ:bz+side*1.5+.08});
   // These are outdoor memories, not residents inside houses.
   const spiritMaterial=new THREE.MeshStandardMaterial({color:0xbfc6c1,roughness:.9,transparent:true,opacity:.52,depthWrite:false});ownMaterial.push(spiritMaterial);
   const makeSpirit=(x:number,z:number,scale:number)=>{
@@ -252,5 +267,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu());
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());oakMap.dispose();coffeeTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();coffeeTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }
