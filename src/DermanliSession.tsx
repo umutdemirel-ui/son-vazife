@@ -95,6 +95,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         targetFrom: (x:number,z:number,angle:number) => targetAt(x,z,angle)?.id ?? null,
         gasilhane: () => [...S.gasilhane],
         gassalHome: () => [...S.gassalHome],
+        barn: () => [...S.barn],
         approachNight: () => {elapsed=DAY_SECONDS/2-2;previousNight=false;},
         worldTools: () => Object.fromEntries(Object.entries(world.stationMeshes).map(([id,mesh])=>[id,mesh.visible])),
         squareArt: () => ({fountain:!!world.fountain.getObjectByName('hayrat'),tree:world.squareTree.visible}),

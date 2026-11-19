@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createDermanliTerrain, dermanliSurfaceHeight } from './dermanliTerrain';
 import { DERMANLI_PATHS, DERMANLI_SITES as S, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
-import { VillageCraft, block } from './villageCraft';
+import { VillageCraft, block, pitchedRoof } from './villageCraft';
 import { MOSQUE_GRAVES } from './cemetery';
 import { createMosqueAndGasilhane, createKaraBasma, createSisGozcusu, createCopperEwerAndSoap, createMuhtarHouse, createVillageBench, createWatermillAndBridge, createGraveyardCluster } from './models';
 import { buildHome, homeCollider, type HomeSpec } from './homes';
@@ -136,7 +136,6 @@ export function createDermanliWorld(scene: THREE.Scene) {
     const window=box(.55,.68,.02,x+1.85,1.67,z+2.61,emptyHomeGlow);window.visible=false;return window;
   });
   const emptyHomeLight=new THREE.PointLight(0xffa354,0,5,2);objects.add(emptyHomeLight);
-  addHome(S.barn,'barn',7,7,5);
   // Detailed walk-in watermill from the previous village, relocated to the Dermanlı stream.
   const millAndBridge=createWatermillAndBridge(textures,'stone');
   const [mx,mz]=S.mill,my=dermanliSurfaceHeight(mx,mz);
@@ -206,6 +205,44 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const millMaterials=new Set<THREE.Material>();
   const ownDetails=(group:THREE.Object3D)=>group.traverse(o=>{if(o instanceof THREE.Mesh)detailGeometry.add(o.geometry);});
   for(const group of [millAndBridge.millGroup,millAndBridge.bridgeGroup]){ownDetails(group);group.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])millMaterials.add(m);});}
+  // A single-storey timber barn, with a wide, permanently open entrance and no residents.
+  const [ax,az]=S.barn,ay=dermanliSurfaceHeight(ax,az),barn=new THREE.Group();barn.position.set(ax,ay,az);barn.name='Ahır';objects.add(barn);
+  block(barn,craft.masonry,7,.16,5,0,.03,0,2);
+  block(barn,craft.wood,7,2.9,.2,0,1.45,-2.5,1.5);
+  for(const x of [-3.5,3.5])block(barn,craft.wood,.2,2.9,5,x,1.45,0,1.5);
+  for(const x of [-2.35,2.35])block(barn,craft.wood,2.3,2.9,.2,x,1.45,2.5,1.5);
+  block(barn,craft.wood,2.4,.65,.2,0,2.575,2.5,1.5);
+  block(barn,craft.wood,7,.1,5,0,2.84,0,1.5);
+  pitchedRoof(barn,craft.roofVariants[1],craft.wood,7.5,5.5,2.9,1.0,1.0);
+  for(const x of [-3.35,3.35]){
+    block(barn,craft.wood,.18,2.9,.18,x,1.45,2.64);
+    // Each door leaf is swung open along the exterior, clear of the entrance.
+    block(barn,craft.wood,.12,2.2,1.2,x<0?-1.2:1.2,1.1,3.15,1.5);
+  }
+  const hayCanvas=document.createElement('canvas');hayCanvas.width=256;hayCanvas.height=256;
+  const hayContext=hayCanvas.getContext('2d');if(hayContext){
+    hayContext.fillStyle='#76663a';hayContext.fillRect(0,0,256,256);
+    for(let i=0;i<900;i++){const x=(i*73)%256,y=(i*137)%256;hayContext.strokeStyle=i%3===0?'#aa995b':i%3===1?'#5f5431':'#8b7b48';hayContext.lineWidth=1;hayContext.beginPath();hayContext.moveTo(x,y);hayContext.lineTo(x+8+(i%9),y+((i%7)-3));hayContext.stroke();}
+  }
+  const hayTexture=new THREE.CanvasTexture(hayCanvas);hayTexture.colorSpace=THREE.SRGBColorSpace;
+  const hay=new THREE.MeshStandardMaterial({map:hayTexture,roughness:1}),hayBand=mat(0x5c4b2e);ownMaterial.push(hay);
+  for(const [x,z] of [[-2.35,-1.65],[-2.35,-.62],[2.45,-1.65]] as const){
+    block(barn,hay,1.1,.65,.85,x,.34,z);
+    for(const dx of [-.3,.3])block(barn,hayBand,.03,.66,.87,x+dx,.34,z);
+    colliders.push({minX:ax+x-.55,maxX:ax+x+.55,minZ:az+z-.43,maxZ:az+z+.43});
+  }
+  block(barn,craft.wood,1.25,.18,.6,1.9,.57,1.0,1.2);
+  for(const x of [1.38,2.42])block(barn,craft.wood,.12,.56,.12,x,.28,1.0);
+  block(barn,paper,.45,.035,.33,1.9,.68,1.0);
+  colliders.push({minX:ax+1.275,maxX:ax+2.525,minZ:az+.7,maxZ:az+1.3});
+  const barnWalls=translateColliders({x:ax,z:az},[
+    {minX:-3.6,maxX:-3.4,minZ:-2.6,maxZ:2.6},{minX:3.4,maxX:3.6,minZ:-2.6,maxZ:2.6},
+    {minX:-3.6,maxX:3.6,minZ:-2.6,maxZ:-2.4},{minX:-3.6,maxX:-1.2,minZ:2.4,maxZ:2.6},
+    {minX:1.2,maxX:3.6,minZ:2.4,maxZ:2.6},
+  ]);colliders.push(...barnWalls);occluders.push(...barnWalls);
+  for(const x of [-1.2,1.2])colliders.push({minX:ax+x-.06,maxX:ax+x+.06,minZ:az+2.55,maxZ:az+3.75});
+  target('barn','Ahır · Hasat kaydı',[ax+1.9,az+1],1.65);ownDetails(barn);
+
   for(const [x,z,angle] of [[-10.25,16.3,0],[-7.75,16.3,0]] as const){const bench=createVillageBench(craft);bench.position.set(x,dermanliSurfaceHeight(x,z),z);bench.rotation.y=angle;objects.add(bench);ownDetails(bench);colliders.push({minX:x-.9,maxX:x+.9,minZ:z-.3,maxZ:z+.3});}
   const coffeeTable=box(1.1,.09,.72,coffeeSite[0],.77,coffeeSite[1]-.8,craft.wood);
   for(const dx of [-.45,.45])for(const dz of [-.25,.25])box(.09,.72,.09,coffeeSite[0]+dx,.36,coffeeSite[1]-.8+dz,craft.wood);
@@ -269,7 +306,14 @@ export function createDermanliWorld(scene: THREE.Scene) {
   for(const side of [-1,1]){const arm=new THREE.Group();arm.name=side<0?'masterLeft':'masterRight';arm.position.set(side*.32,1.3,0);const sleeve=new THREE.Mesh(armGeo,spiritMaterial);sleeve.position.set(0,-.32,0);arm.add(sleeve);master.add(arm);}
   master.visible=false;objects.add(master);
 
-  const [fx,fz] = S.field; box(30,.08,21,fx,.04,fz,field); for(let i=-9;i<=9;i+=3) box(28,.12,.28,fx,.12,fz+i,wood);
+  const [fx,fz]=S.field,fy=dermanliSurfaceHeight(fx,fz);
+  // Earth ridges replace the wooden planks; dried stalks remain sparse and passable.
+  box(30,.035,21,fx,fy+.025,fz,field);
+  const furrow=mat(0x403b2c),straw=mat(0x776c49);
+  for(let z=-9;z<=9;z+=1.5)box(29,.045,.32,fx,fy+.065,fz+z,furrow);
+  const stalkGeometry=new THREE.ConeGeometry(.035,.65,4);ownGeometry.push(stalkGeometry);
+  const stalks=new THREE.InstancedMesh(stalkGeometry,straw,260),stalkPose=new THREE.Object3D();
+  for(let i=0;i<260;i++){const col=i%20,row=Math.floor(i/20),x=fx-13.8+col*1.45+Math.sin(i*7)*.18,z=fz-9+row*1.5+Math.cos(i*3)*.16;stalkPose.position.set(x,dermanliSurfaceHeight(x,z)+.38,z);stalkPose.rotation.z=Math.sin(i*5)*.12;stalkPose.updateMatrix();stalks.setMatrixAt(i,stalkPose.matrix);}objects.add(stalks);
   const [cx,cz] = S.cemetery,cy=dermanliSurfaceHeight(cx,cz);
   // Old carved headstones and raised stone plinths, arranged around a clear burial aisle.
   for(const dx of [-7,7])for(const dz of [-5,2,7]){
@@ -313,7 +357,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const coords: Point[]=[];
   for(let i=0;i<1300 && coords.length<260;i++) {
     const x=(random()-.5)*170,z=(random()-.5)*220;
-    if((Math.abs(x-cx)<17 && Math.abs(z-cz)<14) || sites.some(p=>Math.hypot(x-p[0],z-p[1])<9) || DERMANLI_PATHS.some(p=>distanceToPath(x,z,p)<p.width/2+2)) continue;
+    if((Math.abs(x-fx)<15.5 && Math.abs(z-fz)<11) || (Math.abs(x-cx)<17 && Math.abs(z-cz)<14) || sites.some(p=>Math.hypot(x-p[0],z-p[1])<9) || DERMANLI_PATHS.some(p=>distanceToPath(x,z,p)<p.width/2+2)) continue;
     coords.push([x,z]);
   }
   const trees=new THREE.InstancedMesh(treeG,foliage,coords.length), trunks=new THREE.InstancedMesh(trunkG,wood,coords.length), dummy=new THREE.Object3D();
@@ -330,5 +374,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu());
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();coffeeTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

@@ -28,6 +28,8 @@ try {
  if(los.outside==='soap'||los.inside!=='soap')throw Error(`Wall/soap interaction mismatch: ${JSON.stringify(los)}`);
  const homeOutside=await page.evaluate(()=>{const [x,z]=window.__dermanliTest.gassalHome();const px=x+1.6,pz=z-3.4;return window.__dermanliTest.targetFrom(px,pz,Math.PI);});
  if(homeOutside==='home')throw Error('Gassal journal can be read through the back wall');
+ const barnOutside=await page.evaluate(()=>{const [x,z]=window.__dermanliTest.barn();return window.__dermanliTest.targetFrom(x+1.9,z-3.1,Math.PI);});
+ if(barnOutside==='barn')throw Error('Barn record can be read through the back wall');
  const missing=await page.evaluate(()=>window.__dermanliTest.scanReachability());
  if(missing.length)throw Error(`Unreachable targets from the entrance: ${missing.join(', ')}`);
  const state=()=>page.evaluate(()=>window.__dermanliTest.state());
@@ -39,7 +41,8 @@ try {
     await page.waitForFunction(before=>{const s=window.__dermanliTest.state();return s.stage!==before.stage||s.soaped!==before.soaped;},before,{timeout:12000});await page.keyboard.up('f');}
   else await page.keyboard.press('e');
  }
- for (const id of ['home','school','mosque','mill','well','coffee','cemetery']) await action(id);
+ for (const id of ['home','school','mosque','mill','well','coffee','barn','cemetery']) await action(id);
+ if(!(await state()).clues.includes('barn'))throw Error('Barn harvest record was not collected');
  if(!(await state()).clues.includes('home'))throw Error('Gassal journal was not collected inside the house');
  if((await state()).clues.includes('school'))throw Error('Locked school record was collected before solving bells');
  if(!(await state()).clues.includes('mosque'))throw Error('Mosque record was not collected');
