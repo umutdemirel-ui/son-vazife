@@ -303,3 +303,15 @@ test('bell and exchange sequences vary by saved seed, with evidence in separate 
   assert.equal(bells.size, 4);
   assert.equal(lines.size, 4);
 });
+
+test('a watcher accelerates into pursuit but cannot see through a wall', () => {
+  const actor = new THREE.Group(), patrol = new NightPatrol(0);
+  patrol.tick(actor, 3, 0, { x: 100, z: 100 }, true, []);
+  const start = actor.position.clone();
+  assert.equal(patrol.tick(actor, 3, 0.25, { x: start.x, z: start.z + 8 }, true, []), true);
+  assert.ok(actor.position.distanceTo(start) > 1.35, 'pursuit speed exceeds the sprinting player');
+  patrol.reset();
+  patrol.tick(actor, 3, 0, { x: 100, z: 100 }, true, []);
+  const wall = { minX: 0, maxX: 2, minZ: -20, maxZ: -19 };
+  assert.equal(patrol.tick(actor, 3, 0.25, { x: 1, z: -17 }, true, [wall]), false);
+});

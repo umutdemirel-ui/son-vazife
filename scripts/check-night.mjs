@@ -86,6 +86,9 @@ try {
         return e.activeInteractId;
       };
       for (const a of Object.values(e.world.npcs)) a.pauseTimer = 999;
+      // This script surveys the deterministic story route; combat and random scares
+      // are exercised separately instead of interrupting its fixed walking sample.
+      e.karaCatchCooldown = 1e6; e.nextScareTime = Infinity;
     });
   };
   await helpers();
@@ -370,6 +373,13 @@ try {
       await use(...site);
       await btn('Kaydı kapat').click();
       assert.equal(await val('nightPage'), null);
+      // Both received bodies have independent, persisted four-step washing work.
+      for (const site of [['wash_mahmut', -11.4, 4.9], ['wash_yolcu', -11.4, 7.3]]) {
+        for (let stage = 0; stage < 4; stage++) await use(...site);
+      }
+      assert.deepEqual((await saved()).additionalWashes, { mahmut: 4, yolcu: 4 });
+      await reload();
+      assert.deepEqual(await val('extraWashes'), { mahmut: 4, yolcu: 4 });
     }
     if (i === 3) {
       await reload();
@@ -438,6 +448,23 @@ try {
     return [followed, hidden, e.caughtCount];
   });
   assert.deepEqual(caught, [true, true, 1]);
+  const scares = await page.evaluate(() => {
+    const e = fixture;
+    const actualModel = e.scareFigure?.name === e.world.karaBasma.root.name;
+    e.updateCreatureScare(2);
+    e.nextScareTime = e.elapsedTime; e.karaCatchCooldown = 10;
+    e.elapsedTime += 0.05; e.updateSimulation(0.05);
+    const random = !!e.scareFigure && e.caughtCount === 1;
+    e.updateCreatureScare(2);
+    e.caughtCount = 2; e.karaCatchCooldown = 0; e.nextScareTime = Infinity;
+    e.crouchToggled = false; e.candleLit = false; e.playerPos.set(1, 0, -15);
+    e.world.karaBasma.root.position.set(1.08, 0, -15.8);
+    e.elapsedTime += 0.05; e.updateSimulation(0.05);
+    const delayedDeath = e.caughtCount === 3 && !!e.scareFigure && e.screen === 'playing';
+    e.updateCreatureScare(2);
+    return [actualModel, random, delayedDeath, e.screen];
+  });
+  assert.deepEqual(scares, [true, true, true, 'game_over']);
   assert.deepEqual(errors, []);
   const urls = missing ? blocked : assets.map(([, url]) => url);
   assert.equal(new Set(urls.map((url) => new URL(url).pathname)).size, 10);

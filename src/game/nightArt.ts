@@ -138,7 +138,7 @@ export function watcherFigure(art: NightArt, id: 'karabasma' | 'sis-gozcusu', fa
   return {
     root,
     pose(t: number, following: boolean) {
-      const a = Math.sin(t * (kara ? 3.15 : 1.9));
+      const a = Math.sin(t * (following ? 6.2 : kara ? 3.15 : 1.9));
       for (const [name, j] of pivots) {
         if (name === 'hood') {
           j.rotation.y = 0.28 * Math.sin(t * 0.74);
@@ -149,7 +149,7 @@ export function watcherFigure(art: NightArt, id: 'karabasma' | 'sis-gozcusu', fa
         } else {
           const side = name.endsWith('L') ? 1 : -1;
           j.rotation.x =
-            (name.startsWith('boot') ? -0.24 : 0.13) * a * side -
+            (name.startsWith('boot') ? (following ? -0.48 : -0.24) : (following ? 0.25 : 0.13)) * a * side -
             (following && name.startsWith('sleeve') ? 0.55 : 0);
         }
       }

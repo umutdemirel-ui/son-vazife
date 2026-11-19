@@ -880,6 +880,10 @@ export function buildVillageWorld(
       2.65,
     );
 
+  // The wash interaction sits at the head end, separate from the transport tag.
+  for (const [id, at] of Object.entries(STRETCHERS))
+    registerTarget(`wash_${id}`, new THREE.Vector3(gasilPos.x + at.x - 1.05, gasilPos.y + 1.05, gasilPos.z + at.z), [0.38, 0.45, 0.62], 2.65);
+
   // A swung-open door must not leave its E hitbox in the middle of an empty doorway.
   for (const [id, hinge] of [
     ['gasil_door', gasil.doorPivot],

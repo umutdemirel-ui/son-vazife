@@ -326,6 +326,12 @@ export class SonVazifeEngine {
   private rinseStage = 0;
   private washingHand!: THREE.Group;
   private washAnim = 0;
+  private washTools!: Record<'cloth' | 'soap' | 'bucket', THREE.Group>;
+  private extraWashes = { mahmut: 0, yolcu: 0 };
+  private scareFigure: THREE.Object3D | null = null;
+  private scareTime = 0;
+  private scareFatal = false;
+  private nextScareTime = 45 + Math.random() * 45;
   private dirtyBasinReady = false;
   private dirtyBasinDrained = false;
   private gasilBulbOut = false;
@@ -728,6 +734,9 @@ export class SonVazifeEngine {
     this.washStage = 0;
     this.rinseStage = 0;
     this.washAnim = 0;
+    this.extraWashes = { mahmut: 0, yolcu: 0 };
+    if (this.scareFigure) { this.camera.remove(this.scareFigure); this.scareFigure = null; }
+    this.scareTime = 0; this.scareFatal = false; this.nextScareTime = this.elapsedTime + 45 + Math.random() * 45;
     if (this.washingHand) this.washingHand.visible = false;
     this.dirtyBasinReady = false;
     this.dirtyBasinDrained = false;
@@ -906,7 +915,20 @@ export class SonVazifeEngine {
     palm.scale.set(1.0, 0.65, 1.2);
     const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.045, 0.15), new THREE.MeshStandardMaterial({ color: 0xb9b29e, roughness: 1 }));
     cloth.position.set(0, -0.07, 0);
-    this.washingHand.add(sleeve, palm, cloth); this.washingHand.position.set(0.2, -0.3, -0.65);
+    // Both hands and a choice of modest, reusable tools for first-person work.
+    const leftSleeve = sleeve.clone(); leftSleeve.position.x = -0.45; leftSleeve.rotation.z = 0.85;
+    const leftPalm = palm.clone(); leftPalm.position.x = -0.51;
+    const clothTool = new THREE.Group(); clothTool.add(cloth);
+    const soapTool = new THREE.Group();
+    const soap = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.07, 0.08), new THREE.MeshStandardMaterial({ color: 0xaaa58d, roughness: 0.95 }));
+    soap.position.set(0.26, -0.18, -0.06); soapTool.add(soap);
+    const bucketTool = new THREE.Group();
+    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.105, 0.19, 12), new THREE.MeshStandardMaterial({ color: 0x777b77, roughness: 0.65, metalness: 0.28 }));
+    bucket.position.set(0.26, -0.25, -0.09); bucketTool.add(bucket);
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.012, 6, 16, Math.PI), new THREE.MeshStandardMaterial({ color: 0x555a58, metalness: 0.35, roughness: 0.6 }));
+    handle.position.set(0.26, -0.15, -0.09); bucketTool.add(handle);
+    this.washTools = { cloth: clothTool, soap: soapTool, bucket: bucketTool };
+    this.washingHand.add(sleeve, palm, leftSleeve, leftPalm, clothTool, soapTool, bucketTool); this.washingHand.position.set(0.2, -0.3, -0.65);
     this.washingHand.visible = false; this.camera.add(this.washingHand);
 
     this.syncQualityTierFromSettings();
@@ -1076,6 +1098,7 @@ export class SonVazifeEngine {
     this.act = save.act;
     this.survivalSeconds = save.survivalSeconds ?? 0;
     this.caughtCount = save.caughtCount ?? 0;
+    this.extraWashes = { mahmut: save.additionalWashes?.mahmut ?? 0, yolcu: save.additionalWashes?.yolcu ?? 0 };
     const homePosition = save.villageRevision === 6
       ? save.playerPos
       : migrateOldHomePosition(save.playerPos.x, save.playerPos.z, this.world.homes, save.villageRevision);
@@ -1242,6 +1265,7 @@ export class SonVazifeEngine {
       villageRevision: 6,
       survivalSeconds: this.survivalSeconds,
       caughtCount: this.caughtCount,
+      additionalWashes: { ...this.extraWashes },
       openHomes: this.world.homes.flatMap((home, i) => home.open ? [i] : []),
       mosqueDoorOpen: this.mosqueDoorOpen,
       closedOutposts: OUTPOST_IDS.filter(id => !this.world.outpostDoors[id].open),
@@ -1991,6 +2015,8 @@ export class SonVazifeEngine {
         'gasil_drain',
         'gasil_shutter',
         'receiving_mahmut',
+        'wash_mahmut',
+        'wash_yolcu',
         'night_call',
         'night_tag',
       ].includes(id)
@@ -2078,6 +2104,12 @@ export class SonVazifeEngine {
       return `[E] ${FIELD_NOTES[id as keyof typeof FIELD_NOTES].title} · İncele`;
     if (id === 'receiving_mahmut')
       return this.world.receiving.mahmut.visible ? '[E] Şoför Mahmut’un nakil fişini oku' : null;
+    if (id === 'wash_mahmut' || id === 'wash_yolcu') {
+      const who = id === 'wash_mahmut' ? 'mahmut' : 'yolcu';
+      if (!this.world.receiving[who].visible || (who === 'yolcu' && !this.hasEntry('night_tag'))) return null;
+      const stage = this.extraWashes[who];
+      return stage < 4 ? `[E] ${who === 'mahmut' ? 'Mahmut' : 'Yolcu'} · ${['Yüzü ve elleri temizle', 'Sağ tarafı sabunla', 'Sol tarafı sabunla', 'Temiz suyla durula'][stage]}` : null;
+    }
     if (id.startsWith('npc_')) {
       const npcId = id.replace('npc_', '') as NpcId;
       const def = VILLAGE_NPCS[npcId];
@@ -2197,7 +2229,7 @@ export class SonVazifeEngine {
   }
 
   private handleInteract(): void {
-    if (this.screen !== 'playing' || this.isOverlayBlockingMove() || !this.activeInteractId) return;
+    if (this.screen !== 'playing' || this.isOverlayBlockingMove() || this.scareFigure || !this.activeInteractId) return;
     const id = this.activeInteractId;
 
     if (!this.getInteractLabel(id)) return;
@@ -2213,7 +2245,7 @@ export class SonVazifeEngine {
       this.act = 6;
       this.audio.playTelephone();
       this.syncVisualMeshes();
-      this.showCaption('Cenaze nakil sedyesine yerleştirildi. Gasilhanedeki yolcu etiketini incele.', 6);
+      this.showCaption('Cenaze teslim edildi. Gasilhanede yolcu etiketini incele; Mahmut ve yolcunun yıkamasını sedyelerin baş ucunda tamamlayabilirsin.', 8);
       this.triggerAutoSave(true); this.pushHudState(true);
       return;
     }
@@ -2262,6 +2294,15 @@ export class SonVazifeEngine {
       this.showCaption(c.body, 6);
       return;
     }
+    if (id === 'wash_mahmut' || id === 'wash_yolcu') {
+      const who = id === 'wash_mahmut' ? 'mahmut' : 'yolcu';
+      if (!this.world.receiving[who].visible || (who === 'yolcu' && !this.hasEntry('night_tag')) || this.extraWashes[who] >= 4) return;
+      const stage = this.extraWashes[who]++;
+      this.startWashAnimation(stage === 3 ? 'bucket' : stage === 0 ? 'cloth' : 'soap');
+      this.audio.playWaterPour();
+      this.showCaption(this.extraWashes[who] === 4 ? `${who === 'mahmut' ? 'Mahmut' : 'Yolcu'} için yıkama tamamlandı.` : 'Yıkama sürüyor; sıradaki adımı uygulamak için yeniden etkileşime gir.', 4);
+      this.triggerAutoSave(false); this.pushHudState(true); return;
+    }
     if (id === 'receiving_mahmut') {
       this.showCaption(
         '072 · Şoför Mahmut. Sağlık ocağından mühürlü olarak alındı. Teslim alan: Bekçi Hasan.',
@@ -2285,6 +2326,7 @@ export class SonVazifeEngine {
       if (invId === 'kafur' && this.act < 4) return;
 
       item.collected = true;
+      if (invId === 'sabun' || invId === 'ibrik' || invId === 'gulsuyu') this.startWashAnimation(invId === 'sabun' ? 'soap' : invId === 'ibrik' ? 'bucket' : 'cloth');
       this.audio.playPickup();
       this.syncVisualMeshes();
 
@@ -2523,7 +2565,7 @@ export class SonVazifeEngine {
           this.showCaption('Setr-i avret örtüsü serildi, ılık su hazırlandı.', 3.6);
         } else if (!this.stepWashDone) {
           this.washStage++;
-          this.washAnim = 1.1;
+          this.startWashAnimation(this.washStage === 4 ? 'bucket' : this.washStage === 1 ? 'cloth' : 'soap');
           this.audio.playWaterPour();
           if (this.washStage < 4) {
             this.showCaption(['Yüz ve eller özenle temizlendi.', 'Sağ taraf yıkandı; şimdi sol tarafa geç.', 'Sol taraf yıkandı; temiz suyla durula.'][this.washStage - 1], 3.5);
@@ -2571,7 +2613,7 @@ export class SonVazifeEngine {
 
         if (!this.stepFinalCamphorDone) {
           this.rinseStage++;
-          this.washAnim = 1.1;
+          this.startWashAnimation('bucket');
           this.audio.playWaterPour();
           if (this.rinseStage < 3) {
             this.showCaption(`${this.rinseStage}. durulama tamamlandı; devam etmek için yeniden uygula.`, 3.5);
@@ -2586,6 +2628,7 @@ export class SonVazifeEngine {
           );
         } else if (!this.stepDryDone) {
           this.stepDryDone = true;
+          this.startWashAnimation('cloth');
           this.audio.playPickup();
           this.showCaption('Kurulama ve gülsuyu tamamlandı. Son adım: kefenle ve bağları bağla.', 4.2);
         } else if (!this.stepShroudDone) {
@@ -3162,6 +3205,40 @@ export class SonVazifeEngine {
     schedule();
   }
 
+  private startWashAnimation(tool: 'cloth' | 'soap' | 'bucket'): void {
+    this.washAnim = 1.5;
+    for (const [name, group] of Object.entries(this.washTools)) group.visible = name === tool;
+    this.washingHand.visible = true;
+  }
+
+  /** Show the actual attacker model (or its existing fallback) in camera space, not a separate monster. */
+  private startCreatureScare(source: THREE.Object3D, fatal = false): void {
+    if (this.scareFigure) this.camera.remove(this.scareFigure);
+    const figure = source.clone(true);
+    figure.visible = true; figure.position.set(0, -1.65, -1.5); figure.rotation.set(0, Math.PI, 0); figure.scale.setScalar(1);
+    this.camera.add(figure); this.scareFigure = figure; this.scareTime = 1.25; this.scareFatal = fatal;
+    this.audio.playViolationSting();
+  }
+
+  private updateCreatureScare(dt: number): boolean {
+    if (!this.scareFigure) return false;
+    this.scareTime = Math.max(0, this.scareTime - dt);
+    const phase = 1.25 - this.scareTime;
+    this.scareFigure.position.z = -1.55 + Math.sin(Math.min(1, phase * 2) * Math.PI / 2) * 0.65;
+    this.scareFigure.rotation.z = Math.sin(phase * 22) * 0.10;
+    this.scareFigure.rotation.x = 0.12 + Math.sin(phase * 13) * 0.08;
+    if (this.scareTime === 0) {
+      this.camera.remove(this.scareFigure); this.scareFigure = null;
+      if (this.scareFatal) {
+        this.scareFatal = false; this.screen = 'game_over';
+        this.endingReason = 'Kara Basma ve Sis Gözcüsü seni yağmurlu sokakta yakaladı. Köyün sisi seni yuttu.';
+        if (document.pointerLockElement === this.renderer.domElement) document.exitPointerLock();
+        this.pushHudState(true);
+      }
+    }
+    return true;
+  }
+
   private updateSimulation(dt: number): void {
     // Animate watermill wheel constantly
     if (this.world?.millAndBridge) {
@@ -3183,6 +3260,7 @@ export class SonVazifeEngine {
     }
 
     if (this.screen !== 'playing') return;
+    if (!this.isOverlayBlockingMove() && this.updateCreatureScare(dt)) return;
 
     if (this.registryCaseId || this.nightPage) return;
     if (!this.isOverlayBlockingMove()) {
@@ -3492,8 +3570,11 @@ export class SonVazifeEngine {
     if (this.washAnim > 0) {
       this.washAnim = Math.max(0, this.washAnim - dt);
       this.washingHand.visible = this.washAnim > 0;
-      this.washingHand.position.x = 0.2 + Math.sin((1.1 - this.washAnim) * 12) * 0.14;
-      this.washingHand.position.y = -0.3 + Math.sin((1.1 - this.washAnim) * 6) * 0.035;
+      const phase = 1.5 - this.washAnim;
+      this.washingHand.position.x = 0.2 + Math.sin(phase * 12) * 0.14;
+      this.washingHand.position.y = -0.3 + Math.sin(phase * 6) * 0.05;
+      this.washingHand.rotation.z = Math.sin(phase * 8) * 0.12;
+      this.washingHand.rotation.x = this.washTools.bucket.visible ? -0.35 * Math.sin(Math.min(1, phase / 1.5) * Math.PI) : 0;
     }
     // 6. Candle Flicker, Sway & Oil
     if (this.candleLit) {
@@ -3677,6 +3758,11 @@ export class SonVazifeEngine {
       if (dSis < 15.0 && this.unlockGlossaryEntry('anom_sisgozcusu')) {
         this.pushHudState(true);
       }
+      // Surprise appearances use the same figures and do not cause damage.
+      if (!blocked && !isIndoors && !this.scareFigure && this.elapsedTime >= this.nextScareTime) {
+        this.nextScareTime = this.elapsedTime + 45 + Math.random() * 45;
+        this.startCreatureScare(Math.random() < 0.5 ? this.world.karaBasma.root : this.world.sisGozcusu);
+      }
       const closestThreat = Math.min(dKara, dSis);
       const catchDistance = Math.min(a ? dKara : Infinity, b ? dSis : Infinity);
       dangerProximity = THREE.MathUtils.clamp(1 - (closestThreat - 2.2) / 14.0, 0, 1);
@@ -3697,14 +3783,8 @@ export class SonVazifeEngine {
           if (catchDistance < 1.55 && this.karaCatchCooldown <= 0) {
             this.karaCatchCooldown = 6.5;
             this.caughtCount += 1;
+            this.startCreatureScare(a && (!b || dKara <= dSis) ? this.world.karaBasma.root : this.world.sisGozcusu, this.caughtCount >= 3);
             if (this.caughtCount >= 3) {
-              this.screen = 'game_over';
-              this.endingReason =
-                'Kara Basma ve Sis Gözcüsü seni yağmurlu sokakta yakaladı. Köyün sisi seni yuttu.';
-              if (document.pointerLockElement === this.renderer.domElement) {
-                document.exitPointerLock();
-              }
-              this.pushHudState(true);
               return;
             } else {
               this.violateRule(
@@ -3976,7 +4056,9 @@ export class SonVazifeEngine {
     if (this.finalCall) return { actTitle: 'SON YOL · KAÇIŞ', objective: 'İstasyondaki son perona ulaş ve köyden kaç.', location };
     if (this.act >= 6) {
       const next = this.nextNight() ?? 'night_call';
-      return { actTitle: NIGHT_TITLES[PAGES[next].act], objective: PAGES[next].objective, location };
+      const pending = this.isInsideGasilhane(this.playerPos) && (this.extraWashes.mahmut < 4 || (this.hasEntry('night_tag') && this.extraWashes.yolcu < 4));
+      const objective = pending ? `Gassallık: sedyelerin baş ucunda Mahmut ve yolcuyu adım adım yıka. Sonra: ${PAGES[next].objective}` : PAGES[next].objective;
+      return { actTitle: NIGHT_TITLES[PAGES[next].act], objective, location };
     }
     if (this.act === 1) {
       const collectedCount = ['defter', 'kefen', 'sabun', 'ibrik'].filter(
@@ -4202,9 +4284,12 @@ export class SonVazifeEngine {
     this.vertexLight.restore();
     this.envTarget?.dispose();
     this.postProcessing?.dispose();
+    const handGeometries = new Set<THREE.BufferGeometry>(), handMaterials = new Set<THREE.Material>();
     this.washingHand.traverse(o => {
-      if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }
+      if (o instanceof THREE.Mesh) { handGeometries.add(o.geometry); handMaterials.add(o.material as THREE.Material); }
     });
+    handGeometries.forEach(g => g.dispose()); handMaterials.forEach(m => m.dispose());
+    if (this.scareFigure) this.camera.remove(this.scareFigure);
     this.world.dispose();
     this.assets.dispose();
     this.textures.disposeAll();

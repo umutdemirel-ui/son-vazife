@@ -173,7 +173,7 @@ export class NightPatrol {
       dz = (chasing ? player.z : z) - p.z,
       d = Math.hypot(dx, dz);
     if (!chasing && d < 0.3) this.next = (this.next + 1) % route.length;
-    const step = Math.min(d, dt * (chasing ? 3.35 : this.actor === 0 ? 1.55 : 1.22));
+    const step = Math.min(d, dt * (chasing ? 5.8 : this.actor === 0 ? 1.55 : 1.22));
     if (d > 0.015) {
       const oldX = p.x,
         oldZ = p.z;
