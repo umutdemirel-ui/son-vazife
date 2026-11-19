@@ -17,6 +17,8 @@ try {
  if((await page.evaluate(()=>window.__dermanliTest.clock()))-clockBefore>.05)throw Error('Clock advanced while the map was open');
  await page.getByRole('button',{name:'Kapat'}).click();await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);
 
+ const initialSpirits=await page.evaluate(()=>window.__dermanliTest.spirits());
+ if(initialSpirits.elif||initialSpirits.riza)throw Error('Late-night spirits appeared during the first day');
  await page.waitForFunction(()=>window.__dermanliTest.residentModels().every(r=>r.loaded),{timeout:60000});
  await page.waitForFunction(()=>{const art=window.__dermanliTest.squareArt();return art.fountain&&art.tree;},null,{timeout:60000});
  const loaded=await page.evaluate(()=>window.__dermanliTest.verifyThreatArt());
@@ -59,7 +61,11 @@ try {
  if(!(await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell.solved)))throw Error('Bell progress was not restored');
  for (let night=1;night<=5;night++) {
    const steps=['slab','candle','slab','soap','slab','soap','slab','soap','slab','soap','slab','ewer','slab','ewer','bucket','drain','camphor','slab','camphor','shroud','slab','shroud','slab','cemetery'];
-   if(night>1){await page.evaluate(()=>window.__dermanliTest.advanceToNight());await page.waitForFunction(()=>window.__dermanliTest.visualState().litWindows===1,null,{timeout:15000});if(night===2){for(const id of ['memory_bekci','memory_serife','memory_kenan','memory_idris'])await action(id);for(const id of ['memory_bekci','memory_serife','memory_kenan','memory_idris'])if(!(await state()).clues.includes(id))throw Error(`Missing character ${id}`);}await action('arrival');}
+   if(night>1){await page.evaluate(()=>window.__dermanliTest.advanceToNight());await page.waitForFunction(()=>window.__dermanliTest.visualState().litWindows===1,null,{timeout:15000});if(night===2){for(const id of ['memory_bekci','memory_serife','memory_kenan','memory_idris'])await action(id);for(const id of ['memory_bekci','memory_serife','memory_kenan','memory_idris'])if(!(await state()).clues.includes(id))throw Error(`Missing character ${id}`);}if(night>=4){
+     await page.waitForFunction(n=>{const spirits=window.__dermanliTest.spirits();return spirits.elif&&(n===4?!spirits.riza:spirits.riza);},night,{timeout:15000});
+     const spirit=night===4?'elif':'riza';await action(spirit);
+     if(!(await state()).clues.includes(spirit))throw Error(`Missing spirit conversation ${spirit}`);
+   }await action('arrival');}
    for (const [index,id] of steps.entries()) {
      if(night===1 && index===1){
        // At the slab, neither E nor F plus strokes may wash an unlit body.

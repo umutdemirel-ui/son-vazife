@@ -100,6 +100,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         worldTools: () => Object.fromEntries(Object.entries(world.stationMeshes).map(([id,mesh])=>[id,mesh.visible])),
         squareArt: () => ({fountain:!!world.fountain.getObjectByName('hayrat'),tree:world.squareTree.visible}),
         visualState: () => ({mounds:world.graveMounds.filter(m=>m.visible).length,litWindows:world.emptyHomeWindows.filter(w=>w.visible).length,fountain:world.fountainWater.visible}),
+        spirits: () => ({elif:world.elif.visible,riza:world.riza.visible}),
         residentModels: () => world.residents.map(r=>({id:r.id,loaded:!!r.visual.group.getObjectByName('HandL')})),
         verifyThreatArt: async () => {await world.loadThreatArt();return {pursuer:!!world.pursuer.root.getObjectByName('Dokulu model'),scare:!!world.scare.root.getObjectByName('Dokulu model')};},
         advanceToNight: () => {if(!isNight(elapsed))elapsed=Math.floor(elapsed/DAY_SECONDS)*DAY_SECONDS+DAY_SECONDS/2;},
@@ -236,8 +237,8 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       world.updateArt(pos.x,pos.z);
       if(night)world.wheel.rotation.x+=dt*.5;
       for(const r of world.residents){r.visual.group.visible=memoryAvailable(ritual.night,night)&&!ritual.ending;if(r.visual.group.visible){r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
-      world.elif.visible=spiritAvailable('elif',ritual.night,night);world.riza.visible=spiritAvailable('riza',ritual.night,night);
-      world.elif.position.y=.08*Math.sin(elapsed*1.3);world.riza.position.y=.06*Math.sin(elapsed*.9);
+      world.elif.visible=!ritual.ending&&spiritAvailable('elif',ritual.night,night);world.riza.visible=!ritual.ending&&spiritAvailable('riza',ritual.night,night);
+      for(const spirit of [world.elif,world.riza])if(spirit.visible){spirit.position.y=dermanliSurfaceHeight(spirit.position.x,spirit.position.z)+.025+.015*Math.sin(elapsed*1.3);spirit.rotation.y=Math.atan2(pos.x-spirit.position.x,pos.z-spirit.position.z);}
       world.homeLight.intensity=night ? 4.5+Math.sin(elapsed*11)*.12 : 1.5;
       const visuals=villageNightVisuals(ritual.night,night,ritual.body==='done');
       world.graveMounds.forEach((m,i)=>{m.visible=i<visuals.completed;});

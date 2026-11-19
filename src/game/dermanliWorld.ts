@@ -15,6 +15,7 @@ import {createHorrorFigures,disposeHorrorFigures} from './horrorFigures';
 import {surfaceUrl} from './quality';
 import {WorkshopAssets} from './workshopAssets';
 import { BELL_SYMBOLS } from './dermanliBell';
+import {createDermanliSpirit,disposeDermanliSpirits} from './dermanliSpirits';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import { translateColliders, type BoxCollider } from './collision';
 
@@ -279,13 +280,10 @@ export function createDermanliWorld(scene: THREE.Scene) {
   for(const side of [-1,1])colliders.push({minX:bx-3.4,maxX:bx+3.4,minZ:bz+side*1.5-.08,maxZ:bz+side*1.5+.08});
   // These are outdoor memories, not residents inside houses.
   const spiritMaterial=new THREE.MeshStandardMaterial({color:0xbfc6c1,roughness:.9,transparent:true,opacity:.52,depthWrite:false});ownMaterial.push(spiritMaterial);
-  const makeSpirit=(x:number,z:number,scale:number)=>{
-    const group=new THREE.Group(); group.position.set(x,0,z);group.scale.setScalar(scale);
-    const bodyGeo=new THREE.ConeGeometry(.34,1.1,10),headGeo=new THREE.SphereGeometry(.19,12,10);ownGeometry.push(bodyGeo,headGeo);
-    const body=new THREE.Mesh(bodyGeo,spiritMaterial);body.position.y=.65;const head=new THREE.Mesh(headGeo,spiritMaterial);head.position.y=1.38;
-    group.add(body,head);group.visible=false;objects.add(group);return group;
-  };
-  const elif=makeSpirit(S.school[0]+5,S.school[1]+4,.75),riza=makeSpirit(S.square[0]-4,S.square[1]-3,1.15);
+  const elif=createDermanliSpirit('elif'),riza=createDermanliSpirit('riza');
+  elif.position.set(S.school[0]+5,dermanliSurfaceHeight(S.school[0]+5,S.school[1]+4),S.school[1]+4);
+  riza.position.set(S.square[0]-4,dermanliSurfaceHeight(S.square[0]-4,S.square[1]-3),S.square[1]-3);
+  objects.add(elif,riza);
   target('elif','Elif ile konuş',[S.school[0]+5,S.school[1]+4],2.2);
   target('riza','Muhtar Rıza ile konuş',[S.square[0]-4,S.square[1]-3],2.2);
   // The previous village cast appears only outdoors as memories; homes remain empty.
@@ -374,5 +372,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu());
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }
