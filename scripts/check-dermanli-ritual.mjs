@@ -17,6 +17,8 @@ try {
  if((await page.evaluate(()=>window.__dermanliTest.clock()))-clockBefore>.05)throw Error('Clock advanced while the map was open');
  await page.getByRole('button',{name:'Kapat'}).click();await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);
 
+ const loaded=await page.evaluate(()=>window.__dermanliTest.verifyThreatArt());
+ if(!loaded.pursuer||!loaded.scare)throw Error(`Original threat models failed to load: ${JSON.stringify(loaded)}`);
  const missing=await page.evaluate(()=>window.__dermanliTest.scanReachability());
  if(missing.length)throw Error(`Unreachable targets from the entrance: ${missing.join(', ')}`);
  const state=()=>page.evaluate(()=>window.__dermanliTest.state());

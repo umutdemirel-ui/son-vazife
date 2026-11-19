@@ -3,9 +3,9 @@ import { createDermanliTerrain } from './dermanliTerrain';
 import { DERMANLI_PATHS, DERMANLI_SITES as S, dermanliHeight, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
 import { VillageCraft } from './villageCraft';
-import { createMosqueAndGasilhane, createKaraBasma, createCopperEwerAndSoap, createMuhtarHouse } from './models';
+import { createMosqueAndGasilhane, createKaraBasma, createSisGozcusu, createCopperEwerAndSoap, createMuhtarHouse } from './models';
 import { buildHome, type HomeSpec } from './homes';
-import { NightArt } from './nightArt';
+import { NightArt, watcherFigure } from './nightArt';
 import { funeralFigure } from './funerary';
 import {createHorrorFigures,disposeHorrorFigures} from './horrorFigures';
 import {surfaceUrl} from './quality';
@@ -65,7 +65,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
     target(id,label,[gx+x,gz+z],1.65);
   }
   target('bucket','Kirli su kovası',[gx+.25,gz+1.05],1.5);
-  target('drain','Gider',[gx+2.5,gz+2.8],1.3);
+  target('drain','Gider',[gx-1.9,gz+2.0],1.3);
   target('discard','Kirli suyu dışarı dök',[gx+5,gz+4],1.2);
   target('arrival','Cenazeyi al',[gx+5,gz],1.6);
   target('forest','Orman yolu · Ayrıl',[-56.4,21.6],2.7);
@@ -174,6 +174,10 @@ export function createDermanliWorld(scene: THREE.Scene) {
   coords.forEach(([x,z],i)=>{const y=dermanliHeight(x,z);dummy.position.set(x,y,z);dummy.rotation.y=random()*6.28;dummy.scale.setScalar(.8+random()*.4);dummy.updateMatrix();pines.setMatrixAt(i,dummy.matrix);colliders.push({minX:x-.25,maxX:x+.25,minZ:z-.25,maxZ:z+.25});});objects.add(pines);
   coords.forEach(([x,z],i)=>{ const y=dermanliHeight(x,z); dummy.position.set(x,y+3.8,z); dummy.rotation.y=random()*6.28; dummy.scale.setScalar(.75+random()*.6); dummy.updateMatrix(); trees.setMatrixAt(i,dummy.matrix); dummy.position.y=y+1; dummy.scale.setScalar(1); dummy.updateMatrix(); trunks.setMatrixAt(i,dummy.matrix); }); objects.add(trees,trunks);
   const figures=createHorrorFigures(); for(const figure of figures){figure.visible=false;objects.add(figure);}
-  const apparition=createKaraBasma().root; apparition.position.set(-1000,0,-1000); objects.add(apparition);
-  return {targets,colliders,gasil,homes,apparition,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,elif,riza,master,updateArt(x:number,z:number){art.approach({x,z});}, dispose(){ disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  // The original animated models load on demand; solid figures remain while loading fails.
+  const pursuer=watcherFigure(art,'karabasma',createKaraBasma().root);
+  const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu());
+  pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
+  art.near('sis-gozcusu',gx,gz,25);
+  return {targets,colliders,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,elif,riza,master,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

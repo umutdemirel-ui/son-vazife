@@ -18,11 +18,12 @@ export class DermanliThreat {
     }
     const dx=player.x-this.x,dz=player.z-this.z,d=Math.hypot(dx,dz);
     if(d>28){this.active=false;this.next=35;return 'none';}
-    if(!wallBetween(this.x,this.z,player.x,player.z,walls,.15) && d>.01){
+    const visible=!wallBetween(this.x,this.z,player.x,player.z,walls,.15);
+    if(visible && d>.01){
       this.x+=dx/d*dt*2.35;this.z+=dz/d*dt*2.35;
       for(const wall of walls)pushOutsideBox(this,wall,.35);
     }
-    if(d<1.15&&this.grace===0){this.active=false;this.next=45;this.grace=8;return 'hit';}
+    if(visible&&d<1.15&&this.grace===0){this.active=false;this.next=45;this.grace=8;return 'hit';}
     return 'none';
   }
 }

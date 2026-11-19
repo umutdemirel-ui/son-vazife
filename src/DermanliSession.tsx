@@ -62,13 +62,13 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     const ritual=saved?.ritual??newRitual();
     const bell=saved?.bell??newBell(saved?0:undefined);
     let elapsed=saved?.elapsed??0, nextCue=0, hits=saved?.hits??0, nextRandomScare=75+Math.random()*45; const threat=new DermanliThreat(); const seenEvents=new Set(saved?.events??[]);
-    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false; let scrub=newScrub();
+    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false, threatArtRequested=false; let scrub=newScrub();
     const save=()=>writeDermanliSave({version:1,ritual,x:pos.x,z:pos.z,yaw,pitch,elapsed,events:[...seenEvents],hits,bell});
     const keys=new Set<string>();
     const onMove=(e:MouseEvent)=>{if(!locked)return; yaw-=e.movementX*.0022; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*.0022));};
     const onLock=()=>{locked=document.pointerLockElement===renderer.domElement; if(!locked){keys.clear();workHeld=false;workProgress=0;}};
     const targetAt=(x:number,z:number,angle:number)=>world.targets.map(t=>{const dx=t.x-x,dz=t.z-z,dist=Math.hypot(dx,dz);return {...t,dist,dot:dist<.1?1:(dx*-Math.sin(angle)+dz*-Math.cos(angle))/dist};})
-      .filter(t=>t.dist<t.radius && t.dot>.45 && (t.id!=='discard'||ritual.held==='bucket') && (t.id!=='forest'||ritual.body!=='burialCarry') && ((t.id!=='elif'&&t.id!=='riza')||spiritAvailable(t.id,ritual.night,isNight(elapsed))))
+      .filter(t=>t.dist<t.radius && t.dot>.45 && (t.id!=='discard'||ritual.held==='bucket') && (t.id!=='drain'||(ritual.held==='bucket'&&ritual.dirty)) && (t.id!=='forest'||ritual.body!=='burialCarry') && ((t.id!=='elif'&&t.id!=='riza')||spiritAvailable(t.id,ritual.night,isNight(elapsed))))
       .sort((a,b)=>(a.dist+(1-a.dot)*2)-(b.dist+(1-b.dot)*2))[0];
     const target=()=>targetAt(pos.x,pos.z,yaw);
     // Development-only end-to-end helper: move to a collision-free viewpoint but
@@ -77,6 +77,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       const debug = {
         state: () => JSON.parse(JSON.stringify(ritual)),
         clock: () => elapsed,
+        verifyThreatArt: async () => {await world.loadThreatArt();return {pursuer:!!world.pursuer.root.getObjectByName('Dokulu model'),scare:!!world.scare.root.getObjectByName('Dokulu model')};},
         advanceToNight: () => {if(!isNight(elapsed))elapsed=Math.floor(elapsed/DAY_SECONDS)*DAY_SECONDS+DAY_SECONDS/2;},
         scanReachability: () => {
           const minX=-90,maxX=90,minZ=-105,maxZ=105,w=maxX-minX+1,h=maxZ-minZ+1;
@@ -198,8 +199,10 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       if(locked && Math.hypot(pos.x-S.gasilhane[0],pos.z-S.gasilhane[1])>8 && leaveUnwatched(ritual)){caption='Sabır mumu yanmadan uzaklaştın. Arkanda bir hareket duyuluyor.';captionUntil=now+7000;audio.playViolationSting();scareUntil=now+1100;save();}
       const safe=Math.hypot(pos.x-S.gasilhane[0],pos.z-S.gasilhane[1])<7 || Math.hypot(pos.x-S.gassalHome[0],pos.z-S.gassalHome[1])<5;
       const result=locked?threat.tick(dt,night&&ritual.night>=2&&!ritual.ending,safe,{...pos,yaw},world.colliders):'none';
-      const pursuer=world.figures[0];pursuer.visible=threat.active;
-      if(threat.active){pursuer.position.set(threat.x,dermanliHeight(threat.x,threat.z),threat.z);pursuer.rotation.y=Math.atan2(pos.x-threat.x,pos.z-threat.z);const head=pursuer.getObjectByName('scare-head');if(head)head.rotation.z=Math.sin(elapsed*3)*.08;}
+      const pursuer=world.pursuer.root;pursuer.visible=threat.active;
+      if(!threatArtRequested&&(threat.active||now<scareUntil)){threatArtRequested=true;void world.loadThreatArt();}
+      world.pursuer.pose(elapsed,threat.active);world.scare.pose(elapsed,false);
+      if(threat.active){pursuer.position.set(threat.x,dermanliHeight(threat.x,threat.z),threat.z);pursuer.rotation.y=Math.atan2(pos.x-threat.x,pos.z-threat.z);}
       if(result==='hit'){hits=Math.min(3,hits+1);scareUntil=now+1200;audio.playViolationSting();caption='Bir gölge sana çarptı. Uzaklaş!';captionUntil=now+5000;if(hits===3){ritual.ending='dark';caption='Halil gücünü kaybetti; köyün sessizliği onu içine aldı.';if(document.pointerLockElement===renderer.domElement)document.exitPointerLock();}save();}
       if(locked&&night&&!safe&&!ritual.ending&&elapsed>=nextRandomScare){scareUntil=now+850;audio.playWhisper(.7);nextRandomScare=elapsed+75+Math.random()*60;}
       world.gasil.vigilFlame.visible=ritual.candle;world.gasil.vigilLight.intensity=ritual.candle?1.8:0;
@@ -209,7 +212,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       world.elif.position.y=.08*Math.sin(elapsed*1.3);world.riza.position.y=.06*Math.sin(elapsed*.9);
       world.homeLight.intensity=night ? 4.5+Math.sin(elapsed*11)*.12 : 1.5;
       world.slabBody.visible=ritual.body==='slab'&&ritual.stage<6;world.slabBody.rotation.z=ritual.risen?-Math.PI/2:0;
-      world.apparition.visible=now<scareUntil; if(world.apparition.visible){world.apparition.position.set(pos.x-Math.sin(yaw)*1.8,dermanliHeight(pos.x,pos.z),pos.z-Math.cos(yaw)*1.8);world.apparition.rotation.y=yaw+Math.PI;}
+      world.apparition.visible=now<scareUntil; if(world.apparition.visible){world.apparition.position.set(pos.x-Math.sin(yaw)*1.8,dermanliHeight(pos.x,pos.z),pos.z-Math.cos(yaw)*1.8);world.apparition.rotation.y=yaw;}
       world.gasil.pestemalMesh.visible=ritual.body==='slab'&&ritual.stage<6;world.gasil.kefenWrapGroup.visible=ritual.body==='slab'&&ritual.stage===6;
       world.gasil.basinWaterMesh.visible=ritual.dirty;
       world.arrivalBody.visible=ritual.body==='arrival'&&night;
