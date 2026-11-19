@@ -374,14 +374,14 @@ export class VillageCraft {
     return g;
   }
 
-  fountain() {
+  fountain(withWater = true) {
     const g = new THREE.Group();
     g.name = 'Hayrat çeşmesi';
     const fallback = new THREE.Group();
     block(fallback, this.masonry, 2.37, 2.59, 0.55, 0, 1.26, -0.42, 2.1);
     block(fallback, this.limestone, 2.1, 0.54, 0.25, 0, 0.28, 0.66);
     block(fallback, this.limestone, 0.48, 0.095, 0.48, 0.72, 1.1525, 0.095);
-    block(g, this.water, 1.74, 0.016, 0.7, 0, 0.426, 0.18);
+    if (withWater) block(g, this.water, 1.74, 0.016, 0.7, 0, 0.426, 0.18);
     this.plate(g, 'KÖY ÇEŞMESİ', 0.86, 0.178, 0, 2.442, -0.198);
     const brass = this.metal;
     const outlet = new THREE.CatmullRomCurve3([

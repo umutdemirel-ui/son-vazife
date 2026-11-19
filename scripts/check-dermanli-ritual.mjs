@@ -18,6 +18,7 @@ try {
  await page.getByRole('button',{name:'Kapat'}).click();await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);
 
  await page.waitForFunction(()=>window.__dermanliTest.residentModels().every(r=>r.loaded),{timeout:60000});
+ await page.waitForFunction(()=>{const art=window.__dermanliTest.squareArt();return art.fountain&&art.tree;},null,{timeout:60000});
  const loaded=await page.evaluate(()=>window.__dermanliTest.verifyThreatArt());
  if(!loaded.pursuer||!loaded.scare)throw Error(`Original threat models failed to load: ${JSON.stringify(loaded)}`);
  const los=await page.evaluate(()=>{const [x,z]=window.__dermanliTest.gasilhane();return {
@@ -36,7 +37,7 @@ try {
     await page.waitForFunction(before=>{const s=window.__dermanliTest.state();return s.stage!==before.stage||s.soaped!==before.soaped;},before,{timeout:12000});await page.keyboard.up('f');}
   else await page.keyboard.press('e');
  }
- for (const id of ['home','school','mosque','mill','well','cemetery']) await action(id);
+ for (const id of ['home','school','mosque','mill','well','coffee','cemetery']) await action(id);
  if((await state()).clues.includes('school'))throw Error('Locked school record was collected before solving bells');
  if(!(await state()).clues.includes('mosque'))throw Error('Mosque record was not collected');
  const bellState=await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell);

@@ -1,6 +1,6 @@
 import { DERMANLI_PATHS, DERMANLI_SITES as S, DERMANLI_BOUNDS as B, type Point } from '../game/dermanliMap';
 const places: readonly {name:string; pos:Point; dx?:number; dz?:number}[] = [
- {name:'Giriş',pos:S.entrance,dz:5}, {name:'Meydan',pos:S.square,dz:5}, {name:'Muhtarlık',pos:S.office,dx:4},
+ {name:'Giriş',pos:S.entrance,dz:5}, {name:'Meydan',pos:S.square,dz:5}, {name:'Kahvehane',pos:S.coffee,dx:-14,dz:5}, {name:'Muhtarlık',pos:S.office,dx:4},
  {name:'Gasilhane',pos:S.gasilhane,dx:4}, {name:'Cami',pos:S.mosque,dx:-2,dz:-4},
  {name:'Mezarlık',pos:S.cemetery,dz:-4}, {name:'Gassal evi',pos:S.gassalHome,dx:4},
  {name:'Kuyu',pos:S.well,dx:-2,dz:-4}, {name:'Orman yolu',pos:[-56.4,21.6],dx:-2,dz:5}, {name:'Okul',pos:S.school,dx:-2,dz:-4},

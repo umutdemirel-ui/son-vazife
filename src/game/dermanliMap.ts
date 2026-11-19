@@ -34,11 +34,11 @@ export const DERMANLI_PATHS: readonly SurveyPath[] = [
   path('tarla-gassal-kestirme', 3, curve([250,470],[255,440],[250,410],[254,375]), 'trail'),
   path('dere', 14, join(curve([360,0],[345,90],[365,180],[350,260]), curve([350,260],[335,340],[345,340],[355,420]), curve([355,420],[365,500],[368,500],[358,560])), 'water'),
 ];
-const gasilhaneSite=mapPoint(253,204);
+const gasilhaneSite=mapPoint(253,204),squareSite=mapPoint(190,322);
 export const DERMANLI_SITES = {
   office: [9, 17] as Point,
   entrance: mapPoint(190, 536), mosque: [gasilhaneSite[0],gasilhaneSite[1]-5.7] as Point, gasilhane: gasilhaneSite,
-  cemetery: mapPoint(190, 71), square: mapPoint(190, 322), gassalHome: mapPoint(254, 360),
+  cemetery: mapPoint(190, 71), square: squareSite, coffee: [squareSite[0]-9,squareSite[1]+5] as Point, gassalHome: mapPoint(254, 360),
   well: mapPoint(50, 255), school: mapPoint(61, 116), mill: mapPoint(311, 80),
   barn: mapPoint(216, 511), field: mapPoint(290, 505), bridge: mapPoint(353, 319),
   abandonedHomes: [[126,241],[131,296],[148,383],[288,265]].map(([x,y]) => mapPoint(x,y)),
