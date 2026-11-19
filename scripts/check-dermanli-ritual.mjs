@@ -24,7 +24,8 @@ try {
   const result=await page.evaluate(id=>window.__dermanliTest.walkToTarget(id),id);
   if(result!=='ok') throw Error(result);
   const before=await state();
-  if(id==='slab'&&before.body==='slab'&&before.stage<6){await page.keyboard.down('f');await page.waitForFunction(before=>{const s=window.__dermanliTest.state();return s.stage!==before.stage||s.soaped!==before.soaped;},before,{timeout:12000});await page.keyboard.up('f');}
+  if(id==='slab'&&before.body==='slab'&&before.stage<6){await page.keyboard.down('f');if(before.stage<=2){for(const key of ['a','d','a','d'])await page.keyboard.press(key);}
+    await page.waitForFunction(before=>{const s=window.__dermanliTest.state();return s.stage!==before.stage||s.soaped!==before.soaped;},before,{timeout:12000});await page.keyboard.up('f');}
   else await page.keyboard.press('e');
  }
  for (const id of ['home','school','mill','well','cemetery']) await action(id);
@@ -41,10 +42,22 @@ try {
  for (let night=1;night<=5;night++) {
    const steps=['slab','candle','slab','soap','slab','soap','slab','soap','slab','soap','slab','ewer','slab','ewer','bucket','drain','camphor','slab','camphor','shroud','slab','shroud','slab','cemetery'];
    if(night>1){await page.evaluate(()=>window.__dermanliTest.advanceToNight());await action('arrival');}
-   for (const id of steps) await action(id);
+   for (const [index,id] of steps.entries()) {
+     if(night===1 && index===1){
+       // At the slab, neither E nor F plus strokes may wash an unlit body.
+       await page.keyboard.press('e');await page.keyboard.down('f');for(const key of ['a','d','a','d'])await page.keyboard.press(key);await page.keyboard.up('f');
+       if((await state()).stage!==0)throw Error('Washing proceeded without the candle');
+     }
+     if(night===1 && index===2){
+       // Repeating one direction and releasing F must not finish a scrub.
+       await page.keyboard.down('f');for(const key of ['a','a','a','a'])await page.keyboard.press(key);await page.keyboard.up('f');
+       if((await state()).stage!==0)throw Error('Repeated direction completed a scrub');
+     }
+     await action(id);
+   }
    const s=await state(); if(night<5 && (s.night!==night+1||s.body!=='arrival')) throw Error(`night ${night} failed ${JSON.stringify(s)}`);
  }
  const end=await state();if(end.ending!=='peace')throw Error(`incorrect ending ${JSON.stringify(end)}`);
  if(errors.length)throw Error(errors.join('\n'));
- console.log('Five nights completed using collision-resolved movement and real E actions; peace ending and no page errors.');
+ console.log('Five nights completed using collision-resolved movement and real keyboard interactions; peace ending and no page errors.');
 } finally { await browser.close(); }

@@ -1,8 +1,14 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {interactRitual,leaveUnwatched,newRitual} from '../src/game/dermanliRitual';
+import {interactRitual,leaveUnwatched,newRitual,workProblem} from '../src/game/dermanliRitual';
 const act=(s:ReturnType<typeof newRitual>,id:string,night=true)=>interactRitual(s,id,night,true);
 test('washing requires a lit candle and deliberate work',()=>{const s=newRitual();act(s,'arrival');act(s,'slab');assert.match(interactRitual(s,'slab',true,true),/mumunu yak/);assert.equal(s.stage,0);act(s,'candle');assert.match(interactRitual(s,'slab'),/basılı tut/);assert.equal(s.stage,0);act(s,'slab');assert.equal(s.stage,1);});
+test('manual work checks candle, required equipment and dirty water before starting',()=>{
+ const s=newRitual();act(s,'arrival');act(s,'slab');assert.match(workProblem(s)!,/mumunu yak/);act(s,'candle');assert.equal(workProblem(s),null);
+ act(s,'slab');assert.match(workProblem(s)!,/Sabunu al/);act(s,'soap');assert.equal(workProblem(s),null);
+ act(s,'slab');assert.match(workProblem(s)!,/Sabunu bırak/);act(s,'soap');assert.equal(workProblem(s),null);
+ s.dirty=true;assert.match(workProblem(s)!,/kirli su/);
+});
 test('separate tools and two-handed washing enforce the ritual and safe disposal',()=>{
  const s=newRitual(); act(s,'arrival');act(s,'slab');act(s,'candle');act(s,'slab');
  act(s,'soap');act(s,'slab');assert.equal(s.stage,1);act(s,'slab');assert.equal(s.stage,1);act(s,'soap');act(s,'slab');

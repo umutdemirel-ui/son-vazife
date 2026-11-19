@@ -19,6 +19,15 @@ export function ritualObjective(s: RitualState, night = true): string {
   if(s.dirty) return s.held==='bucket' ? 'Kirli suyu içerideki gidere dök.' : 'Kirli suyu kovayla alıp gidere taşı.';
   return ['Boş ellerle yüzü ve elleri temizle.',s.soaped?'Sabunu bırak, iki elle sağ tarafı yıka.':'Sabunu al, sağ tarafa sür.',s.soaped?'Sabunu bırak, iki elle sol tarafı yıka.':'Sabunu al, sol tarafa sür.','İbriği al ve temiz suyla durula.','Kâfuru al ve uygula.','Kefeni al ve sar.','Cenazeyi mezarlığa taşımak için al.'][s.stage] ?? '';
 }
+/** Explain why the current manual operation cannot start without changing state. */
+export function workProblem(s:RitualState): string | null {
+  if(s.body!=='slab'||s.stage>=6)return 'Teneşirde yapılacak bir işlem yok.';
+  if(s.dirty)return 'Önce kirli suyu kovayla gidere taşı.';
+  if(!s.candle)return 'Yıkamaya başlamadan sabır mumunu yak.';
+  const expected: Held = s.stage===0?'empty':s.stage<=2?(s.soaped?'empty':'soap'):s.stage===3?'ewer':s.stage===4?'camphor':'shroud';
+  if(s.held!==expected)return ritualObjective(s);
+  return null;
+}
 export function interactRitual(s:RitualState, id:string, night = true, work = false): string {
   if(s.ending) return 'Vazife sona erdi.';
   if(id==='arrival') {
@@ -52,9 +61,8 @@ export function interactRitual(s:RitualState, id:string, night = true, work = fa
     if(s.body==='carrying'){s.body='slab';return 'Cenaze teneşire yerleştirildi. Sabır mumunu yak.';}
     if(s.body!=='slab')return 'Teneşir boş.';
     if(s.stage===6){if(s.held!=='empty')return 'Cenazeyi taşımadan önce elindekini bırak.'; s.body='burialCarry';return 'Kefenlenen cenaze alındı. Mezarlığa götür.';}
-    if(s.dirty)return 'Önce kirli suyu kovayla gidere taşı.';
-    if(!s.candle)return 'Yıkamaya başlamadan sabır mumunu yak.';
-    if(!work)return 'Teneşirde çalışmak için F tuşunu basılı tut.';
+    const problem=workProblem(s);if(problem)return problem;
+    if(!work)return s.stage<=2 ? 'F tuşunu basılı tutup A ve D ile sırayla yıka.' : 'Teneşirde çalışmak için F tuşunu basılı tut.';
     if(s.stage===0 && s.held==='empty'){s.stage=1;return 'Yüz ve eller temizlendi.';}
     if(s.stage===1||s.stage===2){
       if(!s.soaped&&s.held==='soap'){s.soaped=true;return 'Sabun sürüldü. Sabunu bırakıp iki elinle yıka.';}

@@ -6,7 +6,7 @@ import { pushOutsideBox } from './game/collision';
 import {moveDermanliPlayer} from './game/dermanliMovement';
 import { createWorkHands, armSwing } from './game/handRig';
 import { HorrorAudioEngine } from './game/audio';
-import { newRitual, interactRitual, leaveUnwatched, ritualObjective, NAMES } from './game/dermanliRitual';
+import { newRitual, interactRitual, leaveUnwatched, ritualObjective, workProblem, NAMES } from './game/dermanliRitual';
 import { readDermanliSave, writeDermanliSave } from './game/dermanliSave';
 import { DAY_SECONDS, isNight, nextDawn, nextEvent } from './game/dermanliEvents';
 import { createCopperEwerAndSoap } from './game/models';
@@ -14,14 +14,15 @@ import { DermanliThreat } from './game/dermanliThreat';
 import { newBell, bellHint, ringBell } from './game/dermanliBell';
 import {spiritAvailable,SPIRIT_LINES} from './game/dermanliCharacters';
 import {DermanliMapPanel} from './components/DermanliMapPanel';
+import {isScrubbing,newScrub,scrubStroke,SCRUB_STROKES} from './game/dermanliWashing';
 
 const notes: Record<string,string> = {
-  home: 'Hacı Süleyman’ın günlüğü: “Köyde tamamlanmamış vazifeler var. İsimlerini unutma.”',
-  school: 'Tahtada silik bir yazı var: “Kapı açılınca anneme gideceğim.” Altına Elif adı yazılmış.',
+  home: 'Hacı Süleyman’ın günlüğü: “Kara humma kapıya dayandığında hastaları okula taşıdılar. Yardım geleceğini söylediler; bekledik. Ben her ölüye son vazifeyi borç bildim. İsimlerini unutma.”',
+  school: 'Tahtada silik bir yazı var: “Kapı açılınca anneme gideceğim.” Altına Elif adı yazılmış. Kapının üzerindeki çiviler tahtaların dışarıdan çakıldığını gösteriyor.',
   mill: 'Değirmencinin defteri, bozulmuş hasattan ve cevapsız kalan yardım çağrılarından söz ediyor.',
-  office: 'Muhtarlık defterinde okulun karantina kararı ve beklenen yardımın gelmediği yazıyor.',
-  well: 'Kuyunun yanında bulunan kayıtta mezarlık dışına gömülen isimler var.',
-  cemetery: 'Taşların arasındaki liste eksik. Bazı isimlerin yanında ne yıkama ne de kefen kaydı var.',
+  office: 'Muhtarlık defteri: “Hastalar okulda tutulacak. Yardım gelene kadar kapı açılmayacak.” Sonraki sayfada yardım çağrıları ve Muhtar Rıza’nın titrek el yazısıyla “Gelen olmadı” notu var.',
+  well: 'Kuyunun yanında bulunan defterde mezarlık dışına gömülen isimler var. Sayfanın kenarında “Korkudan yaklaşamadık” yazıyor.',
+  cemetery: 'Taşların arasındaki liste eksik. Bazı isimlerin yanında ne yıkama ne de kefen kaydı var; mezarlık duvarının dışında da işaretsiz toprak uzanıyor.',
   bridge: 'Köprü sisin içinde kayboluyor. Halil, bu yolu daha önce yürümüş gibi hissediyor.',
   barn: 'Ahır sessiz; çürümüş samanın arasında eski bir hasat kaydı bulunuyor.',
   abandoned0: 'Terk edilmiş evdeki masada boş bir mektup zarfı var.', abandoned1: 'Pencereler içeriden tahtalarla kapatılmış.',
@@ -59,7 +60,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     const ritual=saved?.ritual??newRitual();
     const bell=saved?.bell??newBell(saved?0:undefined);
     let elapsed=saved?.elapsed??0, nextCue=0, hits=saved?.hits??0, nextRandomScare=75+Math.random()*45; const threat=new DermanliThreat(); const seenEvents=new Set(saved?.events??[]);
-    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false;
+    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false; let scrub=newScrub();
     const save=()=>writeDermanliSave({version:1,ritual,x:pos.x,z:pos.z,yaw,pitch,elapsed,events:[...seenEvents],hits,bell});
     const keys=new Set<string>();
     const onMove=(e:MouseEvent)=>{if(!locked)return; yaw-=e.movementX*.0022; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*.0022));};
@@ -132,13 +133,25 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       };
       (window as unknown as {__dermanliTest?:typeof debug}).__dermanliTest=debug;
     }
+    const finishWork=()=>{workHeld=false;workProgress=0;scrub=newScrub();caption=interactRitual(ritual,'slab',isNight(elapsed),true);captionUntil=performance.now()+4500;if(ritual.stage===4&&ritual.dirty)audio.playWaterPour();else audio.playPaperFlip();save();};
     const onKey=(e:KeyboardEvent)=>{
       if(['KeyW','KeyA','KeyS','KeyD','Space','ControlLeft','ControlRight','KeyC'].includes(e.code)) e.preventDefault();
+      if(workHeld&&(e.code==='KeyA'||e.code==='KeyD')){
+        if(!e.repeat&&locked&&!overlayBlocked.current&&target()?.id==='slab'&&isScrubbing(ritual.stage)){
+          scrub=scrubStroke(scrub,e.code==='KeyA'?'left':'right');workProgress=scrub.strokes/SCRUB_STROKES*1.2;workUntil=performance.now()+450;
+          if(scrub.strokes===SCRUB_STROKES)finishWork();
+        }
+        return;
+      }
       keys.add(e.code);
       if(e.code==='KeyN'&&!e.repeat){setMapOpen(false);setNotebook(v=>!v);if(document.pointerLockElement===renderer.domElement)document.exitPointerLock();}
       if(e.code==='KeyH'&&!e.repeat){setNotebook(false);setMapOpen(v=>!v);if(document.pointerLockElement===renderer.domElement)document.exitPointerLock();}
       if(e.code==='KeyM'&&!e.repeat){audio.setMuted(!audio.isMuted());setMuted(audio.isMuted());}
-      if(e.code==='KeyF'&&!e.repeat&&locked&&!overlayBlocked.current&&target()?.id==='slab'&&ritual.body==='slab'&&ritual.stage<6){workHeld=true;workProgress=0;workStarted=performance.now();}
+      if(e.code==='KeyF'&&!e.repeat&&locked&&!overlayBlocked.current&&target()?.id==='slab'&&ritual.body==='slab'&&ritual.stage<6){
+        const problem=workProblem(ritual);
+        if(problem){caption=problem;captionUntil=performance.now()+4500;}
+        else if(!['KeyW','KeyA','KeyS','KeyD'].some(k=>keys.has(k))){workHeld=true;workProgress=0;scrub=newScrub();workStarted=performance.now();}
+      }
       if(e.code==='KeyE' && !e.repeat && locked && !overlayBlocked.current){const t=target();if(t){
         const stageBefore=ritual.stage, soapedBefore=ritual.soaped, nightBefore=ritual.night;
         let action=interactRitual(ritual,t.id,isNight(elapsed));
@@ -165,8 +178,8 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       const night=isNight(elapsed);
       if(workHeld){
         if(!locked||overlayBlocked.current||target()?.id!=='slab'||ritual.body!=='slab'||ritual.stage>=6||keys.has('KeyW')||keys.has('KeyA')||keys.has('KeyS')||keys.has('KeyD')){workHeld=false;workProgress=0;}
-        else {workProgress=(now-workStarted)/1000;workUntil=now+100;
-          if(workProgress>=1.2){workHeld=false;workProgress=0;caption=interactRitual(ritual,'slab',night,true);captionUntil=now+4500;if(ritual.stage===4&&ritual.dirty)audio.playWaterPour();else audio.playPaperFlip();save();}
+        else if(!isScrubbing(ritual.stage)){workProgress=(now-workStarted)/1000;workUntil=now+100;
+          if(workProgress>=1.2)finishWork();
         }
       }
 
@@ -223,7 +236,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       const working=now<workUntil;hands.position.z=working?-.68+Math.sin(now*.015)*.05:-.65;
       hands.children.forEach((hand,i)=>{hand.rotation.x=working?Math.sin(now*.015+i*Math.PI)*.18:0;});
       renderer.render(scene,camera);
-      if(now-lastUi>150){lastUi=now; const t=target(); if(now>captionUntil)caption='';setHud({prompt:t?(t.id==='slab'&&ritual.body==='slab'&&ritual.stage<6?`F tuşunu basılı tut · ${t.label}${workHeld?' · '+Math.min(100,Math.round(workProgress/1.2*100))+'%':''}`:`E · ${t.id==='arrival'&&!night?'Boş sedye':t.label}`):'',caption,place:`DERMANLI · ${ritual.night}. VAZİFE · ${night?'GECE':'GÜNDÜZ'}${night?' · '+NAMES[ritual.night-1]:''}`,count:ritual.clues.length,locked,objective:ritualObjective(ritual,night),held:ritual.held==='empty'?'Boş eller':({soap:'Sabun',ewer:'İbrik',bucket:'Kirli su kovası',camphor:'Kâfur',shroud:'Kefen'} as const)[ritual.held],ending:ritual.ending??'',hits,clues:[...ritual.clues],bellHint:bellHint(bell.seed),bellSolved:bell.solved,x:pos.x,z:pos.z,yaw});}
+      if(now-lastUi>150){lastUi=now; const t=target(); if(now>captionUntil)caption='';setHud({prompt:t?(t.id==='slab'&&ritual.body==='slab'&&ritual.stage<6?`${isScrubbing(ritual.stage)?"F basılıyken A / D ile sırayla yıka":"F tuşunu basılı tut"} · ${t.label}${workHeld?' · '+Math.min(100,Math.round(workProgress/1.2*100))+'%':''}`:`E · ${t.id==='arrival'&&!night?'Boş sedye':t.label}`):'',caption,place:`DERMANLI · ${ritual.night}. VAZİFE · ${night?'GECE':'GÜNDÜZ'}${night?' · '+NAMES[ritual.night-1]:''}`,count:ritual.clues.length,locked,objective:ritualObjective(ritual,night),held:ritual.held==='empty'?'Boş eller':({soap:'Sabun',ewer:'İbrik',bucket:'Kirli su kovası',camphor:'Kâfur',shroud:'Kefen'} as const)[ritual.held],ending:ritual.ending??'',hits,clues:[...ritual.clues],bellHint:bellHint(bell.seed),bellSolved:bell.solved,x:pos.x,z:pos.z,yaw});}
       frame=requestAnimationFrame(animate);
     }
     frame=requestAnimationFrame(animate);
@@ -239,6 +252,6 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     {mapOpen && !hud.ending && <DermanliMapPanel x={hud.x} z={hud.z} yaw={hud.yaw} onClose={()=>setMapOpen(false)} />}
     {notebook && !hud.ending && <div style={{position:'absolute',inset:'10% 20%',overflowY:'auto',padding:24,background:'#ded4bd',color:'#28291f',boxShadow:'0 8px 40px #000',zIndex:2}}><button onClick={()=>setNotebook(false)} style={{float:'right',cursor:'pointer'}}>Kapat</button><h2>Halil’in Defteri</h2><p>Bulduğun kayıtlar burada saklanır.</p>{hud.clues.length===0?<p>Henüz kayıt bulunmadı.</p>:hud.clues.map(id=><p key={id} style={{borderBottom:'1px solid #a69b80',paddingBottom:10}}>{notes[id]} {id==='home' && <>Okul avlusuyla ilgili bir satır: {hud.bellHint}</>}</p>)}{hud.bellSolved && <p>Okul çanlarından sonra beliren yazı: “Adımızı hatırla.”</p>}</div>}
     {hud.ending && <div style={{position:'absolute',top:'28%',left:'50%',transform:'translateX(-50%)',padding:24,background:'#101510ef',textAlign:'center',width:'min(80%,500px)'}}><h2>{hud.ending==='peace'?'HUZUR':hud.ending==='dark'?'KARANLIK':'KAÇIŞ'}</h2><p>{hud.ending==='peace'?'Halil köye gelirken köprüde öldüğünü hatırlar. Son vazife kendisidir. Hacı Süleyman belirir; çırağını uğurlarken sis dağılır ve sabah doğar.':hud.ending==='dark'?'Halil köprüde öldüğünü hatırlar; eksik vazifelerin ağırlığı onu köyün yeni sessiz gassalı yapar.':'Orman yolu yeniden köy kapısına çıkıyor. Aynı yol, aynı sis: köy bir sonraki gassalı bekliyor.'}</p><button onClick={onExit}>Menüye dön</button></div>}
-    {!hud.locked && !hud.ending && !notebook && !mapOpen && <div style={{position:'absolute',top:'35%',left:'50%',transform:'translateX(-50%)',padding:20,background:'#111d',textAlign:'center',pointerEvents:'none'}}>{failed?'3D sahnesi başlatılamadı.':'Oyuna dönmek için görüntüye tıkla'}<br/><small>WASD: hareket · Shift: koş · Ctrl/C: çömel · E: incele · F tuşunu basılı tut: yıkama · H: harita · N: defter · M: ses · Esc: fareyi bırak</small></div>}
+    {!hud.locked && !hud.ending && !notebook && !mapOpen && <div style={{position:'absolute',top:'35%',left:'50%',transform:'translateX(-50%)',padding:20,background:'#111d',textAlign:'center',pointerEvents:'none'}}>{failed?'3D sahnesi başlatılamadı.':'Oyuna dönmek için görüntüye tıkla'}<br/><small>WASD: hareket · Shift: koş · Ctrl/C: çömel · E: incele · F + sırayla A/D: yıkama · F basılı: diğer işlemler · H: harita · N: defter · M: ses · Esc: fareyi bırak</small></div>}
   </div>;
 }
