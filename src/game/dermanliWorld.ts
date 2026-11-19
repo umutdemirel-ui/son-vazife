@@ -53,7 +53,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
     {minX:2.95,maxX:3.45,minZ:-3.2,maxZ:3.2},{minX:-3.45,maxX:-2.95,minZ:-3.2,maxZ:-.8},
     {minX:-3.45,maxX:-2.95,minZ:.8,maxZ:3.2},{minX:.6,maxX:1.9,minZ:-1.3,maxZ:.9},
   ]));
-  target('mosque','Cami · İmamın notu',[S.gasilhane[0]+3.8,S.gasilhane[1]-6.8],1.8);
+  target('mosque','Cami · İmamın notu',[S.mosque[0]+3.8,S.mosque[1]-1.1],1.8);
   box(.05,.45,.34,S.gasilhane[0]+3.56,1.35,S.gasilhane[1]-6.8,mat(0xbfb49a));
   target('office','Muhtarlık · Kayıt defteri',[S.office[0]+.4,S.office[1]+1.4],1.6);
   const [gx,gz]=S.gasilhane;
@@ -142,7 +142,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const fountainWaterGeo=new THREE.CircleGeometry(1.36,24);ownGeometry.push(fountainWaterGeo);
   const fountainWater=new THREE.Mesh(fountainWaterGeo,craft.water);fountainWater.rotation.x=-Math.PI/2;fountainWater.position.set(S.square[0],.66,S.square[1]);fountainWater.visible=false;objects.add(fountainWater);
   colliders.push({minX:S.well[0]-1,maxX:S.well[0]+1,minZ:S.well[1]-1,maxZ:S.well[1]+1}); target('well','Kuyu · Kayıt', [S.well[0]+1.6,S.well[1]],2.4);
-  const [bx,bz] = S.bridge; box(7,.35,2.8,bx,.2,bz,stone); for (const side of [-1,1]) box(7,.85,.15,bx,.66,bz+side*1.3,stone);
+  const [bx,bz] = S.bridge; box(7,.35,2.8,bx,.2,bz,stone); for (const side of [-1,1]) {box(7,.85,.15,bx,.66,bz+side*1.3,stone);colliders.push({minX:bx-3.5,maxX:bx+3.5,minZ:bz+side*1.3-.075,maxZ:bz+side*1.3+.075});}
   // These are outdoor memories, not residents inside houses.
   const spiritMaterial=new THREE.MeshStandardMaterial({color:0xbfc6c1,roughness:.9,transparent:true,opacity:.52,depthWrite:false});ownMaterial.push(spiritMaterial);
   const makeSpirit=(x:number,z:number,scale:number)=>{
@@ -174,9 +174,11 @@ export function createDermanliWorld(scene: THREE.Scene) {
 
   const [fx,fz] = S.field; box(30,.08,21,fx,.04,fz,field); for(let i=-9;i<=9;i+=3) box(28,.12,.28,fx,.12,fz+i,wood);
   const [cx,cz] = S.cemetery;
-  for(let x=-10;x<=10;x+=2.7) for(let z=-3;z<=8;z+=2.8) { if (Math.abs(x)<1.5) continue; box(.7,.9,.16,cx+x,.45,cz+z,stone); }
-  for (const x of [-13.5,13.5]) box(.22,1,23.4,cx+x,.5,cz,wood);
-  box(27,1,.22,cx,.5,cz-11.7,wood); box(11.5,1,.22,cx-7.75,.5,cz+11.7,wood); box(11.5,1,.22,cx+7.75,.5,cz+11.7,wood);
+  for(let x=-10;x<=10;x+=2.7) for(let z=-3;z<=8;z+=2.8) { if (Math.abs(x)<1.5) continue; box(.7,.9,.16,cx+x,.45,cz+z,stone);colliders.push({minX:cx+x-.35,maxX:cx+x+.35,minZ:cz+z-.08,maxZ:cz+z+.08}); }
+  for (const x of [-13.5,13.5]) {box(.22,1,23.4,cx+x,.5,cz,wood);colliders.push({minX:cx+x-.11,maxX:cx+x+.11,minZ:cz-11.7,maxZ:cz+11.7});}
+  box(27,1,.22,cx,.5,cz-11.7,wood);box(11.5,1,.22,cx-7.75,.5,cz+11.7,wood);box(11.5,1,.22,cx+7.75,.5,cz+11.7,wood);
+  colliders.push({minX:cx-13.5,maxX:cx+13.5,minZ:cz-11.81,maxZ:cz-11.59},
+    {minX:cx-13.5,maxX:cx-2,minZ:cz+11.59,maxZ:cz+11.81}, {minX:cx+2,maxX:cx+13.5,minZ:cz+11.59,maxZ:cz+11.81});
   target('cemetery','Mezarlık · İsimler', [cx,cz+7], 2.6);
   // Five modest fresh-earth markers track completed burials, outside the stone fence.
   const moundGeometry=new THREE.SphereGeometry(1,14,8);ownGeometry.push(moundGeometry);
@@ -185,7 +187,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
     const mound=new THREE.Mesh(moundGeometry,moundMaterial);const x=cx-16,z=cz-8+i*4;
     mound.position.set(x,dermanliHeight(x,z)+.06,z);mound.scale.set(1.25,.3,.7);mound.visible=false;objects.add(mound);return mound;
   });
-  for(const x of [-2.4,2.4]) box(.8,2.8,.8,S.entrance[0]+x,1.4,S.entrance[1],stone);
+  for(const x of [-2.4,2.4]) {box(.8,2.8,.8,S.entrance[0]+x,1.4,S.entrance[1],stone);colliders.push({minX:S.entrance[0]+x-.4,maxX:S.entrance[0]+x+.4,minZ:S.entrance[1]-.4,maxZ:S.entrance[1]+.4});}
   target('bridge','Taş köprü',S.bridge,3);
   // Grove with deterministic placement; preserve clearances for every path and building.
   const treeG = new THREE.ConeGeometry(1.55,5,7), trunkG = new THREE.CylinderGeometry(.23,.36,2,7); ownGeometry.push(treeG,trunkG);

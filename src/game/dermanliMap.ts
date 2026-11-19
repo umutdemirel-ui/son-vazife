@@ -5,6 +5,7 @@
 export type Point = readonly [number, number];
 export type SurveyPath = { id: string; points: readonly Point[]; width: number; closed?: boolean; kind: 'road' | 'trail' | 'water' };
 export const MAP_SCALE = 0.3;
+export const DERMANLI_BOUNDS = {minX:-90,maxX:90,minZ:-105,maxZ:105} as const;
 export function mapPoint(x: number, y: number): Point { return [(x - 190) * MAP_SCALE, (y - 280) * MAP_SCALE]; }
 function curve(a: Point, b: Point, c: Point, d: Point, steps = 20): Point[] {
   return Array.from({ length: steps + 1 }, (_, i) => {
@@ -33,9 +34,10 @@ export const DERMANLI_PATHS: readonly SurveyPath[] = [
   path('tarla-gassal-kestirme', 3, curve([250,470],[255,440],[250,410],[254,375]), 'trail'),
   path('dere', 14, join(curve([360,0],[345,90],[365,180],[350,260]), curve([350,260],[335,340],[345,340],[355,420]), curve([355,420],[365,500],[368,500],[358,560])), 'water'),
 ];
+const gasilhaneSite=mapPoint(253,204);
 export const DERMANLI_SITES = {
   office: [9, 17] as Point,
-  entrance: mapPoint(190, 536), mosque: mapPoint(188, 200), gasilhane: mapPoint(253, 204),
+  entrance: mapPoint(190, 536), mosque: [gasilhaneSite[0],gasilhaneSite[1]-5.7] as Point, gasilhane: gasilhaneSite,
   cemetery: mapPoint(190, 71), square: mapPoint(190, 322), gassalHome: mapPoint(254, 360),
   well: mapPoint(50, 255), school: mapPoint(61, 116), mill: mapPoint(311, 80),
   barn: mapPoint(216, 511), field: mapPoint(290, 505), bridge: mapPoint(353, 319),

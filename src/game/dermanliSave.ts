@@ -1,3 +1,4 @@
+import { DERMANLI_BOUNDS as B } from './dermanliMap';
 import { type RitualState } from './dermanliRitual';
 import {type BellState} from './dermanliBell';
 const KEY='son_vazife_dermanli_v1';
@@ -5,7 +6,7 @@ export interface DermanliSave { version:1; ritual:RitualState; x:number; z:numbe
 export function readDermanliSave(): DermanliSave|null {
   try {
     const v=JSON.parse(localStorage.getItem(KEY)??'null') as DermanliSave|null;
-    if(!v||v.version!==1||![v.x,v.z,v.yaw,v.pitch].every(Number.isFinite)||Math.abs(v.x)>90||Math.abs(v.z)>105||Math.abs(v.pitch)>1.3) return null;
+    if(!v||v.version!==1||![v.x,v.z,v.yaw,v.pitch].every(Number.isFinite)||v.x<B.minX||v.x>B.maxX||v.z<B.minZ||v.z>B.maxZ||Math.abs(v.pitch)>1.3) return null;
     if(v.elapsed!==undefined && (!Number.isFinite(v.elapsed)||v.elapsed<0||v.elapsed>315360000)) return null;
     if(v.events!==undefined && (!Array.isArray(v.events)||v.events.length>200||v.events.some(e=>typeof e!=='string'))) return null;
     if(v.hits!==undefined && (!Number.isInteger(v.hits)||v.hits<0||v.hits>3)) return null;

@@ -35,3 +35,10 @@ test('standalone terrain builds one finite mesh per surveyed path and disposes s
   }
   terrain.dispose();
 });
+
+test('map landmarks match the actual mosque and cover the full movement area',async()=>{
+ const {DERMANLI_BOUNDS:b}=await import('../src/game/dermanliMap');
+ assert.equal(DERMANLI_SITES.mosque[0],DERMANLI_SITES.gasilhane[0]);
+ assert.ok(Math.abs(DERMANLI_SITES.mosque[1]-DERMANLI_SITES.gasilhane[1]+5.7)<1e-9);
+ for(const site of [DERMANLI_SITES.gasilhane,DERMANLI_SITES.mosque,DERMANLI_SITES.entrance,DERMANLI_SITES.well])assert.ok(site[0]>=b.minX&&site[0]<=b.maxX&&site[1]>=b.minZ&&site[1]<=b.maxZ);
+});

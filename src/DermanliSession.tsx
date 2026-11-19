@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { createDermanliWorld } from './game/dermanliWorld';
-import { DERMANLI_SITES as S, dermanliHeight } from './game/dermanliMap';
+import { DERMANLI_SITES as S, DERMANLI_BOUNDS as B, dermanliHeight } from './game/dermanliMap';
 import { pushOutsideBox } from './game/collision';
 import {moveDermanliPlayer} from './game/dermanliMovement';
 import { createWorkHands, armSwing } from './game/handRig';
@@ -89,7 +89,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         verifyThreatArt: async () => {await world.loadThreatArt();return {pursuer:!!world.pursuer.root.getObjectByName('Dokulu model'),scare:!!world.scare.root.getObjectByName('Dokulu model')};},
         advanceToNight: () => {if(!isNight(elapsed))elapsed=Math.floor(elapsed/DAY_SECONDS)*DAY_SECONDS+DAY_SECONDS/2;},
         scanReachability: () => {
-          const minX=-90,maxX=90,minZ=-105,maxZ=105,w=maxX-minX+1,h=maxZ-minZ+1;
+          const {minX,maxX,minZ,maxZ}=B,w=maxX-minX+1,h=maxZ-minZ+1;
           const passable=new Uint8Array(w*h),visited=new Uint8Array(w*h),queue=new Int32Array(w*h);
           for(let z=minZ;z<=maxZ;z++)for(let x=minX;x<=maxX;x++){
             const p={x,z};for(const wall of world.colliders)pushOutsideBox(p,wall,.32);
@@ -109,7 +109,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         },
         walkToTarget: (id:string) => {
           const t=world.targets.find(item=>item.id===id);if(!t)return `unknown target ${id}`;
-          const minX=-90,minZ=-105,w=181,h=211,size=w*h;
+          const {minX,maxX,minZ,maxZ}=B,w=maxX-minX+1,h=maxZ-minZ+1,size=w*h;
           const index=(x:number,z:number)=>(z-minZ)*w+x-minX;
           const open=(x:number,z:number)=>{if(x<minX||x>=minX+w||z<minZ||z>=minZ+h)return false;const p={x,z};for(const c of world.colliders)pushOutsideBox(p,c,.32);return Math.hypot(p.x-x,p.z-z)<.005;};
           const clear=(x:number,z:number,tx:number,tz:number)=>{const p={x,z},dx=tx-x,dz=tz-z,n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.2));for(let i=0;i<n;i++)moveDermanliPlayer(p,dx/n,dz/n,world.colliders);return Math.hypot(p.x-tx,p.z-tz)<.02;};
