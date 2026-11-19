@@ -608,16 +608,19 @@ export function createMosqueAndGasilhane(
   const rd = 6.4;
   const rh = 3.4;
 
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.16, rd), gasilFloorMat);
-  floor.position.y = 0.08;
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.16, rd + 1.2), gasilFloorMat);
+  floor.position.set(0, 0.08, 0.6);
   floor.receiveShadow = true;
   gasilGroup.add(floor);
 
-  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(rw + 0.3, 0.22, rd + 0.3), plasterMat);
-  ceiling.position.y = rh + 0.11;
+  const ceiling = new THREE.Mesh(new THREE.BoxGeometry(rw + 0.3, 0.22, rd + 1.5), plasterMat);
+  ceiling.position.set(0, rh + 0.11, 0.6);
   gasilGroup.add(ceiling);
-  pitchedRoof(gasilGroup, kiremitMat, kiremitMat, rw + 0.86, rd + 0.82, rh + 0.2, 0.48, 1.52);
-  block(gasilGroup, timberMat, rw + 0.81, 0.14, rd + 0.77, 0, rh + 0.16, 0);
+  const extendedRoof = new THREE.Group();
+  extendedRoof.position.z = 0.6;
+  pitchedRoof(extendedRoof, kiremitMat, kiremitMat, rw + 0.86, rd + 2.02, rh + 0.2, 0.48, 1.52);
+  block(extendedRoof, timberMat, rw + 0.81, 0.14, rd + 1.97, 0, rh + 0.16, 0);
+  gasilGroup.add(extendedRoof);
 
   // Exterior Stone Entry Step & Rain Gutter Downspout on Gasilhane
   const gStep = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.15, 2.0), stoneMat);
@@ -645,7 +648,7 @@ export function createMosqueAndGasilhane(
   northWall.position.set(0, rh / 2, -rd / 2);
   northWall.receiveShadow = true;
   const southWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
-  southWall.position.set(0, rh / 2, rd / 2);
+  southWall.position.set(0, rh / 2, rd / 2 + 1.2);
   southWall.receiveShadow = true;
   gasilGroup.add(northWall, southWall);
 
@@ -656,6 +659,7 @@ export function createMosqueAndGasilhane(
   const eastHeader = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.35, 1.6), gasilWallMat);
   eastHeader.position.set(rw / 2, 2.35 + (rh - 2.35) / 2, 0);
   gasilGroup.add(eastLeft, eastRight, eastHeader);
+  block(gasilGroup, gasilWallMat, 0.24, rh, 1.2, rw / 2, rh / 2, rd / 2 + 0.6);
 
   const doorPivot = new THREE.Group();
   doorPivot.position.set(rw / 2, 0.16, -0.78);
@@ -669,7 +673,7 @@ export function createMosqueAndGasilhane(
   doorKnobIn.position.set(-0.08, 1.05, 1.38);
   doorPivot.add(doorMesh, doorKnob, doorKnobIn);
   gasilGroup.add(doorPivot);
-  craft.gasilEntry(gasilGroup, doorPivot, rw, rd, rh, gasilWallMat);
+  craft.gasilEntry(gasilGroup, doorPivot, rw, rd, rh, gasilWallMat, 1.2);
 
   const westLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.3), gasilWallMat);
   westLeft.position.set(-rw / 2, rh / 2, -2.05);
@@ -680,6 +684,7 @@ export function createMosqueAndGasilhane(
   const westAbove = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.65, 1.8), gasilWallMat);
   westAbove.position.set(-rw / 2, 2.65 + (rh - 2.65) / 2, 0);
   gasilGroup.add(westLeft, westRight, westBelow, westAbove);
+  block(gasilGroup, gasilWallMat, 0.24, rh, 1.2, -rw / 2, rh / 2, rd / 2 + 0.6);
 
   const windowGlowMat = new THREE.MeshStandardMaterial({
     color: 0x3b4e63,
@@ -738,25 +743,33 @@ export function createMosqueAndGasilhane(
   drainGroup.add(drainRim, drainHole, grateBar1, grateBar2);
   gasilGroup.add(drainGroup);
 
-  // Separate interior ceramic lining keeps the weathered clay exterior intact.
-  // Panels stop at the actual door and window openings and do not alter collision.
-  const ceramic = new THREE.MeshStandardMaterial({ map: textures.mortuaryTile, color: 0xb2ada5, roughness: 0.8 });
-  block(gasilGroup, ceramic, rw - 0.25, rh - 0.08, 0.025, 0, rh / 2, -rd / 2 + 0.135, 2);
-  block(gasilGroup, ceramic, rw - 0.25, rh - 0.08, 0.025, 0, rh / 2, rd / 2 - 0.135, 2);
-  for (const side of [-1, 1]) {
-    block(gasilGroup, ceramic, 0.025, rh - 0.08, 2.25, -rw / 2 + 0.135, rh / 2, side * 2.0, 2);
-    block(gasilGroup, ceramic, 0.025, rh - 0.08, 2.25, rw / 2 - 0.135, rh / 2, side * 1.98, 2);
+  // The menu reference has aged plaster above a low ceramic dado, not floor-to-ceiling tiles.
+  const ceramic = new THREE.MeshStandardMaterial({ map: textures.mortuaryTile, color: 0xa9aaa6, roughness: 0.9 });
+  const dado = 1.42;
+  block(gasilGroup, ceramic, rw - 0.25, dado, 0.025, 0, dado / 2, -rd / 2 + 0.135, 2);
+  block(gasilGroup, ceramic, rw - 0.25, dado, 0.025, 0, dado / 2, rd / 2 + 1.065, 2);
+  for (const x of [-rw / 2 + 0.135, rw / 2 - 0.135]) {
+    block(gasilGroup, ceramic, 0.025, dado, 2.25, x, dado / 2, -2, 2);
+    block(gasilGroup, ceramic, 0.025, dado, 3.45, x, dado / 2, 2.6, 2);
   }
-  block(gasilGroup, ceramic, 0.025, 1.5, 1.8, -rw / 2 + 0.135, 0.75, 0, 2);
-  block(gasilGroup, ceramic, 0.025, rh - 2.66, 1.8, -rw / 2 + 0.135, (rh + 2.66) / 2, 0, 2);
-  block(gasilGroup, ceramic, 0.025, rh - 2.35, 1.6, rw / 2 - 0.135, (rh + 2.35) / 2, 0, 2);
+  block(gasilGroup, ceramic, 0.025, dado, 1.8, -rw / 2 + 0.135, dado / 2, 0, 2);
+  // Exposed ceiling beams and hanging towels recall the opening-screen room.
+  for (const z of [-2.1, 0.1, 2.3, 3.9])
+    block(gasilGroup, timberMat, rw - 0.25, 0.16, 0.16, 0, rh - 0.1, z);
+  block(gasilGroup, timberMat, 2.1, 0.08, 0.12, -1.75, 2.35, rd / 2 + 0.98);
+  const towelMat = new THREE.MeshStandardMaterial({ color: 0xa9a49a, roughness: 1, side: THREE.DoubleSide });
+  for (const x of [-2.45, -1.75, -1.05]) {
+    const towel = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.94, 4, 4), towelMat);
+    towel.position.set(x, 1.83, rd / 2 + 0.90);
+    gasilGroup.add(towel);
+  }
   // Shallow wall-mounted cupboards and stacks of folded linen, away from the slab.
   for (const x of [-1.8, -0.65]) {
-    block(gasilGroup, craft.shutters[0], 1.0, 0.86, 0.26, x, 2.35, rd / 2 - 0.28, 1.4);
-    block(gasilGroup, craft.metal, 0.03, 0.12, 0.035, x + 0.34, 2.35, rd / 2 - 0.43);
+    block(gasilGroup, craft.shutters[0], 1.0, 0.86, 0.26, x, 2.35, rd / 2 + 0.92, 1.4);
+    block(gasilGroup, craft.metal, 0.03, 0.12, 0.035, x + 0.34, 2.35, rd / 2 + 0.77);
   }
   for (let i = 0; i < 3; i++)
-    block(gasilGroup, craft.limestone, 0.55, 0.055, 0.3, -2.45, 0.76 + i * 0.06, rd / 2 - 0.36);
+    block(gasilGroup, craft.limestone, 0.55, 0.055, 0.3, -2.45, 0.76 + i * 0.06, rd / 2 + 0.84);
 
   // Folded linens and wash vessels sit on the upper shelves without narrowing the aisle.
   block(gasilGroup, craft.wood, 1.25, 0.08, 0.36, 2.35, 1.78, -rd / 2 + 0.28, 1);
@@ -902,14 +915,14 @@ export function createMosqueAndGasilhane(
   const ceilingCord = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.55, 6), timberMat);
   ceilingCord.position.set(0, rh - 0.28, 0);
   const ceilingBulbMat = new THREE.MeshStandardMaterial({
-    color: 0xeef3eb,
-    emissive: 0xdce4d5,
+    color: 0xffdfad,
+    emissive: 0xffac55,
     emissiveIntensity: 1.4,
     roughness: 0.2,
   });
   const ceilingBulb = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), ceilingBulbMat);
   ceilingBulb.position.set(0, rh - 0.58, 0);
-  const ceilingLight = new THREE.PointLight(0xd9e3dc, 6.2, 11, 1.5);
+  const ceilingLight = new THREE.PointLight(0xffc27a, 6.2, 11, 1.5);
   ceilingLight.position.set(0, rh - 0.65, 0);
   gasilGroup.add(ceilingCord, ceilingBulb, ceilingLight);
 

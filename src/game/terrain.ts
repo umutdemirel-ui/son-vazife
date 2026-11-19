@@ -535,7 +535,7 @@ export function buildMountainTerrainAndForest(
     const rz = -50 + rand() * 90;
     if (reservedGround(rx, rz)) continue;
     if (Math.abs(rx) < 4.5 || Math.hypot(rx - 4.8, rz - 12.5) < 2.5) continue;
-    if (Math.abs(rx + 10.5) < 5.5 && Math.abs(rz - 6.0) < 5.5) continue;
+    if (Math.abs(rx + 10.5) < 5.5 && rz > 0.5 && rz < 13.5) continue;
     if (Math.abs(rx + 10.8) < 5.0 && Math.abs(rz + 10.5) < 4.5) continue;
     if (Math.abs(rx - MUHTAR.x) < 5.0 && Math.abs(rz - MUHTAR.z) < 4.5) continue;
     if (Math.hypot(rx - CLINIC.x, rz - CLINIC.z) < 7.5) continue;
@@ -614,7 +614,7 @@ export function buildMountainTerrainAndForest(
     const sz = -46 + rand() * 84;
     if (reservedGround(sx, sz)) continue;
     if (Math.abs(sx) < 3.6) continue;
-    if (Math.abs(sx + 10.5) < 4.5 && Math.abs(sz - 6.0) < 4.5) continue;
+    if (Math.abs(sx + 10.5) < 4.5 && sz > 1.5 && sz < 12.5) continue;
     if (Math.abs(sx + 10.8) < 4.0 && Math.abs(sz + 10.5) < 4.0) continue;
     if (Math.abs(sx - MUHTAR.x) < 4.2 && Math.abs(sz - MUHTAR.z) < 4.2) continue;
     if (Math.hypot(sx - CLINIC.x, sz - CLINIC.z) < 6.0) continue;
@@ -631,7 +631,8 @@ export function buildMountainTerrainAndForest(
     [4.12, -9.2],
     [-6.65, 9.6],
   ]) {
-    shrubData.push({ x, z, s: 0.8 + rand() * 0.3 });
+    if (!reservedGround(x, z) && !(Math.abs(x + 10.5) < 4.5 && z > 1.5 && z < 12.5))
+      shrubData.push({ x, z, s: 0.8 + rand() * 0.3 });
   }
   const shrubs = new THREE.InstancedMesh(shrubGeo, shrubMat, shrubData.length);
   shrubData.forEach((sh, idx) => {

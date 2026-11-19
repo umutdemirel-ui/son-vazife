@@ -37,3 +37,11 @@ test('the surveyed side roads form one connected network', async () => {
   }
   assert.deepEqual(roads.filter((_, i) => !connected.has(i)), []);
 });
+
+test('vegetation clearing covers house corners, not only their centres', async () => {
+  const { CORE_HOME_CENTRES, OUTER_HOMES } = await import('../src/game/valley');
+  for (const [x, z] of [...CORE_HOME_CENTRES, ...OUTER_HOMES]) {
+    for (const dx of [-4, 0, 4]) for (const dz of [-4, 0, 4])
+      assert.ok(reservedGround(x + dx, z + dz), `uncleared house corner ${x + dx}, ${z + dz}`);
+  }
+});

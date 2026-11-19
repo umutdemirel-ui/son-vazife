@@ -251,10 +251,10 @@ export function buildVillageWorld(
 
   colliders.push(...translateColliders(gasilPos, [
     { minX: -3.6, maxX: 3.6, minZ: -3.45, maxZ: -2.95 }, // Gasil North
-    { minX: -3.6, maxX: 3.6, minZ: 2.95, maxZ: 3.45 }, // Gasil South
-    { minX: -3.65, maxX: -3.15, minZ: -3.4, maxZ: 3.4 }, // Gasil West
+    { minX: -3.6, maxX: 3.6, minZ: 4.15, maxZ: 4.65 }, // Gasil South
+    { minX: -3.65, maxX: -3.15, minZ: -3.4, maxZ: 4.6 }, // Gasil West
     { minX: 3.15, maxX: 3.65, minZ: -3.4, maxZ: -0.8 }, // Gasil East-North
-    { minX: 3.15, maxX: 3.65, minZ: 0.8, maxZ: 3.4 }, // Gasil East-South
+    { minX: 3.15, maxX: 3.65, minZ: 0.8, maxZ: 4.6 }, // Gasil East-South
     { minX: -1.25, maxX: 1.25, minZ: -0.65, maxZ: 0.65 }, // Marble Tenesir Slab
     { minX: -3.5, maxX: -3.3, minZ: -8.1, maxZ: -3.4 }, // Mosque west
     { minX: -3.5, maxX: 3.5, minZ: -8.1, maxZ: -7.9 }, // Mosque north

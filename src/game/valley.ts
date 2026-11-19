@@ -242,7 +242,7 @@ export function reservedGround(x: number, z: number) {
     Object.values(OUTPOSTS).some(
       (b) => Math.abs(x - b.x) < b.w / 2 + 4.5 && Math.abs(z - b.z) < b.d / 2 + 6,
     ) ||
-    [...CORE_HOME_CENTRES, ...OUTER_HOMES].some(([a, b]) => Math.hypot(x - a, z - b) < 5.3) ||
+    [...CORE_HOME_CENTRES, ...OUTER_HOMES].some(([a, b]) => Math.hypot(x - a, z - b) < 7.0) ||
     clearedForRoad(x, z, OUTER_LANES) ||
     clearedForRoad(x, z, CORE_LANES) ||
     clearedForRoad(x, z, MAIN_LANES) ||

@@ -1,4 +1,5 @@
 import { armSwing, createWorkHands } from './handRig';
+import { createHorrorFigures, disposeHorrorFigures } from './horrorFigures';
 import { requiredWashTool, washInstruction, type WashPerson, type WashTool } from './washing';
 import { atmosphereTargets } from './atmosphere';
 import { insideHome } from './homes';
@@ -333,6 +334,7 @@ export class SonVazifeEngine {
   private soapAppliedFor: WashPerson | null = null;
   private extraWashes = { mahmut: 0, yolcu: 0 };
   private scareFigure: THREE.Object3D | null = null;
+  private readonly horrorFigures = createHorrorFigures();
   private scareTime = 0;
   private scareFatal = false;
   private nextScareTime = 45 + Math.random() * 45;
@@ -3025,7 +3027,7 @@ export class SonVazifeEngine {
   };
 
   private isInsideGasilhane(p: THREE.Vector3): boolean {
-    return p.x >= -13.9 && p.x <= -7.1 && p.z >= 2.8 && p.z <= 9.2;
+    return p.x >= -13.9 && p.x <= -7.1 && p.z >= 2.8 && p.z <= 10.4;
   }
 
   private isInsideAbandoned(p: THREE.Vector3): boolean {
@@ -3306,6 +3308,12 @@ export class SonVazifeEngine {
     this.scareFigure.position.z = -1.55 + Math.sin(Math.min(1, phase * 2) * Math.PI / 2) * 0.65;
     this.scareFigure.rotation.z = Math.sin(phase * 22) * 0.10;
     this.scareFigure.rotation.x = 0.12 + Math.sin(phase * 13) * 0.08;
+    const head = this.scareFigure.getObjectByName('scare-head');
+    const left = this.scareFigure.getObjectByName('scare-left');
+    const right = this.scareFigure.getObjectByName('scare-right');
+    if (head) head.rotation.z = Math.sin(phase * 9) * 0.17;
+    if (left) left.rotation.x = -0.9 * Math.sin(Math.min(1, phase * 2) * Math.PI / 2);
+    if (right) right.rotation.x = -0.9 * Math.sin(Math.min(1, phase * 2) * Math.PI / 2);
     if (this.scareTime === 0) {
       this.camera.remove(this.scareFigure); this.scareFigure = null;
       if (this.scareFatal) {
@@ -3858,7 +3866,8 @@ export class SonVazifeEngine {
       // Surprise appearances use the same figures and do not cause damage.
       if (!blocked && !isIndoors && !this.scareFigure && this.elapsedTime >= this.nextScareTime) {
         this.nextScareTime = this.elapsedTime + 45 + Math.random() * 45;
-        this.startCreatureScare(Math.random() < 0.5 ? this.world.karaBasma.root : this.world.sisGozcusu);
+        const figures = [this.world.karaBasma.root, this.world.sisGozcusu, ...this.horrorFigures];
+        this.startCreatureScare(figures[Math.floor(Math.random() * figures.length)]);
       }
       const closestThreat = Math.min(dKara, dSis);
       const catchDistance = Math.min(a ? dKara : Infinity, b ? dSis : Infinity);
@@ -4387,6 +4396,7 @@ export class SonVazifeEngine {
     });
     handGeometries.forEach(g => g.dispose()); handMaterials.forEach(m => m.dispose());
     if (this.scareFigure) this.camera.remove(this.scareFigure);
+    disposeHorrorFigures(this.horrorFigures);
     this.world.dispose();
     this.assets.dispose();
     this.textures.disposeAll();
