@@ -84,6 +84,8 @@ export interface GasilhaneRefs {
   pestemalMesh: THREE.Group;
   kefenWrapGroup: THREE.Group;
   basinWaterMesh: THREE.Mesh;
+  basinWall: THREE.Mesh;
+  basinBottom: THREE.Mesh;
 }
 
 export interface MuhtarRefs {
@@ -929,6 +931,8 @@ export function createMosqueAndGasilhane(
       porchLanternLight,
       deceasedGroup,
       basinWaterMesh,
+      basinWall,
+      basinBottom,
     ]),
   );
 
@@ -948,6 +952,8 @@ export function createMosqueAndGasilhane(
     pestemalMesh,
     kefenWrapGroup,
     basinWaterMesh,
+    basinWall,
+    basinBottom,
   };
 }
 

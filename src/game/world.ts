@@ -103,6 +103,7 @@ export interface WorldHandles {
   }>;
   virtualLights: VirtualPointLight[];
   worldLightPool: THREE.PointLight[];
+  washStations: { soap: THREE.Group; ewer: THREE.Group };
   apertureLights: { window: THREE.MeshBasicMaterial; officeDoor: THREE.MeshBasicMaterial };
   sunKeyLight: THREE.DirectionalLight;
   hemiLight: THREE.HemisphereLight;
@@ -652,6 +653,22 @@ export function buildVillageWorld(
   itemMeshes['item_kafur'] = muhtar.camphorJar;
   itemMeshes['item_mill_toxin'] = millAndBridge.herbPatch;
 
+  // Supplies placed in the washing room after collection, with separate E targets.
+  const washSoap = createCopperEwerAndSoap('sabun');
+  const washEwer = createCopperEwerAndSoap('ibrik');
+  washSoap.position.set(-2.75, 0.85, -2.35); washEwer.position.set(-2.75, 0.85, 2.3);
+  gasil.group.add(washSoap, washEwer);
+  const washShelfGeo = new THREE.BoxGeometry(0.7, 0.09, 0.65);
+  for (const z of [-2.35, 2.3]) {
+    const shelf = new THREE.Mesh(washShelfGeo, craft.wood); shelf.position.set(-2.75, 0.8, z); gasil.group.add(shelf);
+  }
+  disposables.push(washShelfGeo);
+  const supplyResources = new Set<THREE.BufferGeometry | THREE.Material>();
+  for (const prop of [washSoap, washEwer]) prop.traverse(o => {
+    if (o instanceof THREE.Mesh) { supplyResources.add(o.geometry); for (const m of Array.isArray(o.material) ? o.material : [o.material]) supplyResources.add(m); }
+  });
+  disposables.push({ dispose: () => supplyResources.forEach(resource => resource.dispose()) });
+
   // 13. Register Interactables
   const registerTarget = (
     id: string,
@@ -723,6 +740,9 @@ export function buildVillageWorld(
     [2.4, 0.9, 1.2],
     3.4,
   );
+  registerTarget('wash_soap', new THREE.Vector3(gasilPos.x - 2.75, gasilPos.y + 0.92, gasilPos.z - 2.35), [0.55, 0.45, 0.55], 2.7);
+  registerTarget('wash_ewer', new THREE.Vector3(gasilPos.x - 2.75, gasilPos.y + 1.05, gasilPos.z + 2.3), [0.55, 0.6, 0.55], 2.7);
+  registerTarget('dirty_bucket', new THREE.Vector3(gasilPos.x + 0.25, gasilPos.y + 0.68, gasilPos.z + 1.05), [0.52, 0.52, 0.52], 2.7);
   registerTarget(
     'gasil_shutter',
     new THREE.Vector3(gasilPos.x - 3.25, gasilPos.y + 2.0, gasilPos.z),
@@ -1248,6 +1268,7 @@ export function buildVillageWorld(
     streetLights,
     virtualLights,
     worldLightPool,
+    washStations: { soap: washSoap, ewer: washEwer },
     apertureLights: { window: windowLight, officeDoor: doorLight },
     sunKeyLight,
     hemiLight,

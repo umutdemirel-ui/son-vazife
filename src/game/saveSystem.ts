@@ -51,6 +51,8 @@ export interface SaveGamePayload {
     prep: boolean;
     wash: boolean;
     washStage?: number;
+    heldWashTool?: 'empty' | 'soap' | 'ewer' | 'dirty';
+    soapAppliedFor?: 'arif' | 'mahmut' | 'yolcu' | null;
     rinseStage?: number;
     dirtyReady: boolean;
     dirtyDrained: boolean;
@@ -109,6 +111,9 @@ export function readAutoSave(): SaveGamePayload | null {
         (!Number.isFinite(parsed.survivalSeconds) ||
           parsed.survivalSeconds < 0 ||
           parsed.survivalSeconds > 315360000)) ||
+      (parsed.ritual?.heldWashTool !== undefined && !['empty', 'soap', 'ewer', 'dirty'].includes(parsed.ritual.heldWashTool)) ||
+      (parsed.ritual?.soapAppliedFor !== undefined && parsed.ritual.soapAppliedFor !== null && !['arif', 'mahmut', 'yolcu'].includes(parsed.ritual.soapAppliedFor)) ||
+      (parsed.ritual?.heldWashTool === 'dirty' && (!parsed.ritual.dirtyReady || parsed.ritual.dirtyDrained)) ||
       (parsed.ritual?.washStage !== undefined && (!Number.isInteger(parsed.ritual.washStage) || parsed.ritual.washStage < 0 || parsed.ritual.washStage > 4)) ||
       (parsed.ritual?.rinseStage !== undefined && (!Number.isInteger(parsed.ritual.rinseStage) || parsed.ritual.rinseStage < 0 || parsed.ritual.rinseStage > 3)) ||
       (parsed.mosqueDoorOpen !== undefined && typeof parsed.mosqueDoorOpen !== 'boolean') ||

@@ -1,3 +1,5 @@
+import { createWorkHands } from './handRig';
+import { requiredWashTool, washInstruction, type WashPerson, type WashTool } from './washing';
 import { atmosphereTargets } from './atmosphere';
 import { insideHome } from './homes';
 import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition, migrateMuhtarPosition } from './homeMigration';
@@ -37,7 +39,7 @@ import {
   type RenderTier,
 } from './quality';
 import { DreadLevelListener, SpatialDreadTrigger } from './dreadListener';
-import { createHandCandle, HandCandleRefs } from './models';
+import { createHandCandle, createCopperEwerAndSoap, HandCandleRefs } from './models';
 import { filterDialogueOptions, updateNpcActorPatrol, VILLAGE_NPCS } from './npcs';
 import type { PostProcessingRig } from './postprocessing';
 import { getAutoSaveSummary, readAutoSave, SaveGamePayload, writeAutoSave } from './saveSystem';
@@ -326,7 +328,9 @@ export class SonVazifeEngine {
   private rinseStage = 0;
   private washingHand!: THREE.Group;
   private washAnim = 0;
-  private washTools!: Record<'cloth' | 'soap' | 'bucket', THREE.Group>;
+  private washTools!: Record<'cloth' | 'soap' | 'bucket' | 'ewer', THREE.Group>;
+  private heldWashTool: WashTool = 'empty';
+  private soapAppliedFor: WashPerson | null = null;
   private extraWashes = { mahmut: 0, yolcu: 0 };
   private scareFigure: THREE.Object3D | null = null;
   private scareTime = 0;
@@ -734,6 +738,7 @@ export class SonVazifeEngine {
     this.washStage = 0;
     this.rinseStage = 0;
     this.washAnim = 0;
+    this.heldWashTool = 'empty'; this.soapAppliedFor = null;
     this.extraWashes = { mahmut: 0, yolcu: 0 };
     if (this.scareFigure) { this.camera.remove(this.scareFigure); this.scareFigure = null; }
     this.scareTime = 0; this.scareFatal = false; this.nextScareTime = this.elapsedTime + 45 + Math.random() * 45;
@@ -907,28 +912,23 @@ export class SonVazifeEngine {
     this.handCandle.light.visible = true;
     this.camera.add(this.handCandle.root);
     this.camera.add(this.handCandle.light);
-    // A small first-person gloved hand and cloth make the separate washing actions visible.
-    this.washingHand = new THREE.Group();
-    const sleeve = new THREE.Mesh(new THREE.CapsuleGeometry(0.065, 0.3, 4, 8), new THREE.MeshStandardMaterial({ color: 0x4a4540, roughness: 1 }));
-    sleeve.rotation.z = -0.85; sleeve.position.set(0.2, -0.2, 0);
-    const palm = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), new THREE.MeshStandardMaterial({ color: 0xc2b5a1, roughness: 0.95 }));
-    palm.scale.set(1.0, 0.65, 1.2);
-    const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.045, 0.15), new THREE.MeshStandardMaterial({ color: 0xb9b29e, roughness: 1 }));
-    cloth.position.set(0, -0.07, 0);
-    // Both hands and a choice of modest, reusable tools for first-person work.
-    const leftSleeve = sleeve.clone(); leftSleeve.position.x = -0.45; leftSleeve.rotation.z = 0.85;
-    const leftPalm = palm.clone(); leftPalm.position.x = -0.51;
-    const clothTool = new THREE.Group(); clothTool.add(cloth);
+    // Anatomical palm, articulated digits and thumb in place of mitten-like spheres.
+    this.washingHand = createWorkHands();
+    const clothTool = new THREE.Group();
+    const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.12), new THREE.MeshStandardMaterial({ color: 0xb9b29e, roughness: 1 }));
+    cloth.position.set(0.2, -0.14, -0.10); clothTool.add(cloth);
     const soapTool = new THREE.Group();
-    const soap = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.07, 0.08), new THREE.MeshStandardMaterial({ color: 0xaaa58d, roughness: 0.95 }));
-    soap.position.set(0.26, -0.18, -0.06); soapTool.add(soap);
+    const soap = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.08), new THREE.MeshStandardMaterial({ color: 0xaaa58d, roughness: 0.95 }));
+    soap.position.set(0.24, -0.12, -0.10); soapTool.add(soap);
     const bucketTool = new THREE.Group();
     const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.105, 0.19, 12), new THREE.MeshStandardMaterial({ color: 0x777b77, roughness: 0.65, metalness: 0.28 }));
-    bucket.position.set(0.26, -0.25, -0.09); bucketTool.add(bucket);
+    bucket.position.set(0, -0.25, -0.12); bucketTool.add(bucket);
     const handle = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.012, 6, 16, Math.PI), new THREE.MeshStandardMaterial({ color: 0x555a58, metalness: 0.35, roughness: 0.6 }));
-    handle.position.set(0.26, -0.15, -0.09); bucketTool.add(handle);
-    this.washTools = { cloth: clothTool, soap: soapTool, bucket: bucketTool };
-    this.washingHand.add(sleeve, palm, leftSleeve, leftPalm, clothTool, soapTool, bucketTool); this.washingHand.position.set(0.2, -0.3, -0.65);
+    handle.position.set(0, -0.15, -0.12); bucketTool.add(handle);
+    const ewerTool = createCopperEwerAndSoap('ibrik');
+    ewerTool.position.set(0.23, -0.3, -0.1); ewerTool.scale.setScalar(0.7);
+    this.washTools = { cloth: clothTool, soap: soapTool, bucket: bucketTool, ewer: ewerTool };
+    this.washingHand.add(clothTool, soapTool, bucketTool, ewerTool); this.washingHand.position.set(0, -0.3, -0.65);
     this.washingHand.visible = false; this.camera.add(this.washingHand);
 
     this.syncQualityTierFromSettings();
@@ -982,7 +982,11 @@ export class SonVazifeEngine {
     this.world.setSignal(signal);
     this.world.keeper.setStage(this.act === 7, signal);
 
-    this.world.gasil.basinWaterMesh.visible = this.stepPrepDone && !this.dirtyBasinDrained;
+    this.world.washStations.soap.visible = !!this.inventory.find(i => i.id === 'sabun')?.collected && this.heldWashTool !== 'soap';
+    this.world.washStations.ewer.visible = !!this.inventory.find(i => i.id === 'ibrik')?.collected && this.heldWashTool !== 'ewer';
+    this.world.gasil.basinWall.visible = this.world.gasil.basinBottom.visible = this.heldWashTool !== 'dirty';
+    this.world.gasil.basinWaterMesh.visible = this.stepPrepDone && !this.dirtyBasinDrained && this.heldWashTool !== 'dirty';
+    this.updateHeldWashVisual();
     this.world.gasil.vigilFlame.visible = this.vigilLit;
     this.world.gasil.vigilLight.intensity = this.vigilLit ? 3.4 : 0;
     this.world.gasil.windowShadowFigure.visible = this.windowAnomalyActive;
@@ -1180,6 +1184,9 @@ export class SonVazifeEngine {
       this.stepPrepDone = Boolean(save.ritual.prep);
       this.stepWashDone = Boolean(save.ritual.wash);
       this.washStage = this.stepWashDone ? 4 : (save.ritual.washStage ?? 0);
+      this.heldWashTool = save.ritual.heldWashTool ?? 'empty';
+      this.soapAppliedFor = save.ritual.soapAppliedFor ?? null;
+      if (this.heldWashTool !== 'empty') this.candleLit = false;
       this.rinseStage = save.ritual.finalCamphor ? 3 : (save.ritual.rinseStage ?? 0);
       this.dirtyBasinReady = Boolean(save.ritual.dirtyReady);
       this.dirtyBasinDrained = Boolean(save.ritual.dirtyDrained);
@@ -1308,6 +1315,8 @@ export class SonVazifeEngine {
         prep: this.stepPrepDone,
         wash: this.stepWashDone,
         washStage: this.washStage,
+        heldWashTool: this.heldWashTool,
+        soapAppliedFor: this.soapAppliedFor,
         rinseStage: this.rinseStage,
         dirtyReady: this.dirtyBasinReady,
         dirtyDrained: this.dirtyBasinDrained,
@@ -1403,6 +1412,9 @@ export class SonVazifeEngine {
   public toggleCandle(): void {
     if (this.screen !== 'playing' || this.activeAutopsyCaseId || this.registryCaseId || this.nightPage)
       return;
+    if (!this.candleLit && (this.heldWashTool !== 'empty' || this.washAnim > 0)) {
+      this.showCaption('Önce elindeki malzemeyi yerine bırak; yıkama iki el gerektirir.', 3); return;
+    }
     if (!this.inventory.find((i) => i.id === 'defter')?.collected && this.act === 1) {
       this.showCaption('Henüz gassalın mumunu ve defterini almadın.', 2.8);
       return;
@@ -2017,6 +2029,9 @@ export class SonVazifeEngine {
         'receiving_mahmut',
         'wash_mahmut',
         'wash_yolcu',
+        'wash_soap',
+        'wash_ewer',
+        'dirty_bucket',
         'night_call',
         'night_tag',
       ].includes(id)
@@ -2102,13 +2117,21 @@ export class SonVazifeEngine {
     }
     if (Object.hasOwn(FIELD_NOTES, id))
       return `[E] ${FIELD_NOTES[id as keyof typeof FIELD_NOTES].title} · İncele`;
+    if (id === 'wash_soap' || id === 'wash_ewer') {
+      const tool = id === 'wash_soap' ? 'soap' : 'ewer';
+      const collected = this.inventory.find(i => i.id === (tool === 'soap' ? 'sabun' : 'ibrik'))?.collected;
+      if (!collected || this.act < 2) return null;
+      const name = tool === 'soap' ? 'sabunu' : 'temiz su ibriğini';
+      return this.heldWashTool === tool ? `[E] ${name} yerine bırak` : this.heldWashTool === 'empty' ? `[E] ${name} eline al` : 'Önce elindeki malzemeyi bırak';
+    }
+    if (id === 'dirty_bucket') return this.dirtyBasinReady && !this.dirtyBasinDrained ? this.heldWashTool === 'empty' ? '[E] Kirli su kovasını iki elinle al' : this.heldWashTool === 'dirty' ? '[E] Kirli su kovasını yerine bırak' : 'Önce elindeki malzemeyi bırak' : null;
     if (id === 'receiving_mahmut')
       return this.world.receiving.mahmut.visible ? '[E] Şoför Mahmut’un nakil fişini oku' : null;
     if (id === 'wash_mahmut' || id === 'wash_yolcu') {
       const who = id === 'wash_mahmut' ? 'mahmut' : 'yolcu';
       if (!this.world.receiving[who].visible || (who === 'yolcu' && !this.hasEntry('night_tag'))) return null;
       const stage = this.extraWashes[who];
-      return stage < 4 ? `[E] ${who === 'mahmut' ? 'Mahmut' : 'Yolcu'} · ${['Yüzü ve elleri temizle', 'Sağ tarafı sabunla', 'Sol tarafı sabunla', 'Temiz suyla durula'][stage]}` : null;
+      return stage < 4 ? `[E] ${who === 'mahmut' ? 'Mahmut' : 'Yolcu'} · ${washInstruction(stage, this.soapAppliedFor === who)}` : null;
     }
     if (id.startsWith('npc_')) {
       const npcId = id.replace('npc_', '') as NpcId;
@@ -2177,7 +2200,7 @@ export class SonVazifeEngine {
         if (this.bodyRisen) return 'Sabır mumunu yak; cenaze teneşire geri uzansın';
         if (this.act === 2) {
           if (!this.stepPrepDone) return '[E] Örtüyü (Setr-i Avret) Ser ve Suyu Hazırla';
-          if (!this.stepWashDone) return `[E] ${['Yüzü ve elleri temizle', 'Sağ tarafı sabunla', 'Sol tarafı sabunla', 'Temiz suyla durula'][this.washStage]}`;
+          if (!this.stepWashDone) return `[E] ${washInstruction(this.washStage, this.soapAppliedFor === 'arif')}`;
           if (this.windowAnomalyActive && !this.shutterClosed) return 'Önce pencere kepengini kapat!';
           if (!this.dirtyBasinDrained) return 'Önce kirli su leğenini iç gidere boşalt';
           return 'Bekçi Hasan’dan Sağlık Ocağı Anahtarını alıp Şoför Mahmut’u incele';
@@ -2203,11 +2226,11 @@ export class SonVazifeEngine {
       }
       case 'gasil_drain':
         return this.dirtyBasinReady && !this.dirtyBasinDrained
-          ? '[E] Kirli Suyu Taş Gidere Boşalt'
+          ? this.heldWashTool === 'dirty' ? '[E] Kirli Suyu Taş Gidere Boşalt' : 'Önce kirli su kovasını al'
           : null;
       case 'yard_drain':
         return this.dirtyBasinReady && !this.dirtyBasinDrained
-          ? '[E] Kirli Suyu Avlu Oluğuna Dök'
+          ? this.heldWashTool === 'dirty' ? '[E] Kirli Suyu Avlu Oluğuna Dök' : 'Önce kirli su kovasını al'
           : null;
       case 'vigil_candle':
         return this.act < 2 ? null : !this.vigilLit ? '[E] Başucunda Sabır Mumunu Yak' : this.candleOil < 100 ? '[E] Gaz lambası haznesinden mum yağını doldur' : null;
@@ -2294,11 +2317,27 @@ export class SonVazifeEngine {
       this.showCaption(c.body, 6);
       return;
     }
+    if (id === 'wash_soap' || id === 'wash_ewer') {
+      const tool = id === 'wash_soap' ? 'soap' : 'ewer';
+      if (this.heldWashTool !== 'empty' && this.heldWashTool !== tool) { this.showCaption('Önce elindeki malzemeyi yerine bırak.', 3); return; }
+      this.heldWashTool = this.heldWashTool === tool ? 'empty' : tool;
+      if (this.heldWashTool !== 'empty') this.putAwayCandle();
+      this.washAnim = 0; this.syncVisualMeshes();
+      this.audio.playPickup(); this.triggerAutoSave(false); this.pushHudState(true); return;
+    }
+    if (id === 'dirty_bucket') {
+      if (!this.dirtyBasinReady || this.dirtyBasinDrained || !['empty', 'dirty'].includes(this.heldWashTool)) return;
+      const taking = this.heldWashTool === 'empty';
+      this.putAwayCandle(); this.heldWashTool = taking ? 'dirty' : 'empty'; this.washAnim = 0;
+      this.syncVisualMeshes(); this.audio.playPickup(); this.showCaption(taking ? 'Kirli suyu aldın. İçerideki taş gidere taşı.' : 'Kirli su kovasını yerine bıraktın.', 4);
+      this.triggerAutoSave(false); this.pushHudState(true); return;
+    }
     if (id === 'wash_mahmut' || id === 'wash_yolcu') {
       const who = id === 'wash_mahmut' ? 'mahmut' : 'yolcu';
       if (!this.world.receiving[who].visible || (who === 'yolcu' && !this.hasEntry('night_tag')) || this.extraWashes[who] >= 4) return;
-      const stage = this.extraWashes[who]++;
-      this.startWashAnimation(stage === 3 ? 'bucket' : stage === 0 ? 'cloth' : 'soap');
+      const stage = this.extraWashes[who];
+      if (!this.performWashStep(who, stage)) return;
+      this.extraWashes[who]++;
       this.audio.playWaterPour();
       this.showCaption(this.extraWashes[who] === 4 ? `${who === 'mahmut' ? 'Mahmut' : 'Yolcu'} için yıkama tamamlandı.` : 'Yıkama sürüyor; sıradaki adımı uygulamak için yeniden etkileşime gir.', 4);
       this.triggerAutoSave(false); this.pushHudState(true); return;
@@ -2322,11 +2361,12 @@ export class SonVazifeEngine {
       const invId = id.replace('item_', '');
       const item = this.inventory.find((i) => i.id === invId);
       if (!item || item.collected) return;
+      if (this.heldWashTool !== 'empty') { this.showCaption('Önce elindeki malzemeyi yerine bırak.', 3); return; }
       if (invId === 'gulsuyu' && this.act < 3) return;
       if (invId === 'kafur' && this.act < 4) return;
 
       item.collected = true;
-      if (invId === 'sabun' || invId === 'ibrik' || invId === 'gulsuyu') this.startWashAnimation(invId === 'sabun' ? 'soap' : invId === 'ibrik' ? 'bucket' : 'cloth');
+      if (invId === 'sabun' || invId === 'ibrik' || invId === 'gulsuyu') { this.putAwayCandle(); this.startWashAnimation(invId === 'sabun' ? 'soap' : invId === 'ibrik' ? 'ewer' : 'cloth'); }
       this.audio.playPickup();
       this.syncVisualMeshes();
 
@@ -2468,25 +2508,25 @@ export class SonVazifeEngine {
     }
 
     // 4. Drains (Rule 2)
-    if (id === 'gasil_drain' && this.dirtyBasinReady && !this.dirtyBasinDrained) {
+    if (id === 'gasil_drain' && this.dirtyBasinReady && !this.dirtyBasinDrained && this.heldWashTool === 'dirty') {
       this.dirtyBasinDrained = true;
-      this.dirtyBasinReady = false;
-      this.gasilBulbOut = true;
-      this.unlockGlossaryEntry('anom_bulb');
+      this.dirtyBasinReady = false; this.heldWashTool = 'empty';
+      this.startWashAnimation('bucket');
       this.audio.playWaterPour();
       this.syncVisualMeshes();
       this.triggerAutoSave(true);
       this.showCaption(
-        'Suyu iç gidere boşalttın... Tavan ampulü patladı! Sabır Mumunu yak, Bekçi Hasan’dan Sağlık Ocağı Anahtarını al.',
+        'Kirli suyu güvenle iç gidere boşalttın. Sabır Mumunu yak, sonra Bekçi Hasan’la görüş.',
         6.2,
       );
       this.pushHudState(true);
       return;
     }
 
-    if (id === 'yard_drain' && this.dirtyBasinReady && !this.dirtyBasinDrained) {
+    if (id === 'yard_drain' && this.dirtyBasinReady && !this.dirtyBasinDrained && this.heldWashTool === 'dirty') {
       this.dirtyBasinDrained = true;
-      this.dirtyBasinReady = false;
+      this.dirtyBasinReady = false; this.heldWashTool = 'empty';
+      this.startWashAnimation('bucket');
       this.gasilBulbOut = true;
       this.unlockGlossaryEntry('anom_bulb');
       this.unlockGlossaryEntry('anom_drain');
@@ -2496,6 +2536,9 @@ export class SonVazifeEngine {
         'rule_water',
         'KURAL İHLALİ: Gece dışarıya kirli su döktün! Ampul patladı, yağmurun içinden soğuk bir uğultu yükseldi.',
       );
+      // The rule violation has a visible consequence as well as the broken bulb.
+      this.startCreatureScare(this.world.sisGozcusu);
+      this.nextScareTime = this.elapsedTime + 45 + Math.random() * 45;
       this.triggerAutoSave(false);
       this.pushHudState(true);
       return;
@@ -2564,8 +2607,8 @@ export class SonVazifeEngine {
           this.syncVisualMeshes();
           this.showCaption('Setr-i avret örtüsü serildi, ılık su hazırlandı.', 3.6);
         } else if (!this.stepWashDone) {
+          if (!this.performWashStep('arif', this.washStage)) return;
           this.washStage++;
-          this.startWashAnimation(this.washStage === 4 ? 'bucket' : this.washStage === 1 ? 'cloth' : 'soap');
           this.audio.playWaterPour();
           if (this.washStage < 4) {
             this.showCaption(['Yüz ve eller özenle temizlendi.', 'Sağ taraf yıkandı; şimdi sol tarafa geç.', 'Sol taraf yıkandı; temiz suyla durula.'][this.washStage - 1], 3.5);
@@ -2612,8 +2655,9 @@ export class SonVazifeEngine {
         }
 
         if (!this.stepFinalCamphorDone) {
+          if (this.heldWashTool !== 'ewer') { this.showCaption('Önce temiz su ibriğini eline al.', 3); return; }
           this.rinseStage++;
-          this.startWashAnimation('bucket');
+          this.startWashAnimation('ewer');
           this.audio.playWaterPour();
           if (this.rinseStage < 3) {
             this.showCaption(`${this.rinseStage}. durulama tamamlandı; devam etmek için yeniden uygula.`, 3.5);
@@ -2627,16 +2671,20 @@ export class SonVazifeEngine {
             4.2,
           );
         } else if (!this.stepDryDone) {
-          this.stepDryDone = true;
+          if (this.heldWashTool !== 'empty') { this.showCaption('Önce ibriği yerine bırak ve ellerinle havluyu al.', 3); return; }
+          this.putAwayCandle(); this.stepDryDone = true;
           this.startWashAnimation('cloth');
           this.audio.playPickup();
           this.showCaption('Kurulama ve gülsuyu tamamlandı. Son adım: kefenle ve bağları bağla.', 4.2);
         } else if (!this.stepShroudDone) {
-          this.stepShroudDone = true;
+          if (this.heldWashTool !== 'empty') { this.showCaption('Kefen için iki elini de boşalt.', 3); return; }
+          this.putAwayCandle(); this.stepShroudDone = true;
           this.bodyRisen = false;
           this.syncVisualMeshes();
           this.showCaption('Kefen bağlandı. Cenazeyi kaldırıp kapı dışındaki nakil sedyesine taşı.', 6.5);
         } else if (this.bodyTransport !== 'delivered') {
+          if (this.heldWashTool !== 'empty') { this.showCaption('Cenazeyi taşımadan önce malzemeyi bırak.', 3); return; }
+          this.putAwayCandle();
           this.bodyTransport = this.bodyTransport === 'slab' ? 'carried' : 'slab';
           this.syncVisualMeshes();
           this.showCaption(this.bodyTransport === 'carried' ? 'Cenazeyi taşıyorsun. Dışarıdaki sedyeye götür.' : 'Cenaze teneşire geri bırakıldı.', 4);
@@ -3205,7 +3253,35 @@ export class SonVazifeEngine {
     schedule();
   }
 
-  private startWashAnimation(tool: 'cloth' | 'soap' | 'bucket'): void {
+  private putAwayCandle(): void {
+    if (this.candleLit) { this.candleLit = false; this.handCandle.root.visible = false; this.handCandle.light.intensity = 0; this.showCaption('İki elini kullanmak için mumu söndürüp bıraktın.', 3); }
+  }
+
+  private updateHeldWashVisual(): void {
+    if (!this.washingHand || !this.washTools) return;
+    const held = this.heldWashTool;
+    this.washingHand.visible = !this.activeAutopsyCaseId && (this.washAnim > 0 || held !== 'empty');
+    if (this.washAnim <= 0) for (const [name, group] of Object.entries(this.washTools))
+      group.visible = name === (held === 'dirty' ? 'bucket' : held);
+  }
+
+  private performWashStep(who: WashPerson, stage: number): boolean {
+    const applied = this.soapAppliedFor === who;
+    const required = requiredWashTool(stage, applied);
+    if (this.heldWashTool !== required) { this.showCaption(washInstruction(stage, applied), 4); return false; }
+    if (this.soapAppliedFor && !applied) { this.showCaption('Önce sabun sürdüğün cenazeyi ellerinle yıkamayı tamamla.', 4); return false; }
+    this.putAwayCandle();
+    if ((stage === 1 || stage === 2) && !applied) {
+      this.soapAppliedFor = who; this.startWashAnimation('soap');
+      this.showCaption('Sabunu sürdün. Sabunu yerine bırakıp iki elle yıka.', 4);
+      this.triggerAutoSave(false); this.pushHudState(true); return false;
+    }
+    this.soapAppliedFor = null;
+    this.startWashAnimation(stage === 3 ? 'ewer' : 'cloth');
+    return true;
+  }
+
+  private startWashAnimation(tool: 'cloth' | 'soap' | 'bucket' | 'ewer'): void {
     this.washAnim = 1.5;
     for (const [name, group] of Object.entries(this.washTools)) group.visible = name === tool;
     this.washingHand.visible = true;
@@ -3569,12 +3645,14 @@ export class SonVazifeEngine {
 
     if (this.washAnim > 0) {
       this.washAnim = Math.max(0, this.washAnim - dt);
-      this.washingHand.visible = this.washAnim > 0;
+      this.washingHand.visible = this.washAnim > 0 || this.heldWashTool !== 'empty';
+      if (this.washAnim === 0) this.updateHeldWashVisual();
       const phase = 1.5 - this.washAnim;
-      this.washingHand.position.x = 0.2 + Math.sin(phase * 12) * 0.14;
+      this.washingHand.position.x = Math.sin(phase * 12) * 0.10;
       this.washingHand.position.y = -0.3 + Math.sin(phase * 6) * 0.05;
       this.washingHand.rotation.z = Math.sin(phase * 8) * 0.12;
-      this.washingHand.rotation.x = this.washTools.bucket.visible ? -0.35 * Math.sin(Math.min(1, phase / 1.5) * Math.PI) : 0;
+      this.washingHand.rotation.x = (this.washTools.bucket.visible || this.washTools.ewer.visible) ? -0.35 * Math.sin(Math.min(1, phase / 1.5) * Math.PI) : 0;
+      this.washingHand.traverse(o => { if (o.name === 'parmak') o.rotation.x = 0.15 + Math.sin(phase * 9) * 0.12; });
     }
     // 6. Candle Flicker, Sway & Oil
     if (this.candleLit) {

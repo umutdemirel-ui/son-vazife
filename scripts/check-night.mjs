@@ -208,16 +208,37 @@ try {
   await page.keyboard.press('Escape');
   await use(...slab);
   await form('case_arif');
-  await use(...slab);
-  for (let i = 0; i < 2; i++) await use(...slab);
+  const soap = ['wash_soap', -12.0, 4.75], ewer = ['wash_ewer', -12.0, 7.3];
+  await use(...slab); // prepare
+  await use(...slab); // bare hands
+  await use(...slab); // without soap cannot progress
+  assert.equal(await val('washStage'), 1);
+  await use(...soap); assert.equal(await val('heldWashTool'), 'soap');
+  assert.equal(await val('candleLit'), false);
+  await use(...slab); assert.equal(await val('soapAppliedFor'), 'arif');
+  await reload(); assert.equal(await val('heldWashTool'), 'soap');
+  assert.equal(await val('soapAppliedFor'), 'arif');
+  await use(...soap); await use(...slab); // set soap down, scrub right side
   assert.equal((await saved()).ritual.washStage, 2);
-  await reload();
-  assert.equal(await val('washStage'), 2);
-  for (let i = 0; i < 2; i++) await use(...slab);
+  await use(...soap); await use(...slab); await use(...soap); await use(...slab);
+  await use(...ewer); await use(...slab); await use(...ewer);
   assert.ok((await saved()).ritual.wash);
   await use('gasil_shutter', -12.9, 6.85);
-  await use('gasil_drain', -11.7, 7.49);
   await use('vigil_candle', -12.04, 4.77);
+  await use('dirty_bucket', -11.4, 7.3);
+  assert.equal(await val('heldWashTool'), 'dirty');
+  await page.keyboard.press('f');
+  assert.equal(await val('candleLit'), false, 'bucket and candle cannot occupy the same hands');
+  await reload(); assert.equal(await val('heldWashTool'), 'dirty');
+  const beforePour = await saved();
+  await use('yard_drain', -4.6, 8.6);
+  assert.equal(await val('gasilBulbOut'), true);
+  assert.ok(await val('violations') > 0);
+  await page.evaluate(s => localStorage.setItem('son_vazife_save_v2', JSON.stringify(s)), beforePour);
+  await reload();
+  await use('gasil_drain', -11.7, 7.49);
+  assert.equal(await val('gasilBulbOut'), false);
+  assert.equal(await val('violations'), 0);
   await use('npc_bekci', -1.05, 14.65);
   await btn(/Adli Kanıt/).click();
   await btn(/Anahtarını al ve oraya/).click();
@@ -241,7 +262,9 @@ try {
   await form('case_unknown');
   await doorway('muhtar_door', 13.25, -57, 'x', 1);
   await use('item_kafur', 17.16, -57.36);
-  for (let i = 0; i < 5; i++) await use(...slab);
+  await use(...ewer);
+  for (let i = 0; i < 3; i++) await use(...slab);
+  await use(...ewer); await use(...slab); await use(...slab);
   assert.equal(await val('act'), 5);
   await use(...slab);
   assert.equal(await val('bodyTransport'), 'carried');
@@ -375,7 +398,11 @@ try {
       assert.equal(await val('nightPage'), null);
       // Both received bodies have independent, persisted four-step washing work.
       for (const site of [['wash_mahmut', -11.4, 4.9], ['wash_yolcu', -11.4, 7.3]]) {
-        for (let stage = 0; stage < 4; stage++) await use(...site);
+        await use(...site);
+        for (let side = 0; side < 2; side++) {
+          await use(...soap); await use(...site); await use(...soap); await use(...site);
+        }
+        await use(...ewer); await use(...site); await use(...ewer);
       }
       assert.deepEqual((await saved()).additionalWashes, { mahmut: 4, yolcu: 4 });
       await reload();
