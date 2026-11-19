@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import { DERMANLI_PATHS, dermanliHeight, type SurveyPath } from './dermanliMap';
 
 /** Independent terrain prototype. Does not mutate or remove the active world. */
-export function createDermanliTerrain() {
+export function createDermanliTerrain(textures?: {ground:THREE.Texture;road:THREE.Texture}) {
   const root = new THREE.Group();
   root.name = 'Dermanlı arazi ve yollar';
   const geometries: THREE.BufferGeometry[] = [];
-  const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x303b2c, roughness: 1 });
-  const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x504234, roughness: 1, side: THREE.DoubleSide });
+  const groundMaterial = new THREE.MeshStandardMaterial({ color: textures ? 0xb5b5a3 : 0x303b2c, map:textures?.ground, roughness: 1 });
+  const roadMaterial = new THREE.MeshStandardMaterial({ color: textures ? 0xb9a897 : 0x504234, map:textures?.road, roughness: 1, side: THREE.DoubleSide });
   const trailMaterial = new THREE.MeshStandardMaterial({ color: 0x3c3229, roughness: 1, side: THREE.DoubleSide });
   const waterMaterial = new THREE.MeshStandardMaterial({ color: 0x183746, roughness: 0.3, metalness: 0.1, side: THREE.DoubleSide });
   const ground = new THREE.PlaneGeometry(240, 240, 80, 80);
@@ -40,7 +40,7 @@ function makeRibbon(path: SurveyPath): THREE.BufferGeometry {
     for (let k = 0; k < steps; k++) points.push([a[0]+(b[0]-a[0])*k/steps, a[1]+(b[1]-a[1])*k/steps]);
   }
   if (!path.closed) points.push(path.points[path.points.length-1]);
-  const vertices: number[] = [], indices: number[] = [];
+  const vertices: number[] = [], uv: number[] = [], indices: number[] = [];
   for (let i = 0; i < points.length; i++) {
     const a = points[i === 0 ? (path.closed ? points.length-1 : 0) : i-1];
     const b = points[i === points.length-1 ? (path.closed ? 0 : i) : i+1];
@@ -48,6 +48,7 @@ function makeRibbon(path: SurveyPath): THREE.BufferGeometry {
     for (const side of [-1,1]) {
       const x = points[i][0] - dz/length*path.width/2*side;
       const z = points[i][1] + dx/length*path.width/2*side;
+      uv.push(x/3.4,z/3.4);
       vertices.push(x, dermanliHeight(x,z) + (path.kind === 'water' ? 0.07 : 0.055), z);
     }
   }
@@ -57,6 +58,7 @@ function makeRibbon(path: SurveyPath): THREE.BufferGeometry {
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(vertices,3));
+  geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
   geo.setIndex(indices); geo.computeVertexNormals();
   return geo;
 }

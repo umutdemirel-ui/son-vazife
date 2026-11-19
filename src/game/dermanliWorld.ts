@@ -7,12 +7,16 @@ import { createMosqueAndGasilhane, createKaraBasma, createCopperEwerAndSoap } fr
 import { buildHome, type HomeSpec } from './homes';
 import { NightArt } from './nightArt';
 import { funeralFigure } from './funerary';
+import {createHorrorFigures,disposeHorrorFigures} from './horrorFigures';
+import {surfaceUrl} from './quality';
+import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import { translateColliders, type BoxCollider } from './collision';
 
 export interface NewTarget { id: string; label: string; x: number; z: number; radius: number }
 export function createDermanliWorld(scene: THREE.Scene) {
-  const terrain = createDermanliTerrain(); scene.add(terrain.root);
-  const textures = loadVillageTextures(2, true), craft = new VillageCraft(textures), art = new NightArt(true, () => {});
+  const textures = loadVillageTextures(2, true);
+  const terrain = createDermanliTerrain(textures); scene.add(terrain.root);
+  const craft = new VillageCraft(textures), art = new NightArt(true, () => {});
   const colliders: BoxCollider[] = [], targets: NewTarget[] = [], homes: ReturnType<typeof buildHome>['home'][] = [];
   const objects = new THREE.Group(); scene.add(objects);
   const ownGeometry: THREE.BufferGeometry[] = [], ownMaterial: THREE.Material[] = [];
@@ -25,6 +29,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   // Existing detailed, walk-in gasilhane: its local origin is the wash slab.
   const gasil = createMosqueAndGasilhane(textures, craft, art);
   gasil.group.position.set(S.gasilhane[0], dermanliHeight(...S.gasilhane), S.gasilhane[1]); objects.add(gasil.group);
+  gasil.ceilingLight.color.set(0x91b9dc);gasil.ceilingLight.intensity=5;
   const slabBody=funeralFigure(art,'arif',false); gasil.deceasedGroup.add(slabBody);
   art.near('arif',S.gasilhane[0],S.gasilhane[1],25);
   gasil.doorPivot.rotation.y = -Math.PI * .52; gasil.mosqueDoorPivot.rotation.y = -Math.PI * .52;
@@ -71,7 +76,20 @@ export function createDermanliWorld(scene: THREE.Scene) {
   };
   addHome(S.gassalHome,'home',0,7,5); addHome(S.school,'school',1,8,6); addHome(S.mill,'mill',2,6,5);
   S.abandonedHomes.forEach((p,i)=>addHome(p,`abandoned${i}`,i+3));
+  const homeLight=new THREE.PointLight(0xffb15c,4,12,1.7);homeLight.position.set(S.gassalHome[0],2.1,S.gassalHome[1]);objects.add(homeLight);
   addHome(S.barn,'barn',7,7,5);
+  // A wheel on the mill and a chalkboard inside the school make both landmarks legible at close range.
+  const wheel=new THREE.Group();wheel.position.set(S.mill[0]+3.2,1.9,S.mill[1]-.5);
+  const wheelGeo=new THREE.TorusGeometry(1.5,.12,8,24);ownGeometry.push(wheelGeo);
+  wheel.add(new THREE.Mesh(wheelGeo,wood));
+  for(let angle=0;angle<Math.PI;angle+=Math.PI/4){const g=new THREE.BoxGeometry(3,.12,.12);ownGeometry.push(g);const spoke=new THREE.Mesh(g,wood);spoke.rotation.z=angle;wheel.add(spoke);}
+  wheel.rotation.y=Math.PI/2;objects.add(wheel);
+  const boardCanvas=document.createElement('canvas');boardCanvas.width=512;boardCanvas.height=256;
+  const boardContext=boardCanvas.getContext('2d');
+  if(boardContext){boardContext.fillStyle='#25372e';boardContext.fillRect(0,0,512,256);boardContext.fillStyle='#c8c9b6';boardContext.font='30px serif';boardContext.fillText('Kapı açılınca',45,95);boardContext.fillText('anneme gideceğim.',45,145);boardContext.fillText('— Elif',320,205);}
+  const boardTexture=new THREE.CanvasTexture(boardCanvas);boardTexture.colorSpace=THREE.SRGBColorSpace;
+  const boardMat=new THREE.MeshStandardMaterial({map:boardTexture,roughness:1});ownMaterial.push(boardMat);
+  box(3,1.4,.08,S.school[0],1.8,S.school[1]-2.88,boardMat);
   // Fountain, well, bridge, cemetery, field and entrance form recognisable navigation landmarks.
   const cylinder = (radius:number,height:number,p:Point,m:THREE.Material,y=height/2) => {
     const g=new THREE.CylinderGeometry(radius,radius,height,16); ownGeometry.push(g); const mesh=new THREE.Mesh(g,m); mesh.position.set(p[0],dermanliHeight(...p)+y,p[1]); objects.add(mesh); return mesh;
@@ -98,7 +116,14 @@ export function createDermanliWorld(scene: THREE.Scene) {
     coords.push([x,z]);
   }
   const trees=new THREE.InstancedMesh(treeG,foliage,coords.length), trunks=new THREE.InstancedMesh(trunkG,wood,coords.length), dummy=new THREE.Object3D();
+  const plane=new THREE.PlaneGeometry(4.68,8.72).translate(0,4.36,0), cross=plane.clone().rotateY(Math.PI/2);
+  const pineGeometry=mergeGeometries([plane,cross])!;plane.dispose();cross.dispose();ownGeometry.push(pineGeometry);
+  const pineMaterial=new THREE.MeshLambertMaterial({color:0xb2bbae,side:THREE.DoubleSide,alphaTest:.32});ownMaterial.push(pineMaterial);
+  const pines=new THREE.InstancedMesh(pineGeometry,pineMaterial,coords.length);pines.visible=false;
+  const pineMap=new THREE.TextureLoader().load(surfaceUrl('karacam',true),()=>{pines.visible=true;trees.visible=false;trunks.visible=false;});pineMap.colorSpace=THREE.SRGBColorSpace;pineMaterial.map=pineMap;
+  coords.forEach(([x,z],i)=>{const y=dermanliHeight(x,z);dummy.position.set(x,y,z);dummy.rotation.y=random()*6.28;dummy.scale.setScalar(.8+random()*.4);dummy.updateMatrix();pines.setMatrixAt(i,dummy.matrix);colliders.push({minX:x-.25,maxX:x+.25,minZ:z-.25,maxZ:z+.25});});objects.add(pines);
   coords.forEach(([x,z],i)=>{ const y=dermanliHeight(x,z); dummy.position.set(x,y+3.8,z); dummy.rotation.y=random()*6.28; dummy.scale.setScalar(.75+random()*.6); dummy.updateMatrix(); trees.setMatrixAt(i,dummy.matrix); dummy.position.y=y+1; dummy.scale.setScalar(1); dummy.updateMatrix(); trunks.setMatrixAt(i,dummy.matrix); }); objects.add(trees,trunks);
+  const figures=createHorrorFigures(); for(const figure of figures){figure.visible=false;objects.add(figure);}
   const apparition=createKaraBasma().root; apparition.position.set(-1000,0,-1000); objects.add(apparition);
-  return {targets,colliders,gasil,homes,apparition,arrivalBody,slabBody,updateArt(x:number,z:number){art.approach({x,z});}, dispose(){ terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,gasil,homes,apparition,figures,arrivalBody,slabBody,wheel,homeLight,updateArt(x:number,z:number){art.approach({x,z});}, dispose(){ disposeHorrorFigures(figures); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }
