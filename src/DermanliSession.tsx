@@ -96,6 +96,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         gasilhane: () => [...S.gasilhane],
         gassalHome: () => [...S.gassalHome],
         barn: () => [...S.barn],
+        abandonedHomes: () => S.abandonedHomes.map(p=>[...p]),
         approachNight: () => {elapsed=DAY_SECONDS/2-2;previousNight=false;},
         worldTools: () => Object.fromEntries(Object.entries(world.stationMeshes).map(([id,mesh])=>[id,mesh.visible])),
         squareArt: () => ({fountain:!!world.fountain.getObjectByName('hayrat'),tree:world.squareTree.visible}),
@@ -243,7 +244,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       const visuals=villageNightVisuals(ritual.night,night,ritual.body==='done');
       world.graveMounds.forEach((m,i)=>{m.visible=i<visuals.completed;});
       world.emptyHomeWindows.forEach((w,i)=>{w.visible=i===visuals.litHome;});
-      if(visuals.litHome>=0){const [x,z]=S.abandonedHomes[visuals.litHome];world.emptyHomeLight.position.set(x+1.85,1.7,z+2.9);world.emptyHomeLight.intensity=2.5+Math.sin(elapsed*5)*.2;}else world.emptyHomeLight.intensity=0;
+      if(visuals.litHome>=0){const [x,z]=S.abandonedHomes[visuals.litHome];world.emptyHomeLight.position.set(x+2.125,dermanliSurfaceHeight(x,z)+1.7,z+2.9);world.emptyHomeLight.intensity=2.5+Math.sin(elapsed*5)*.2;}else world.emptyHomeLight.intensity=0;
       world.fountainWater.visible=visuals.fountainFlowing;
       world.gasil.windowShadowFigure.visible=night&&now<windowShadowUntil&&!ritual.ending;
       world.slabBody.visible=ritual.body==='slab'&&ritual.stage<6;world.slabBody.rotation.z=ritual.risen?-Math.PI/2:0;

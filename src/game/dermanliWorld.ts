@@ -96,12 +96,12 @@ export function createDermanliWorld(scene: THREE.Scene) {
 
   const addHome = (site: Point, id: string, number: number, w = 6.5, d = 5) => {
     const spec: HomeSpec = {x:site[0],z:site[1],rotY:0,w,d,h:3,style:number%2 ? 'himis' : 'tas'};
-    const {home,walls} = buildHome(spec,number,dermanliSurfaceHeight(...site),craft,id === 'school' ? 'school' : id === 'home' ? 'gassal' : 'home');
+    const {home,walls} = buildHome(spec,number,dermanliSurfaceHeight(...site),craft,id === 'school' ? 'school' : id === 'home' ? 'gassal' : id.startsWith('abandoned') ? 'abandoned' : 'home');
     home.door.rotation.y = -Math.PI*.5; homes.push(home); objects.add(home.root); colliders.push(...walls);occluders.push(...walls.slice(0,5));
     // The opened door leaf projects into the yard; do not let players stand inside its mesh.
-    const leafWidth=id === 'school' || id === 'home' ? 2 : 1.45;
+    const leafWidth=id === 'school' || id === 'home' || id.startsWith('abandoned') ? 2 : 1.45;
     const openDoor=homeCollider(spec,-leafWidth/2,d/2+leafWidth/2,.14,leafWidth);colliders.push(openDoor);occluders.push(openDoor);
-    if(id !== 'school' && id !== 'home') target(id, id === 'coffee' ? 'Kahvehane · Eski ilan' : 'Terk edilmiş ev', [site[0],site[1]+d/2+1.0],2.6);
+    if(id === 'coffee') target(id, 'Kahvehane · Eski ilan', [site[0],site[1]+d/2+1.0],2.6);
   };
   addHome(S.gassalHome,'home',0,7,5); addHome(S.school,'school',1,8,6);
   // The gassal's room is empty of residents: a cot, rug and writing table tell his story.
@@ -126,6 +126,39 @@ export function createDermanliWorld(scene: THREE.Scene) {
 
   const coffeeSite=S.coffee;addHome(coffeeSite,'coffee',8,7,5);
   S.abandonedHomes.forEach((p,i)=>addHome(p,`abandoned${i}`,i+3));
+  // Each empty house has a physical trace, with matching movement and sight blockers.
+  S.abandonedHomes.forEach(([x,z],i)=>{
+    const y=dermanliSurfaceHeight(x,z);
+    const insideWindows=new THREE.Group();insideWindows.position.set(x,y,z);objects.add(insideWindows);
+    for(const wx of [-2.125,2.125])craft.window(insideWindows,wx,1.67,2.39,.8,.95,Math.PI);
+    insideWindows.traverse(o=>{if(o instanceof THREE.Mesh)ownGeometry.push(o.geometry);});
+    box(1.4,.1,.72,x+1.5,y+.74,z-1.35,craft.wood);
+    for(const dx of [-.58,.58])for(const dz of [-.24,.24])box(.08,.7,.08,x+1.5+dx,y+.35,z-1.35+dz,craft.wood);
+    colliders.push({minX:x+.8,maxX:x+2.2,minZ:z-1.71,maxZ:z-.99});
+    box(.85,.12,.7,x-2.15,y+.4,z-1.5,craft.wood);
+    for(const dx of [-.32,.32])box(.08,.38,.08,x-2.15+dx,y+.19,z-1.5,craft.wood);
+    colliders.push({minX:x-2.575,maxX:x-1.725,minZ:z-1.85,maxZ:z-1.15});
+    if(i===0){
+      box(.58,.025,.37,x+1.5,y+.81,z-1.35,paper);
+      for(const side of [-1,1]){const seam=box(.34,.008,.015,x+1.5+side*.12,y+.83,z-1.35,ink);seam.rotation.y=side*.55;}
+      target('abandoned0','Terk ev · Mektup zarfı',[x+1.5,z-1.35],1.8);
+    }else if(i===1){
+      // The visible boards are on the room-facing side of the two front windows.
+      for(const wx of [-2.125,2.125])for(const dy of [-.23,.08,.36]){
+        const plank=box(1.12,.15,.07,x+wx,y+1.67+dy,z+2.19,craft.wood);plank.rotation.z=(dy===.08?-.07:.08);
+      }
+      target('abandoned1','Terk ev · Kapalı pencere',[x+2.125,z+2.18],1.7);
+    }else if(i===2){
+      const plateGeometry=new THREE.CylinderGeometry(.21,.16,.045,24);ownGeometry.push(plateGeometry);
+      const plate=new THREE.Mesh(plateGeometry,craft.enamel);plate.position.set(x+1.5,y+.82,z-1.35);objects.add(plate);
+      target('abandoned2','Terk ev · Tabak',[x+1.5,z-1.35],1.8);
+    }else{
+      const calendar=box(.48,.02,.66,x+.35,y+.105,z-.32,paper);calendar.rotation.y=.26;
+      for(let line=0;line<4;line++){const mark=box(.32,.008,.012,x+.35,y+.12,z-.53+line*.11,ink);mark.rotation.y=.26;}
+      target('abandoned3','Terk ev · Takvim',[x+.35,z-.32],1.4);
+    }
+  });
+
   const coffeeCanvas=document.createElement('canvas');coffeeCanvas.width=512;coffeeCanvas.height=128;
   const coffeeContext=coffeeCanvas.getContext('2d');if(coffeeContext){coffeeContext.fillStyle='#3e3024';coffeeContext.fillRect(0,0,512,128);coffeeContext.fillStyle='#dfcfaa';coffeeContext.font='bold 52px serif';coffeeContext.textAlign='center';coffeeContext.fillText('KÖY KAHVEHANESİ',256,82);}
   const coffeeTexture=new THREE.CanvasTexture(coffeeCanvas);coffeeTexture.colorSpace=THREE.SRGBColorSpace;
@@ -134,7 +167,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const homeLight=new THREE.PointLight(0xffb15c,4,12,1.7);homeLight.position.set(S.gassalHome[0],2.1,S.gassalHome[1]);objects.add(homeLight);
   const emptyHomeGlow=new THREE.MeshBasicMaterial({color:0xd29952});ownMaterial.push(emptyHomeGlow);
   const emptyHomeWindows=S.abandonedHomes.map(([x,z])=>{
-    const window=box(.55,.68,.02,x+1.85,1.67,z+2.61,emptyHomeGlow);window.visible=false;return window;
+    const window=box(.55,.68,.02,x+2.125,dermanliSurfaceHeight(x,z)+1.67,z+2.61,emptyHomeGlow);window.visible=false;return window;
   });
   const emptyHomeLight=new THREE.PointLight(0xffa354,0,5,2);objects.add(emptyHomeLight);
   // Detailed walk-in watermill from the previous village, relocated to the Dermanlı stream.
