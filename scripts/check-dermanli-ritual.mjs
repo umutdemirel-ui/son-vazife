@@ -20,6 +20,11 @@ try {
  await page.waitForFunction(()=>window.__dermanliTest.residentModels().every(r=>r.loaded),{timeout:60000});
  const loaded=await page.evaluate(()=>window.__dermanliTest.verifyThreatArt());
  if(!loaded.pursuer||!loaded.scare)throw Error(`Original threat models failed to load: ${JSON.stringify(loaded)}`);
+ const los=await page.evaluate(()=>{const [x,z]=window.__dermanliTest.gasilhane();return {
+   outside:window.__dermanliTest.targetFrom(x-4,z-2.35,-Math.PI/2),
+   inside:window.__dermanliTest.targetFrom(x-2.2,z-2,Math.atan2(.5,.35))
+ };});
+ if(los.outside==='soap'||los.inside!=='soap')throw Error(`Wall/soap interaction mismatch: ${JSON.stringify(los)}`);
  const missing=await page.evaluate(()=>window.__dermanliTest.scanReachability());
  if(missing.length)throw Error(`Unreachable targets from the entrance: ${missing.join(', ')}`);
  const state=()=>page.evaluate(()=>window.__dermanliTest.state());
@@ -60,6 +65,10 @@ try {
        if((await state()).stage!==0)throw Error('Repeated direction completed a scrub');
      }
      await action(id);
+     if(night===1 && ['soap','ewer','bucket','camphor','shroud','drain'].includes(id)){
+       const tool=id==='drain'?'bucket':id,visible=(await state()).held!==tool;
+       await page.waitForFunction(({tool,visible})=>window.__dermanliTest.worldTools()[tool]===visible,{tool,visible},{timeout:15000});
+     }
    }
    const s=await state(); if(night<5 && (s.night!==night+1||s.body!=='arrival')) throw Error(`night ${night} failed ${JSON.stringify(s)}`);
    await page.waitForFunction(n=>window.__dermanliTest.visualState().mounds===n,night,{timeout:15000});

@@ -21,7 +21,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const textures = loadVillageTextures(2, true);
   const terrain = createDermanliTerrain(textures); scene.add(terrain.root);
   const craft = new VillageCraft(textures,'DERMANLI'), art = new NightArt(true, () => {});
-  const colliders: BoxCollider[] = [], targets: NewTarget[] = [], homes: ReturnType<typeof buildHome>['home'][] = [];
+  const colliders: BoxCollider[] = [], occluders: BoxCollider[] = [], targets: NewTarget[] = [], homes: ReturnType<typeof buildHome>['home'][] = [];
   const objects = new THREE.Group(); scene.add(objects);
   const ownGeometry: THREE.BufferGeometry[] = [], ownMaterial: THREE.Material[] = [];
   const mat = (c: number) => { const m = new THREE.MeshStandardMaterial({ color: c, roughness: .95 }); ownMaterial.push(m); return m; };
@@ -37,22 +37,27 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const slabBody=funeralFigure(art,'arif',false); gasil.deceasedGroup.add(slabBody);
   art.near('arif',S.gasilhane[0],S.gasilhane[1],25);
   gasil.doorPivot.rotation.y = -Math.PI * .52; gasil.mosqueDoorPivot.rotation.y = -Math.PI * .52;
-  colliders.push(...translateColliders({x:S.gasilhane[0],z:S.gasilhane[1]}, [
+  const gasilWalls=translateColliders({x:S.gasilhane[0],z:S.gasilhane[1]}, [
     {minX:-3.6,maxX:3.6,minZ:-3.45,maxZ:-2.95},{minX:-3.6,maxX:3.6,minZ:4.15,maxZ:4.65},
     {minX:-3.65,maxX:-3.15,minZ:-3.4,maxZ:4.6},{minX:3.15,maxX:3.65,minZ:-3.4,maxZ:-.8},
-    {minX:3.15,maxX:3.65,minZ:.8,maxZ:4.6},{minX:-1.25,maxX:1.25,minZ:-.65,maxZ:.65},
+    {minX:3.15,maxX:3.65,minZ:.8,maxZ:4.6},
     {minX:-3.5,maxX:-3.3,minZ:-8.1,maxZ:-3.4},{minX:-3.5,maxX:3.5,minZ:-8.1,maxZ:-7.9},
     {minX:-3.5,maxX:3.5,minZ:-3.5,maxZ:-3.3},{minX:3.2,maxX:3.5,minZ:-8,maxZ:-6.45},
     {minX:3.2,maxX:3.5,minZ:-4.95,maxZ:-3.4},
-  ]));
+  ]);
+  colliders.push(...gasilWalls,...translateColliders({x:S.gasilhane[0],z:S.gasilhane[1]},[{minX:-1.25,maxX:1.25,minZ:-.65,maxZ:.65}]));
+  // Low furniture blocks movement but does not obscure the view.
+  occluders.push(...gasilWalls);
   // Retain the detailed previous muhtarlık interior in the new square.
   const office=createMuhtarHouse(textures,craft);
   office.group.position.set(S.office[0],dermanliHeight(...S.office),S.office[1]);office.doorPivot.rotation.y=Math.PI*.56;objects.add(office.group);
-  colliders.push(...translateColliders({x:S.office[0],z:S.office[1]},[
+  const officeWalls=translateColliders({x:S.office[0],z:S.office[1]},[
     {minX:-3.4,maxX:3.4,minZ:-3.25,maxZ:-2.75},{minX:-3.4,maxX:3.4,minZ:2.75,maxZ:3.25},
     {minX:2.95,maxX:3.45,minZ:-3.2,maxZ:3.2},{minX:-3.45,maxX:-2.95,minZ:-3.2,maxZ:-.8},
-    {minX:-3.45,maxX:-2.95,minZ:.8,maxZ:3.2},{minX:.6,maxX:1.9,minZ:-1.3,maxZ:.9},
-  ]));
+    {minX:-3.45,maxX:-2.95,minZ:.8,maxZ:3.2},
+  ]);
+  colliders.push(...officeWalls,...translateColliders({x:S.office[0],z:S.office[1]},[{minX:.6,maxX:1.9,minZ:-1.3,maxZ:.9}]));
+  occluders.push(...officeWalls);
   target('mosque','Cami · İmamın notu',[S.mosque[0]+3.8,S.mosque[1]-1.1],1.8);
   box(.05,.45,.34,S.gasilhane[0]+3.56,1.35,S.gasilhane[1]-6.8,mat(0xbfb49a));
   target('office','Muhtarlık · Kayıt defteri',[S.office[0]+.4,S.office[1]+1.4],1.6);
@@ -63,8 +68,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
     ['soap','Sabun','sabun',-2.7,-2.35], ['ewer','İbrik','ibrik',-2.7,2.3],
     ['camphor','Kâfur','kafur',1.8,-2.35], ['shroud','Kefen','kefen',.1,-2.35],
   ] as const;
+  const stationMeshes:Record<string,THREE.Object3D>={};
   for(const [id,label,type,x,z] of stations) {
-    const item=createCopperEwerAndSoap(type); item.position.set(gx+x,.85,gz+z); objects.add(item);
+    const item=createCopperEwerAndSoap(type); item.position.set(gx+x,.85,gz+z); objects.add(item);stationMeshes[id]=item;
     target(id,label,[gx+x,gz+z],1.65);
   }
   target('bucket','Kirli su kovası',[gx+.25,gz+1.05],1.5);
@@ -77,7 +83,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
     const g=new THREE.CylinderGeometry(.24,.18,.38,12,1,true); ownGeometry.push(g);
     const b=new THREE.Mesh(g,craft.metal); b.position.set(gx+.25,.3,gz+1.05);objects.add(b);return b;
   }
-  void bucket;
+  stationMeshes.bucket=bucket;
   const bed=box(2,.15,.75,gx+5,.75,gz,wood);
   const arrivalBody = new THREE.Group();
   const arrivalUnwrapped=funeralFigure(art,'arif',false),arrivalWrapped=funeralFigure(art,'yolcu',false);
@@ -88,9 +94,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const addHome = (site: Point, id: string, number: number, w = 6.5, d = 5) => {
     const spec: HomeSpec = {x:site[0],z:site[1],rotY:0,w,d,h:3,style:number%2 ? 'himis' : 'tas'};
     const {home,walls} = buildHome(spec,number,dermanliHeight(...site),craft);
-    home.door.rotation.y = -Math.PI*.5; homes.push(home); objects.add(home.root); colliders.push(...walls);
+    home.door.rotation.y = -Math.PI*.5; homes.push(home); objects.add(home.root); colliders.push(...walls);occluders.push(...walls.slice(0,5));
     // The opened door leaf projects into the yard; do not let players stand inside its mesh.
-    colliders.push(homeCollider(spec,-.725,d/2+.75,.14,1.5));
+    const openDoor=homeCollider(spec,-.725,d/2+.75,.14,1.5);colliders.push(openDoor);occluders.push(openDoor);
     target(id, id === 'home' ? 'Gassalın evi · Günlük' : id === 'school' ? 'Eski okul · Tahta ve dolap' : id === 'mill' ? 'Değirmen · Defter' : 'Terk edilmiş ev', [site[0],site[1]+d/2+1.0],2.6);
   };
   addHome(S.gassalHome,'home',0,7,5); addHome(S.school,'school',1,8,6); addHome(S.mill,'mill',2,6,5);
@@ -213,5 +219,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu());
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

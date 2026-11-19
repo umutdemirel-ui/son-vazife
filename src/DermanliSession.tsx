@@ -4,6 +4,7 @@ import { createDermanliWorld } from './game/dermanliWorld';
 import { DERMANLI_SITES as S, DERMANLI_BOUNDS as B, dermanliHeight } from './game/dermanliMap';
 import { pushOutsideBox } from './game/collision';
 import {moveDermanliPlayer} from './game/dermanliMovement';
+import {wallBetween} from './game/nightPatrol';
 import { createWorkHands, armSwing } from './game/handRig';
 import { HorrorAudioEngine } from './game/audio';
 import { newRitual, interactRitual, leaveUnwatched, ritualObjective, workProblem, NAMES } from './game/dermanliRitual';
@@ -75,6 +76,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     const onLock=()=>{last=performance.now();locked=document.pointerLockElement===renderer.domElement; if(!locked){keys.clear();workHeld=false;workProgress=0;}};
     const targetAt=(x:number,z:number,angle:number)=>world.targets.map(t=>{const dx=t.x-x,dz=t.z-z,dist=Math.hypot(dx,dz);return {...t,dist,dot:dist<.1?1:(dx*-Math.sin(angle)+dz*-Math.cos(angle))/dist};})
       .filter(t=>t.dist<t.radius && t.dot>.45 && (t.id!=='discard'||ritual.held==='bucket') && (t.id!=='drain'||(ritual.held==='bucket'&&ritual.dirty)) && (t.id!=='forest'||ritual.body!=='burialCarry') && ((t.id!=='elif'&&t.id!=='riza')||spiritAvailable(t.id,ritual.night,isNight(elapsed))) && (!t.id.startsWith('memory_')||memoryAvailable(ritual.night,isNight(elapsed))))
+      .filter(t=>!wallBetween(x,z,t.x,t.z,world.occluders,0))
       .sort((a,b)=>(a.dist+(1-a.dot)*2)-(b.dist+(1-b.dot)*2))[0];
     const target=()=>targetAt(pos.x,pos.z,yaw);
     // Development-only end-to-end helper: move to a collision-free viewpoint but
@@ -83,7 +85,10 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       const debug = {
         state: () => JSON.parse(JSON.stringify(ritual)),
         clock: () => elapsed,
+        targetFrom: (x:number,z:number,angle:number) => targetAt(x,z,angle)?.id ?? null,
+        gasilhane: () => [...S.gasilhane],
         approachNight: () => {elapsed=DAY_SECONDS/2-2;previousNight=false;},
+        worldTools: () => Object.fromEntries(Object.entries(world.stationMeshes).map(([id,mesh])=>[id,mesh.visible])),
         visualState: () => ({mounds:world.graveMounds.filter(m=>m.visible).length,litWindows:world.emptyHomeWindows.filter(w=>w.visible).length,fountain:world.fountainWater.visible}),
         residentModels: () => world.residents.map(r=>({id:r.id,loaded:!!r.visual.group.getObjectByName('HandL')})),
         verifyThreatArt: async () => {await world.loadThreatArt();return {pursuer:!!world.pursuer.root.getObjectByName('Dokulu model'),scare:!!world.scare.root.getObjectByName('Dokulu model')};},
@@ -216,6 +221,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       if(threat.active){pursuer.position.set(threat.x,dermanliHeight(threat.x,threat.z),threat.z);pursuer.rotation.y=Math.atan2(pos.x-threat.x,pos.z-threat.z);}
       if(result==='hit'){hits=Math.min(3,hits+1);scareUntil=now+1200;audio.playViolationSting();caption='Bir gölge sana çarptı. Uzaklaş!';captionUntil=now+5000;if(hits===3){ritual.ending='dark';caption='Halil gücünü kaybetti; köyün sessizliği onu içine aldı.';if(document.pointerLockElement===renderer.domElement)document.exitPointerLock();}save();}
       if(locked&&night&&!safe&&!ritual.ending&&elapsed>=nextRandomScare){scareUntil=now+850;audio.playWhisper(.7);nextRandomScare=elapsed+75+Math.random()*60;}
+      for(const [id,item] of Object.entries(world.stationMeshes))item.visible=ritual.held!==id;
       world.gasil.vigilFlame.visible=ritual.candle;world.gasil.vigilLight.intensity=ritual.candle?1.8:0;
       world.updateArt(pos.x,pos.z);
       if(night)world.wheel.rotation.z+=dt*.5;
