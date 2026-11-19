@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { createDermanliTerrain, dermanliSurfaceHeight } from './dermanliTerrain';
 import { DERMANLI_PATHS, DERMANLI_SITES as S, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
-import { VillageCraft } from './villageCraft';
-import { createMosqueAndGasilhane, createKaraBasma, createSisGozcusu, createCopperEwerAndSoap, createMuhtarHouse, createVillageBench, createWatermillAndBridge } from './models';
+import { VillageCraft, block } from './villageCraft';
+import { MOSQUE_GRAVES } from './cemetery';
+import { createMosqueAndGasilhane, createKaraBasma, createSisGozcusu, createCopperEwerAndSoap, createMuhtarHouse, createVillageBench, createWatermillAndBridge, createGraveyardCluster } from './models';
 import { buildHome, homeCollider, type HomeSpec } from './homes';
 import { NightArt, watcherFigure } from './nightArt';
 import {ResidentVisual} from './residentVisual';
@@ -269,12 +270,32 @@ export function createDermanliWorld(scene: THREE.Scene) {
   master.visible=false;objects.add(master);
 
   const [fx,fz] = S.field; box(30,.08,21,fx,.04,fz,field); for(let i=-9;i<=9;i+=3) box(28,.12,.28,fx,.12,fz+i,wood);
-  const [cx,cz] = S.cemetery;
-  for(let x=-10;x<=10;x+=2.7) for(let z=-3;z<=8;z+=2.8) { if (Math.abs(x)<1.5) continue; box(.7,.9,.16,cx+x,.45,cz+z,stone);colliders.push({minX:cx+x-.35,maxX:cx+x+.35,minZ:cz+z-.08,maxZ:cz+z+.08}); }
-  for (const x of [-13.5,13.5]) {box(.22,1,23.4,cx+x,.5,cz,wood);colliders.push({minX:cx+x-.11,maxX:cx+x+.11,minZ:cz-11.7,maxZ:cz+11.7});}
-  box(27,1,.22,cx,.5,cz-11.7,wood);box(11.5,1,.22,cx-7.75,.5,cz+11.7,wood);box(11.5,1,.22,cx+7.75,.5,cz+11.7,wood);
-  colliders.push({minX:cx-13.5,maxX:cx+13.5,minZ:cz-11.81,maxZ:cz-11.59},
-    {minX:cx-13.5,maxX:cx-2,minZ:cz+11.59,maxZ:cz+11.81}, {minX:cx+2,maxX:cx+13.5,minZ:cz+11.59,maxZ:cz+11.81});
+  const [cx,cz] = S.cemetery,cy=dermanliSurfaceHeight(cx,cz);
+  // Old carved headstones and raised stone plinths, arranged around a clear burial aisle.
+  for(const dx of [-7,7])for(const dz of [-5,2,7]){
+    const graves=createGraveyardCluster(textures);graves.position.set(cx+dx,cy,cz+dz);objects.add(graves);ownDetails(graves);
+    for(const grave of MOSQUE_GRAVES)colliders.push({minX:cx+dx+grave.x-.42,maxX:cx+dx+grave.x+.42,minZ:cz+dz+grave.z-.82,maxZ:cz+dz+grave.z+.82});
+  }
+  // Low stone perimeter with a south gate, rather than a thin wooden rectangle.
+  const cemeteryWall=(w:number,d:number,x:number,z:number)=>{
+    const wall=block(objects,craft.masonry,w,1.05,d,x,cy+.48,z,1.8);ownGeometry.push(wall.geometry);
+    const coping=block(objects,craft.limestone,w+.05,.11,d+.08,x,cy+1.06,z,1.4);ownGeometry.push(coping.geometry);
+    colliders.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2});
+  };
+  for(const x of [-13.5,13.5])cemeteryWall(.45,23.4,cx+x,cz);
+  cemeteryWall(27,.45,cx,cz-11.7);
+  for(const x of [-7.75,7.75])cemeteryWall(11.5,.45,cx+x,cz+11.7);
+  // Short gateposts mark the opening without obstructing carrying a body.
+  for(const x of [-2.18,2.18]){
+    box(.48,1.6,.48,cx+x,cy+.8,cz+11.7,craft.masonry);
+    box(.58,.12,.58,cx+x,cy+1.66,cz+11.7,craft.limestone);
+    colliders.push({minX:cx+x-.24,maxX:cx+x+.24,minZ:cz+11.46,maxZ:cz+11.94});
+  }
+  // A small ledger stand marks the burial interaction without closing the central aisle.
+  box(.55,.75,.55,cx+1.35,cy+.375,cz+7.1,craft.masonry);
+  box(.52,.08,.38,cx+1.35,cy+.79,cz+7.1,wood);
+  box(.44,.035,.31,cx+1.35,cy+.85,cz+7.1,paper);
+  colliders.push({minX:cx+1.075,maxX:cx+1.625,minZ:cz+6.825,maxZ:cz+7.375});
   target('cemetery','Mezarlık · İsimler', [cx,cz+7], 2.6);
   // Five modest fresh-earth markers track completed burials, outside the stone fence.
   const moundGeometry=new THREE.SphereGeometry(1,14,8);ownGeometry.push(moundGeometry);
@@ -292,7 +313,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const coords: Point[]=[];
   for(let i=0;i<1300 && coords.length<260;i++) {
     const x=(random()-.5)*170,z=(random()-.5)*220;
-    if(sites.some(p=>Math.hypot(x-p[0],z-p[1])<9) || DERMANLI_PATHS.some(p=>distanceToPath(x,z,p)<p.width/2+2)) continue;
+    if((Math.abs(x-cx)<17 && Math.abs(z-cz)<14) || sites.some(p=>Math.hypot(x-p[0],z-p[1])<9) || DERMANLI_PATHS.some(p=>distanceToPath(x,z,p)<p.width/2+2)) continue;
     coords.push([x,z]);
   }
   const trees=new THREE.InstancedMesh(treeG,foliage,coords.length), trunks=new THREE.InstancedMesh(trunkG,wood,coords.length), dummy=new THREE.Object3D();
