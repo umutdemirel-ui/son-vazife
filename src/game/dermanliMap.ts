@@ -34,6 +34,7 @@ export const DERMANLI_PATHS: readonly SurveyPath[] = [
   path('dere', 14, join(curve([360,0],[345,90],[365,180],[350,260]), curve([350,260],[335,340],[345,340],[355,420]), curve([355,420],[365,500],[368,500],[358,560])), 'water'),
 ];
 export const DERMANLI_SITES = {
+  office: [9, 17] as Point,
   entrance: mapPoint(190, 536), mosque: mapPoint(188, 200), gasilhane: mapPoint(253, 204),
   cemetery: mapPoint(190, 71), square: mapPoint(190, 322), gassalHome: mapPoint(254, 360),
   well: mapPoint(50, 255), school: mapPoint(61, 116), mill: mapPoint(311, 80),

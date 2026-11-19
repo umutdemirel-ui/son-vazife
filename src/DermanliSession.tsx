@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { createDermanliWorld } from './game/dermanliWorld';
 import { DERMANLI_SITES as S, dermanliHeight } from './game/dermanliMap';
 import { pushOutsideBox } from './game/collision';
+import {moveDermanliPlayer} from './game/dermanliMovement';
 import { createWorkHands, armSwing } from './game/handRig';
 import { HorrorAudioEngine } from './game/audio';
 import { newRitual, interactRitual, leaveUnwatched, ritualObjective, NAMES } from './game/dermanliRitual';
@@ -10,21 +11,25 @@ import { readDermanliSave, writeDermanliSave } from './game/dermanliSave';
 import { isNight, nextEvent } from './game/dermanliEvents';
 import { createCopperEwerAndSoap } from './game/models';
 import { DermanliThreat } from './game/dermanliThreat';
+import { newBell, bellHint, ringBell } from './game/dermanliBell';
+import {spiritAvailable,SPIRIT_LINES} from './game/dermanliCharacters';
 
 const notes: Record<string,string> = {
   home: 'Hacı Süleyman’ın günlüğü: “Köyde tamamlanmamış vazifeler var. İsimlerini unutma.”',
   school: 'Tahtada silik bir yazı var: “Kapı açılınca anneme gideceğim.” Altına Elif adı yazılmış.',
   mill: 'Değirmencinin defteri, bozulmuş hasattan ve cevapsız kalan yardım çağrılarından söz ediyor.',
+  office: 'Muhtarlık defterinde okulun karantina kararı ve beklenen yardımın gelmediği yazıyor.',
   well: 'Kuyunun yanında bulunan kayıtta mezarlık dışına gömülen isimler var.',
   cemetery: 'Taşların arasındaki liste eksik. Bazı isimlerin yanında ne yıkama ne de kefen kaydı var.',
   bridge: 'Köprü sisin içinde kayboluyor. Halil, bu yolu daha önce yürümüş gibi hissediyor.',
   barn: 'Ahır sessiz; çürümüş samanın arasında eski bir hasat kaydı bulunuyor.',
   abandoned0: 'Terk edilmiş evdeki masada boş bir mektup zarfı var.', abandoned1: 'Pencereler içeriden tahtalarla kapatılmış.',
   abandoned2: 'Burası yıllardır boş. Bir tabak masada kalmış.', abandoned3: 'Yerde eski, okunaksız bir takvim var.',
+  ...SPIRIT_LINES,
   gasil: 'Gasilhanenin içi soğuk. Teneşir ve malzemeler yerlerinde; burası son vazifenin merkezi.',
 };
-interface Hud { prompt:string; caption:string; place:string; count:number; locked:boolean; objective:string; held:string; ending:string; hits:number; clues:string[] }
-const initial: Hud={prompt:'',caption:'Ustanın mektubu seni Dermanlı’ya getirdi. Gassal evini ve gasilhaneyi bul.',place:'Dermanlı Köyü',count:0,locked:false,objective:'Gasilhane önündeki sedyeye git.',held:'',ending:'',hits:0,clues:[]};
+interface Hud { prompt:string; caption:string; place:string; count:number; locked:boolean; objective:string; held:string; ending:string; hits:number; clues:string[]; bellHint:string; bellSolved:boolean }
+const initial: Hud={prompt:'',caption:'Ustanın mektubu seni Dermanlı’ya getirdi. Gassal evini ve gasilhaneyi bul.',place:'Dermanlı Köyü',count:0,locked:false,objective:'Gasilhane önündeki sedyeye git.',held:'',ending:'',hits:0,clues:[],bellHint:'',bellSolved:false};
 
 export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:boolean}) {
   const mount=useRef<HTMLDivElement>(null), [hud,setHud]=useState<Hud>(initial), [failed,setFailed]=useState(false), [notebook,setNotebook]=useState(false), [muted,setMuted]=useState(false);
@@ -50,15 +55,17 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
 
     const saved=resume?readDermanliSave():null;
     const ritual=saved?.ritual??newRitual();
+    const bell=saved?.bell??newBell(saved?0:undefined);
     let elapsed=saved?.elapsed??0, nextCue=0, hits=saved?.hits??0, nextRandomScare=75+Math.random()*45; const threat=new DermanliThreat(); const seenEvents=new Set(saved?.events??[]);
-    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0;
-    const save=()=>writeDermanliSave({version:1,ritual,x:pos.x,z:pos.z,yaw,pitch,elapsed,events:[...seenEvents],hits});
+    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0;
+    const save=()=>writeDermanliSave({version:1,ritual,x:pos.x,z:pos.z,yaw,pitch,elapsed,events:[...seenEvents],hits,bell});
     const keys=new Set<string>();
     const onMove=(e:MouseEvent)=>{if(!locked)return; yaw-=e.movementX*.0022; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*.0022));};
     const onLock=()=>{locked=document.pointerLockElement===renderer.domElement; if(!locked)keys.clear();};
-    const target=()=>world.targets.map(t=>{const dx=t.x-pos.x,dz=t.z-pos.z,dist=Math.hypot(dx,dz);return {...t,dist,dot:dist<.1?1:(dx*-Math.sin(yaw)+dz*-Math.cos(yaw))/dist};})
-      .filter(t=>t.dist<t.radius && t.dot>.45 && (t.id!=='discard'||ritual.held==='bucket') && (t.id!=='forest'||ritual.body!=='burialCarry'))
+    const targetAt=(x:number,z:number,angle:number)=>world.targets.map(t=>{const dx=t.x-x,dz=t.z-z,dist=Math.hypot(dx,dz);return {...t,dist,dot:dist<.1?1:(dx*-Math.sin(angle)+dz*-Math.cos(angle))/dist};})
+      .filter(t=>t.dist<t.radius && t.dot>.45 && (t.id!=='discard'||ritual.held==='bucket') && (t.id!=='forest'||ritual.body!=='burialCarry') && ((t.id!=='elif'&&t.id!=='riza')||spiritAvailable(t.id,ritual.night,isNight(elapsed))))
       .sort((a,b)=>(a.dist+(1-a.dot)*2)-(b.dist+(1-b.dot)*2))[0];
+    const target=()=>targetAt(pos.x,pos.z,yaw);
     // Development-only end-to-end helper: move to a collision-free viewpoint but
     // exercise the same aiming, keyboard input and save path as a player.
     if(import.meta.env.DEV){
@@ -83,6 +90,28 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             }return false;
           })()).map(t=>t.id);
         },
+        walkToTarget: (id:string) => {
+          const t=world.targets.find(item=>item.id===id);if(!t)return `unknown target ${id}`;
+          const minX=-90,minZ=-105,w=181,h=211,size=w*h;
+          const index=(x:number,z:number)=>(z-minZ)*w+x-minX;
+          const open=(x:number,z:number)=>{if(x<minX||x>=minX+w||z<minZ||z>=minZ+h)return false;const p={x,z};for(const c of world.colliders)pushOutsideBox(p,c,.32);return Math.hypot(p.x-x,p.z-z)<.005;};
+          const clear=(x:number,z:number,tx:number,tz:number)=>{const p={x,z},dx=tx-x,dz=tz-z,n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.2));for(let i=0;i<n;i++)moveDermanliPlayer(p,dx/n,dz/n,world.colliders);return Math.hypot(p.x-tx,p.z-tz)<.02;};
+          const startCandidates=[] as Array<{x:number;z:number;d:number}>;
+          for(let dz=-2;dz<=2;dz++)for(let dx=-2;dx<=2;dx++){const x=Math.round(pos.x)+dx,z=Math.round(pos.z)+dz,d=Math.hypot(pos.x-x,pos.z-z);if(d<=2 && open(x,z) && clear(pos.x,pos.z,x,z))startCandidates.push({x,z,d});}
+          startCandidates.sort((a,b)=>a.d-b.d);const start=startCandidates[0];if(!start)return `blocked start ${pos.x},${pos.z}`;
+          const seen=new Uint8Array(size),queue=new Int32Array(size),parent=new Int32Array(size);parent.fill(-1);
+          const first=index(start.x,start.z);seen[first]=1;let head=0,tail=0,end=-1;queue[tail++]=first;
+          while(head<tail){const at=queue[head++],x=at%w+minX,z=Math.floor(at/w)+minZ;
+            const d=Math.hypot(t.x-x,t.z-z);
+            if(d<t.radius){const a=Math.atan2(x-t.x,z-t.z);if(targetAt(x,z,a)?.id===id){end=at;break;}}
+            for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,nz=z+dz;if(nx<minX||nx>=minX+w||nz<minZ||nz>=minZ+h)continue;const n=index(nx,nz);if(seen[n])continue;seen[n]=1;if(open(nx,nz)&&clear(x,z,nx,nz)){parent[n]=at;queue[tail++]=n;}}
+          }
+          if(end<0)return `unreachable ${id}`;
+          const route=[] as number[];for(let at=end;at!==first;at=parent[at])route.push(at);route.reverse();
+          const drive=(x:number,z:number)=>{const dx=x-pos.x,dz=z-pos.z,n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.2));for(let i=0;i<n;i++)moveDermanliPlayer(pos,dx/n,dz/n,world.colliders);};
+          drive(start.x,start.z);for(const at of route)drive(at%w+minX,Math.floor(at/w)+minZ);
+          yaw=Math.atan2(pos.x-t.x,pos.z-t.z);return target()?.id===id?'ok':`aim failure ${id}`;
+        },
         goToTarget: (id:string) => {
           const t=world.targets.find(item=>item.id===id); if(!t) return false;
           const previous={...pos,yaw};
@@ -105,10 +134,17 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       if(e.code==='KeyN'&&!e.repeat){setNotebook(v=>!v);if(document.pointerLockElement===renderer.domElement)document.exitPointerLock();}
       if(e.code==='KeyM'&&!e.repeat){audio.setMuted(!audio.isMuted());setMuted(audio.isMuted());}
       if(e.code==='KeyE' && !e.repeat && locked){const t=target();if(t){
-        const action=interactRitual(ritual,t.id);
+        const stageBefore=ritual.stage, soapedBefore=ritual.soaped;
+        let action=interactRitual(ritual,t.id);
+        if(t.id==='slab'&&(stageBefore!==ritual.stage||soapedBefore!==ritual.soaped))workUntil=performance.now()+1500;
+        if(t.id.startsWith('bell_')){
+          const result=ringBell(bell,Number(t.id.slice(5)));audio.playSchoolBell(false);
+          action=result==='pending'?'Ses avluda yankılandı.':result==='solved'?'Son sesle birlikte duvardaki yazı belirginleşti: “Adımızı hatırla.”':result==='wrong'?'Çanların sesi sustu; sıra yeniden başladı.':'Çanların yankısı çoktan sustu.';
+        }
+        if(t.id==='home')action=`${notes.home} Okul avlusuyla ilgili bir satır: ${bellHint(bell.seed)}`;
         if(notes[t.id] && !ritual.clues.includes(t.id)) ritual.clues.push(t.id);
         caption=action || notes[t.id] || ''; captionUntil=performance.now()+9000;
-        if(t.id==='candle')audio.playCandleToggle(ritual.candle);else if(t.id==='slab'&&ritual.stage===4)audio.playWaterPour();else audio.playPaperFlip();
+        if(t.id.startsWith('bell_')){}else if(t.id==='candle')audio.playCandleToggle(ritual.candle);else if(t.id==='slab'&&ritual.stage===4)audio.playWaterPour();else audio.playPaperFlip();
         save(); if(ritual.ending && document.pointerLockElement===renderer.domElement)document.exitPointerLock();
       }}
     };
@@ -126,8 +162,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       if(locked&&night&&!ritual.ending&&now>nextCue){const event=nextEvent(ritual.night,pos.x,pos.z,yaw,seenEvents);if(event){seenEvents.add(`${ritual.night}:${event.id}`);caption=event.text;captionUntil=now+6500;nextCue=now+30000;if(event.sound==='water')audio.playWaterPour();else if(event.sound==='whisper')audio.playWhisper();else if(event.sound==='knock')audio.playWindowKnock();else audio.playFloorboardCreak();save();}}
       let forward=0,side=0; if(locked){forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));}
       const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight'), crouch=keys.has('ControlLeft')||keys.has('ControlRight')||keys.has('KeyC');
-      const len=Math.hypot(forward,side), speed=(crouch?1.55:sprint?5.1:2.8); if(len){forward/=len;side/=len;pos.x+=(-Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed*dt;pos.z+=(-Math.cos(yaw)*forward-Math.sin(yaw)*side)*speed*dt;
-        pos.x=Math.max(-90,Math.min(90,pos.x));pos.z=Math.max(-105,Math.min(105,pos.z)); for(const c of world.colliders)pushOutsideBox(pos,c,.32);phase+=dt*(sprint?12:8);}
+      const len=Math.hypot(forward,side), speed=(crouch?1.55:sprint?5.1:2.8); if(len){forward/=len;side/=len;moveDermanliPlayer(pos,(-Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed*dt,(-Math.cos(yaw)*forward-Math.sin(yaw)*side)*speed*dt,world.colliders);phase+=dt*(sprint?12:8);}
       camera.position.set(pos.x,dermanliHeight(pos.x,pos.z)+(crouch?1.1:1.68),pos.z);camera.rotation.set(pitch,yaw,0);
       if(locked && Math.hypot(pos.x-S.gasilhane[0],pos.z-S.gasilhane[1])>8 && leaveUnwatched(ritual)){caption='Sabır mumu yanmadan uzaklaştın. Arkanda bir hareket duyuluyor.';captionUntil=now+7000;audio.playViolationSting();scareUntil=now+1100;save();}
       const safe=Math.hypot(pos.x-S.gasilhane[0],pos.z-S.gasilhane[1])<7 || Math.hypot(pos.x-S.gassalHome[0],pos.z-S.gassalHome[1])<5;
@@ -139,6 +174,8 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       world.gasil.vigilFlame.visible=ritual.candle;world.gasil.vigilLight.intensity=ritual.candle?1.8:0;
       world.updateArt(pos.x,pos.z);
       if(night)world.wheel.rotation.z+=dt*.5;
+      world.elif.visible=spiritAvailable('elif',ritual.night,night);world.riza.visible=spiritAvailable('riza',ritual.night,night);
+      world.elif.position.y=.08*Math.sin(elapsed*1.3);world.riza.position.y=.06*Math.sin(elapsed*.9);
       world.homeLight.intensity=night ? 4.5+Math.sin(elapsed*11)*.12 : 1.5;
       world.slabBody.visible=ritual.body==='slab'&&ritual.stage<6;world.slabBody.rotation.z=ritual.risen?-Math.PI/2:0;
       world.apparition.visible=now<scareUntil; if(world.apparition.visible){world.apparition.position.set(pos.x-Math.sin(yaw)*1.8,dermanliHeight(pos.x,pos.z),pos.z-Math.cos(yaw)*1.8);world.apparition.rotation.y=yaw+Math.PI;}
@@ -148,12 +185,28 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       if(ritual.body==='carrying'||ritual.body==='burialCarry') {world.arrivalBody.visible=true;world.arrivalBody.position.set(pos.x-Math.sin(yaw)*.75,camera.position.y-.55,pos.z-Math.cos(yaw)*.75);world.arrivalBody.rotation.set(0,yaw,Math.PI/2);}
       else {world.arrivalBody.position.set(S.gasilhane[0]+5,1.04,S.gasilhane[1]);world.arrivalBody.rotation.set(0,0,Math.PI/2);}
       if(locked&&now-lastSave>15000){lastSave=now;save();}
-      for(const [name,item] of Object.entries(handItems))item.visible=ritual.held===name;
+      // Ending tableau is rendered in the same world, not just described by a menu.
+      world.master.visible=ritual.ending==='peace';
+      if(ritual.ending==='peace'){
+        world.slabBody.visible=true;world.slabBody.rotation.z=0;world.gasil.pestemalMesh.visible=true;world.gasil.kefenWrapGroup.visible=false;
+        camera.position.set(S.gasilhane[0]+2.55,1.65,S.gasilhane[1]+1.15);camera.lookAt(S.gasilhane[0]-.45,1.1,S.gasilhane[1]);
+        const left=world.master.getObjectByName('masterLeft'),right=world.master.getObjectByName('masterRight');
+        if(left)left.rotation.x=-.8+Math.sin(now*.003)*.14;if(right)right.rotation.x=-.8-Math.sin(now*.003)*.14;
+        sun.intensity=1.5;(scene.background as THREE.Color).set(0x9c9685);if(scene.fog instanceof THREE.FogExp2){scene.fog.color.copy(scene.background as THREE.Color);scene.fog.density=.009;}
+      }else if(ritual.ending==='dark'){
+        world.figures[1].visible=true;world.figures[1].position.set(pos.x-Math.sin(yaw)*2,dermanliHeight(pos.x,pos.z),pos.z-Math.cos(yaw)*2);world.figures[1].rotation.y=yaw+Math.PI;
+      }else if(ritual.ending==='escape'){
+        camera.position.set(S.entrance[0],1.68,S.entrance[1]+2);camera.lookAt(S.entrance[0],1.5,S.entrance[1]-6);
+      }
+      hands.visible=!ritual.ending;
+      for(const [name,item] of Object.entries(handItems))item.visible=!ritual.ending && ritual.held===name;
       if(locked&&len)audio.playFootstep(Math.hypot(pos.x-S.gasilhane[0],pos.z-S.gasilhane[1])<4,elapsed);
       audio.updateAmbience({time:elapsed,isIndoors:Math.hypot(pos.x-S.gasilhane[0],pos.z-S.gasilhane[1])<4,rainIntensity:night?.15:0,dread:night?ritual.night/8:0,danger:0});
       const swing=armSwing(phase,len?speed:0,sprint,false); hands.rotation.z=swing.swing*.09;hands.position.y=-.29+swing.bounce*.012;
+      const working=now<workUntil;hands.position.z=working?-.68+Math.sin(now*.015)*.05:-.65;
+      hands.children.forEach((hand,i)=>{hand.rotation.x=working?Math.sin(now*.015+i*Math.PI)*.18:0;});
       renderer.render(scene,camera);
-      if(now-lastUi>150){lastUi=now; const t=target(); if(now>captionUntil)caption='';setHud({prompt:t?`E · ${t.label}`:'',caption,place:`DERMANLI · ${ritual.night}. VAZİFE · ${night?'GECE':'GÜNDÜZ'} · ${NAMES[ritual.night-1]}`,count:ritual.clues.length,locked,objective:ritualObjective(ritual),held:ritual.held==='empty'?'Boş eller':({soap:'Sabun',ewer:'İbrik',bucket:'Kirli su kovası',camphor:'Kâfur',shroud:'Kefen'} as const)[ritual.held],ending:ritual.ending??'',hits,clues:[...ritual.clues]});}
+      if(now-lastUi>150){lastUi=now; const t=target(); if(now>captionUntil)caption='';setHud({prompt:t?`E · ${t.label}`:'',caption,place:`DERMANLI · ${ritual.night}. VAZİFE · ${night?'GECE':'GÜNDÜZ'} · ${NAMES[ritual.night-1]}`,count:ritual.clues.length,locked,objective:ritualObjective(ritual),held:ritual.held==='empty'?'Boş eller':({soap:'Sabun',ewer:'İbrik',bucket:'Kirli su kovası',camphor:'Kâfur',shroud:'Kefen'} as const)[ritual.held],ending:ritual.ending??'',hits,clues:[...ritual.clues],bellHint:bellHint(bell.seed),bellSolved:bell.solved});}
       frame=requestAnimationFrame(animate);
     }
     frame=requestAnimationFrame(animate);
@@ -166,7 +219,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',pointerEvents:'none',color:'#fff'}}>·</div>
     {hud.prompt && <div style={{position:'absolute',bottom:100,width:'100%',textAlign:'center',textShadow:'0 2px 5px black',pointerEvents:'none'}}>{hud.prompt}</div>}
     {hud.caption && <div style={{position:'absolute',bottom:36,left:'15%',width:'70%',textAlign:'center',background:'#121712bd',padding:'12px',pointerEvents:'none'}}>{hud.caption}</div>}
-    {notebook && !hud.ending && <div style={{position:'absolute',inset:'10% 20%',overflowY:'auto',padding:24,background:'#ded4bd',color:'#28291f',boxShadow:'0 8px 40px #000',zIndex:2}}><button onClick={()=>setNotebook(false)} style={{float:'right',cursor:'pointer'}}>Kapat</button><h2>Halil’in Defteri</h2><p>Bulduğun kayıtlar burada saklanır.</p>{hud.clues.length===0?<p>Henüz kayıt bulunmadı.</p>:hud.clues.map(id=><p key={id} style={{borderBottom:'1px solid #a69b80',paddingBottom:10}}>{notes[id]}</p>)}</div>}
+    {notebook && !hud.ending && <div style={{position:'absolute',inset:'10% 20%',overflowY:'auto',padding:24,background:'#ded4bd',color:'#28291f',boxShadow:'0 8px 40px #000',zIndex:2}}><button onClick={()=>setNotebook(false)} style={{float:'right',cursor:'pointer'}}>Kapat</button><h2>Halil’in Defteri</h2><p>Bulduğun kayıtlar burada saklanır.</p>{hud.clues.length===0?<p>Henüz kayıt bulunmadı.</p>:hud.clues.map(id=><p key={id} style={{borderBottom:'1px solid #a69b80',paddingBottom:10}}>{notes[id]} {id==='home' && <>Okul avlusuyla ilgili bir satır: {hud.bellHint}</>}</p>)}{hud.bellSolved && <p>Okul çanlarından sonra beliren yazı: “Adımızı hatırla.”</p>}</div>}
     {hud.ending && <div style={{position:'absolute',top:'28%',left:'50%',transform:'translateX(-50%)',padding:24,background:'#101510ef',textAlign:'center',width:'min(80%,500px)'}}><h2>{hud.ending==='peace'?'HUZUR':hud.ending==='dark'?'KARANLIK':'KAÇIŞ'}</h2><p>{hud.ending==='peace'?'Halil köye gelirken köprüde öldüğünü hatırlar. Son vazife kendisidir. Hacı Süleyman belirir; çırağını uğurlarken sis dağılır ve sabah doğar.':hud.ending==='dark'?'Halil köprüde öldüğünü hatırlar; eksik vazifelerin ağırlığı onu köyün yeni sessiz gassalı yapar.':'Orman yolu yeniden köy kapısına çıkıyor. Aynı yol, aynı sis: köy bir sonraki gassalı bekliyor.'}</p><button onClick={onExit}>Menüye dön</button></div>}
     {!hud.locked && !hud.ending && !notebook && <div style={{position:'absolute',top:'35%',left:'50%',transform:'translateX(-50%)',padding:20,background:'#111d',textAlign:'center',pointerEvents:'none'}}>{failed?'3D sahnesi başlatılamadı.':'Oyuna dönmek için görüntüye tıkla'}<br/><small>WASD: hareket · Shift: koş · Ctrl/C: çömel · E: incele · N: defter · M: ses · Esc: fareyi bırak</small></div>}
   </div>;

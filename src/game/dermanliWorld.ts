@@ -3,12 +3,13 @@ import { createDermanliTerrain } from './dermanliTerrain';
 import { DERMANLI_PATHS, DERMANLI_SITES as S, dermanliHeight, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
 import { VillageCraft } from './villageCraft';
-import { createMosqueAndGasilhane, createKaraBasma, createCopperEwerAndSoap } from './models';
+import { createMosqueAndGasilhane, createKaraBasma, createCopperEwerAndSoap, createMuhtarHouse } from './models';
 import { buildHome, type HomeSpec } from './homes';
 import { NightArt } from './nightArt';
 import { funeralFigure } from './funerary';
 import {createHorrorFigures,disposeHorrorFigures} from './horrorFigures';
 import {surfaceUrl} from './quality';
+import { BELL_SYMBOLS } from './dermanliBell';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 import { translateColliders, type BoxCollider } from './collision';
 
@@ -41,6 +42,15 @@ export function createDermanliWorld(scene: THREE.Scene) {
     {minX:-3.5,maxX:3.5,minZ:-3.5,maxZ:-3.3},{minX:3.2,maxX:3.5,minZ:-8,maxZ:-6.45},
     {minX:3.2,maxX:3.5,minZ:-4.95,maxZ:-3.4},
   ]));
+  // Retain the detailed previous muhtarlık interior in the new square.
+  const office=createMuhtarHouse(textures,craft);
+  office.group.position.set(S.office[0],dermanliHeight(...S.office),S.office[1]);office.doorPivot.rotation.y=Math.PI*.56;objects.add(office.group);
+  colliders.push(...translateColliders({x:S.office[0],z:S.office[1]},[
+    {minX:-3.4,maxX:3.4,minZ:-3.25,maxZ:-2.75},{minX:-3.4,maxX:3.4,minZ:2.75,maxZ:3.25},
+    {minX:2.95,maxX:3.45,minZ:-3.2,maxZ:3.2},{minX:-3.45,maxX:-2.95,minZ:-3.2,maxZ:-.8},
+    {minX:-3.45,maxX:-2.95,minZ:.8,maxZ:3.2},{minX:.6,maxX:1.9,minZ:-1.3,maxZ:.9},
+  ]));
+  target('office','Muhtarlık · Kayıt defteri',[S.office[0]+.4,S.office[1]+1.4],1.6);
   const [gx,gz]=S.gasilhane;
   target('slab','Teneşir', [gx,gz], 2.05);
   target('candle','Sabır mumu', [gx-1.35,gz-.75], 1.7);
@@ -84,6 +94,19 @@ export function createDermanliWorld(scene: THREE.Scene) {
   wheel.add(new THREE.Mesh(wheelGeo,wood));
   for(let angle=0;angle<Math.PI;angle+=Math.PI/4){const g=new THREE.BoxGeometry(3,.12,.12);ownGeometry.push(g);const spoke=new THREE.Mesh(g,wood);spoke.rotation.z=angle;wheel.add(spoke);}
   wheel.rotation.y=Math.PI/2;objects.add(wheel);
+  // The physical positions provide the symbol-to-bell mapping; the sequence is
+  // written separately in the gassal's journal, and varies by saved seed.
+  const bellCanvas=document.createElement('canvas');bellCanvas.width=768;bellCanvas.height=256;
+  const bellContext=bellCanvas.getContext('2d');
+  if(bellContext){bellContext.fillStyle='#dcc7a1';bellContext.fillRect(0,0,768,256);bellContext.fillStyle='#241d15';bellContext.font='bold 74px serif';BELL_SYMBOLS.forEach((label,i)=>bellContext.fillText(label,40+i*256,155));}
+  const bellTexture=new THREE.CanvasTexture(bellCanvas);bellTexture.colorSpace=THREE.SRGBColorSpace;
+  const bellMaterial=new THREE.MeshStandardMaterial({map:bellTexture,roughness:1});ownMaterial.push(bellMaterial);
+  box(6.6,.7,.07,S.school[0],2.0,S.school[1]+3.08,bellMaterial);
+  for(let i=0;i<3;i++){
+    const x=S.school[0]-2.1+i*2.1,z=S.school[1]+3.55;
+    const g=new THREE.CylinderGeometry(.16,.28,.4,12);ownGeometry.push(g);const bell=new THREE.Mesh(g,craft.metal);bell.position.set(x,1.45,z);objects.add(bell);
+    target(`bell_${i}`,`Okul çanı · ${BELL_SYMBOLS[i]}`,[x,z],1.25);
+  }
   const boardCanvas=document.createElement('canvas');boardCanvas.width=512;boardCanvas.height=256;
   const boardContext=boardCanvas.getContext('2d');
   if(boardContext){boardContext.fillStyle='#25372e';boardContext.fillRect(0,0,512,256);boardContext.fillStyle='#c8c9b6';boardContext.font='30px serif';boardContext.fillText('Kapı açılınca',45,95);boardContext.fillText('anneme gideceğim.',45,145);boardContext.fillText('— Elif',320,205);}
@@ -97,6 +120,26 @@ export function createDermanliWorld(scene: THREE.Scene) {
   cylinder(1.7,.65,S.square,stone); cylinder(1,.9,S.well,stone);
   colliders.push({minX:S.well[0]-1,maxX:S.well[0]+1,minZ:S.well[1]-1,maxZ:S.well[1]+1}); target('well','Kuyu · Kayıt', [S.well[0]+1.6,S.well[1]],2.4);
   const [bx,bz] = S.bridge; box(7,.35,2.8,bx,.2,bz,stone); for (const side of [-1,1]) box(7,.85,.15,bx,.66,bz+side*1.3,stone);
+  // These are outdoor memories, not residents inside houses.
+  const spiritMaterial=new THREE.MeshStandardMaterial({color:0xbfc6c1,roughness:.9,transparent:true,opacity:.52,depthWrite:false});ownMaterial.push(spiritMaterial);
+  const makeSpirit=(x:number,z:number,scale:number)=>{
+    const group=new THREE.Group(); group.position.set(x,0,z);group.scale.setScalar(scale);
+    const bodyGeo=new THREE.ConeGeometry(.34,1.1,10),headGeo=new THREE.SphereGeometry(.19,12,10);ownGeometry.push(bodyGeo,headGeo);
+    const body=new THREE.Mesh(bodyGeo,spiritMaterial);body.position.y=.65;const head=new THREE.Mesh(headGeo,spiritMaterial);head.position.y=1.38;
+    group.add(body,head);group.visible=false;objects.add(group);return group;
+  };
+  const elif=makeSpirit(S.school[0]+5,S.school[1]+4,.75),riza=makeSpirit(S.square[0]-4,S.square[1]-3,1.15);
+  target('elif','Elif ile konuş',[S.school[0]+5,S.school[1]+4],2.2);
+  target('riza','Muhtar Rıza ile konuş',[S.square[0]-4,S.square[1]-3],2.2);
+  // Hacı Süleyman is a separate final tableau, never an NPC in a house.
+  const master=new THREE.Group();master.position.set(gx-1.9,0,gz+.9);master.rotation.y=Math.PI/2;
+  const robeGeo=new THREE.CylinderGeometry(.3,.43,1.3,12),headGeo=new THREE.SphereGeometry(.2,12,10),armGeo=new THREE.CapsuleGeometry(.07,.55,4,8);
+  ownGeometry.push(robeGeo,headGeo,armGeo);
+  const robe=new THREE.Mesh(robeGeo,spiritMaterial);robe.position.y=.83;master.add(robe);
+  const head=new THREE.Mesh(headGeo,spiritMaterial);head.position.y=1.7;master.add(head);
+  for(const side of [-1,1]){const arm=new THREE.Group();arm.name=side<0?'masterLeft':'masterRight';arm.position.set(side*.32,1.3,0);const sleeve=new THREE.Mesh(armGeo,spiritMaterial);sleeve.position.set(0,-.32,0);arm.add(sleeve);master.add(arm);}
+  master.visible=false;objects.add(master);
+
   const [fx,fz] = S.field; box(30,.08,21,fx,.04,fz,field); for(let i=-9;i<=9;i+=3) box(28,.12,.28,fx,.12,fz+i,wood);
   const [cx,cz] = S.cemetery;
   for(let x=-10;x<=10;x+=2.7) for(let z=-3;z<=8;z+=2.8) { if (Math.abs(x)<1.5) continue; box(.7,.9,.16,cx+x,.45,cz+z,stone); }
@@ -108,7 +151,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   // Grove with deterministic placement; preserve clearances for every path and building.
   const treeG = new THREE.ConeGeometry(1.55,5,7), trunkG = new THREE.CylinderGeometry(.23,.36,2,7); ownGeometry.push(treeG,trunkG);
   let seed=7; const random=()=>{seed=(seed*16807)%2147483647; return (seed-1)/2147483646;};
-  const sites: Point[] = [S.gasilhane,S.school,S.mill,S.cemetery,S.square,S.gassalHome,S.well,S.barn,S.field,S.bridge,...S.abandonedHomes];
+  const sites: Point[] = [S.gasilhane,S.school,S.mill,S.cemetery,S.square,S.gassalHome,S.office,S.well,S.barn,S.field,S.bridge,...S.abandonedHomes];
   const coords: Point[]=[];
   for(let i=0;i<1300 && coords.length<260;i++) {
     const x=(random()-.5)*170,z=(random()-.5)*220;
@@ -125,5 +168,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   coords.forEach(([x,z],i)=>{ const y=dermanliHeight(x,z); dummy.position.set(x,y+3.8,z); dummy.rotation.y=random()*6.28; dummy.scale.setScalar(.75+random()*.6); dummy.updateMatrix(); trees.setMatrixAt(i,dummy.matrix); dummy.position.y=y+1; dummy.scale.setScalar(1); dummy.updateMatrix(); trunks.setMatrixAt(i,dummy.matrix); }); objects.add(trees,trunks);
   const figures=createHorrorFigures(); for(const figure of figures){figure.visible=false;objects.add(figure);}
   const apparition=createKaraBasma().root; apparition.position.set(-1000,0,-1000); objects.add(apparition);
-  return {targets,colliders,gasil,homes,apparition,figures,arrivalBody,slabBody,wheel,homeLight,updateArt(x:number,z:number){art.approach({x,z});}, dispose(){ disposeHorrorFigures(figures); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,gasil,homes,apparition,figures,arrivalBody,slabBody,wheel,homeLight,elif,riza,master,updateArt(x:number,z:number){art.approach({x,z});}, dispose(){ disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

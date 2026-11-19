@@ -19,3 +19,7 @@ test('all five nights advance only after the body is wrapped and buried',()=>{
  }
  assert.equal(s.ending,'peace'); assert.equal(s.violations,0);
 });
+test('missed records or careless handling choose the dark ending',()=>{
+ const s=newRitual();s.night=5;s.body='burialCarry';act(s,'cemetery');assert.equal(s.ending,'dark');
+ const t=newRitual();t.night=5;t.body='burialCarry';t.clues=['home','school','mill','well','cemetery'];t.violations=1;act(t,'cemetery');assert.equal(t.ending,'dark');
+});
