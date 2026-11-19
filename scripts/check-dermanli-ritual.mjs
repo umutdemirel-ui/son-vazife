@@ -26,6 +26,8 @@ try {
    inside:window.__dermanliTest.targetFrom(x-2.2,z-2,Math.atan2(.5,.35))
  };});
  if(los.outside==='soap'||los.inside!=='soap')throw Error(`Wall/soap interaction mismatch: ${JSON.stringify(los)}`);
+ const homeOutside=await page.evaluate(()=>{const [x,z]=window.__dermanliTest.gassalHome();const px=x+1.6,pz=z-3.4;return window.__dermanliTest.targetFrom(px,pz,Math.PI);});
+ if(homeOutside==='home')throw Error('Gassal journal can be read through the back wall');
  const missing=await page.evaluate(()=>window.__dermanliTest.scanReachability());
  if(missing.length)throw Error(`Unreachable targets from the entrance: ${missing.join(', ')}`);
  const state=()=>page.evaluate(()=>window.__dermanliTest.state());
@@ -38,6 +40,7 @@ try {
   else await page.keyboard.press('e');
  }
  for (const id of ['home','school','mosque','mill','well','coffee','cemetery']) await action(id);
+ if(!(await state()).clues.includes('home'))throw Error('Gassal journal was not collected inside the house');
  if((await state()).clues.includes('school'))throw Error('Locked school record was collected before solving bells');
  if(!(await state()).clues.includes('mosque'))throw Error('Mosque record was not collected');
  const bellState=await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell);
