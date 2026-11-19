@@ -3,9 +3,10 @@ import { createDermanliTerrain } from './dermanliTerrain';
 import { DERMANLI_PATHS, DERMANLI_SITES as S, dermanliHeight, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
 import { VillageCraft } from './villageCraft';
-import { createMosqueAndGasilhane, createKaraBasma } from './models';
+import { createMosqueAndGasilhane, createKaraBasma, createCopperEwerAndSoap } from './models';
 import { buildHome, type HomeSpec } from './homes';
 import { NightArt } from './nightArt';
+import { funeralFigure } from './funerary';
 import { translateColliders, type BoxCollider } from './collision';
 
 export interface NewTarget { id: string; label: string; x: number; z: number; radius: number }
@@ -24,6 +25,8 @@ export function createDermanliWorld(scene: THREE.Scene) {
   // Existing detailed, walk-in gasilhane: its local origin is the wash slab.
   const gasil = createMosqueAndGasilhane(textures, craft, art);
   gasil.group.position.set(S.gasilhane[0], dermanliHeight(...S.gasilhane), S.gasilhane[1]); objects.add(gasil.group);
+  const slabBody=funeralFigure(art,'arif',false); gasil.deceasedGroup.add(slabBody);
+  art.near('arif',S.gasilhane[0],S.gasilhane[1],25);
   gasil.doorPivot.rotation.y = -Math.PI * .52; gasil.mosqueDoorPivot.rotation.y = -Math.PI * .52;
   colliders.push(...translateColliders({x:S.gasilhane[0],z:S.gasilhane[1]}, [
     {minX:-3.6,maxX:3.6,minZ:-3.45,maxZ:-2.95},{minX:-3.6,maxX:3.6,minZ:4.15,maxZ:4.65},
@@ -33,7 +36,33 @@ export function createDermanliWorld(scene: THREE.Scene) {
     {minX:-3.5,maxX:3.5,minZ:-3.5,maxZ:-3.3},{minX:3.2,maxX:3.5,minZ:-8,maxZ:-6.45},
     {minX:3.2,maxX:3.5,minZ:-4.95,maxZ:-3.4},
   ]));
-  target('gasil','Gasilhane · Teneşir', [S.gasilhane[0]+1.9,S.gasilhane[1]], 2.4);
+  const [gx,gz]=S.gasilhane;
+  target('slab','Teneşir', [gx,gz], 2.05);
+  target('candle','Sabır mumu', [gx-1.35,gz-.75], 1.7);
+  const stations = [
+    ['soap','Sabun','sabun',-2.7,-2.35], ['ewer','İbrik','ibrik',-2.7,2.3],
+    ['camphor','Kâfur','kafur',1.8,-2.35], ['shroud','Kefen','kefen',.1,-2.35],
+  ] as const;
+  for(const [id,label,type,x,z] of stations) {
+    const item=createCopperEwerAndSoap(type); item.position.set(gx+x,.85,gz+z); objects.add(item);
+    target(id,label,[gx+x,gz+z],1.65);
+  }
+  target('bucket','Kirli su kovası',[gx+.25,gz+1.05],1.5);
+  target('drain','Gider',[gx+2.5,gz+2.8],1.3);
+  target('discard','Kirli suyu dışarı dök',[gx+5,gz+4],1.2);
+  target('arrival','Cenazeyi al',[gx+5,gz],1.6);
+  target('forest','Orman yolu · Ayrıl',[-56.4,21.6],2.7);
+  const bucket=cylinderPlaceholder();
+  function cylinderPlaceholder() {
+    const g=new THREE.CylinderGeometry(.24,.18,.38,12,1,true); ownGeometry.push(g);
+    const b=new THREE.Mesh(g,craft.metal); b.position.set(gx+.25,.3,gz+1.05);objects.add(b);return b;
+  }
+  void bucket;
+  const bed=box(2,.15,.75,gx+5,.75,gz,wood);
+  const arrivalBody = new THREE.Mesh(new THREE.CapsuleGeometry(.22,1.25,5,10),stone);
+  ownGeometry.push(arrivalBody.geometry); arrivalBody.rotation.z=Math.PI/2;arrivalBody.position.set(gx+5,1.04,gz);objects.add(arrivalBody);
+  void bed;
+
   const addHome = (site: Point, id: string, number: number, w = 6.5, d = 5) => {
     const spec: HomeSpec = {x:site[0],z:site[1],rotY:0,w,d,h:3,style:number%2 ? 'himis' : 'tas'};
     const {home,walls} = buildHome(spec,number,dermanliHeight(...site),craft);
@@ -71,5 +100,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const trees=new THREE.InstancedMesh(treeG,foliage,coords.length), trunks=new THREE.InstancedMesh(trunkG,wood,coords.length), dummy=new THREE.Object3D();
   coords.forEach(([x,z],i)=>{ const y=dermanliHeight(x,z); dummy.position.set(x,y+3.8,z); dummy.rotation.y=random()*6.28; dummy.scale.setScalar(.75+random()*.6); dummy.updateMatrix(); trees.setMatrixAt(i,dummy.matrix); dummy.position.y=y+1; dummy.scale.setScalar(1); dummy.updateMatrix(); trunks.setMatrixAt(i,dummy.matrix); }); objects.add(trees,trunks);
   const apparition=createKaraBasma().root; apparition.position.set(-1000,0,-1000); objects.add(apparition);
-  return {targets,colliders,gasil,homes,apparition, dispose(){ terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,gasil,homes,apparition,arrivalBody,slabBody,updateArt(x:number,z:number){art.approach({x,z});}, dispose(){ terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }
