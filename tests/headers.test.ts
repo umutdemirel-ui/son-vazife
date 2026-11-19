@@ -8,6 +8,8 @@ test('Vercel security headers and immutable cache target only hashed bundles', (
   const headers = new Map(rules[0].headers.map(({ key, value }) => [key.toLowerCase(), value]));
   for (const key of ['content-security-policy', 'x-content-type-options', 'x-frame-options', 'referrer-policy', 'permissions-policy']) assert.ok(headers.get(key), key);
   assert.match(headers.get('content-security-policy')!, /frame-ancestors 'none'/);
+  // GLTFLoader decodes embedded GLB images through fetch(blob:).
+  assert.match(headers.get('content-security-policy')!, /connect-src 'self' blob:/);
   assert.notEqual(headers.get('access-control-allow-origin'), '*');
   for (const rule of rules.slice(1)) {
     const pattern = new RegExp('^' + rule.source.replace(':file(', '(') + '$');
