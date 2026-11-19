@@ -1,6 +1,8 @@
 import { DERMANLI_SITES as S, type Point } from './dermanliMap';
-export const DAY_SECONDS=480;
+export const DAY_SECONDS=240;
 export function isNight(seconds:number) { return Math.max(0,seconds)%DAY_SECONDS >= DAY_SECONDS/2; }
+/** Burial opens a new day, not a second funeral during the same night. */
+export function nextDawn(seconds:number) { return (Math.floor(Math.max(0,seconds)/DAY_SECONDS)+1)*DAY_SECONDS; }
 type Event = {id:string; at:Point; radius:number; minNight:number; text:string; look?:boolean; sound:'water'|'whisper'|'knock'|'creak'};
 export const EVENTS: readonly Event[] = [
  {id:'gasil',at:S.gasilhane,radius:5,minNight:1,text:'Gasilhanede musluk bir an kendi kendine akıyor.',sound:'water'},

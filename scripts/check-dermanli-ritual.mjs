@@ -10,19 +10,29 @@ try {
  await page.goto(process.env.VILLAGE_URL || 'http://localhost:3016/');
  await page.getByText('KÖYE GİR').click(); await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
  await page.locator('canvas').click({position:{x:500,y:350}}); await page.waitForFunction(()=>!!document.pointerLockElement);
+ await page.keyboard.press('h'); await page.getByRole('dialog',{name:'Dermanlı haritası'}).waitFor();
+ const clockBefore=await page.evaluate(()=>window.__dermanliTest.clock());
+ await page.waitForTimeout(300);await page.locator('canvas').click({position:{x:10,y:10}});await page.waitForTimeout(200);
+ if(await page.evaluate(()=>!!document.pointerLockElement))throw Error('Map allowed pointer lock behind the overlay');
+ if((await page.evaluate(()=>window.__dermanliTest.clock()))-clockBefore>.05)throw Error('Clock advanced while the map was open');
+ await page.getByRole('button',{name:'Kapat'}).click();await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);
+
  const missing=await page.evaluate(()=>window.__dermanliTest.scanReachability());
  if(missing.length)throw Error(`Unreachable targets from the entrance: ${missing.join(', ')}`);
  const state=()=>page.evaluate(()=>window.__dermanliTest.state());
  async function action(id) {
   const result=await page.evaluate(id=>window.__dermanliTest.walkToTarget(id),id);
   if(result!=='ok') throw Error(result);
-  await page.keyboard.press('e');
+  const before=await state();
+  if(id==='slab'&&before.body==='slab'&&before.stage<6){await page.keyboard.down('f');await page.waitForFunction(before=>{const s=window.__dermanliTest.state();return s.stage!==before.stage||s.soaped!==before.soaped;},before,{timeout:12000});await page.keyboard.up('f');}
+  else await page.keyboard.press('e');
  }
  for (const id of ['home','school','mill','well','cemetery']) await action(id);
  const bellState=await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell);
  const bellOrders=[[0,1,2],[0,2,1],[1,0,2],[2,1,0]];
  for(const index of bellOrders[bellState.seed])await action(`bell_${index}`);
  if(!(await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell.solved)))throw Error('Bell puzzle not solved');
+ await page.evaluate(()=>window.__dermanliTest.advanceToNight());
  await action('arrival');
  await page.reload();await page.getByText('DEVAM ET').click();await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
  await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);
@@ -30,7 +40,7 @@ try {
  if(!(await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell.solved)))throw Error('Bell progress was not restored');
  for (let night=1;night<=5;night++) {
    const steps=['slab','candle','slab','soap','slab','soap','slab','soap','slab','soap','slab','ewer','slab','ewer','bucket','drain','camphor','slab','camphor','shroud','slab','shroud','slab','cemetery'];
-   if(night>1)await action('arrival');
+   if(night>1){await page.evaluate(()=>window.__dermanliTest.advanceToNight());await action('arrival');}
    for (const id of steps) await action(id);
    const s=await state(); if(night<5 && (s.night!==night+1||s.body!=='arrival')) throw Error(`night ${night} failed ${JSON.stringify(s)}`);
  }

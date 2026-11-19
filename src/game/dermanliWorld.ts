@@ -74,8 +74,10 @@ export function createDermanliWorld(scene: THREE.Scene) {
   }
   void bucket;
   const bed=box(2,.15,.75,gx+5,.75,gz,wood);
-  const arrivalBody = new THREE.Mesh(new THREE.CapsuleGeometry(.22,1.25,5,10),stone);
-  ownGeometry.push(arrivalBody.geometry); arrivalBody.rotation.z=Math.PI/2;arrivalBody.position.set(gx+5,1.04,gz);objects.add(arrivalBody);
+  const arrivalBody = new THREE.Group();
+  const arrivalUnwrapped=funeralFigure(art,'arif',false),arrivalWrapped=funeralFigure(art,'yolcu',false);
+  arrivalBody.add(arrivalUnwrapped,arrivalWrapped);arrivalBody.position.set(gx+5,.84,gz);objects.add(arrivalBody);
+  art.near('yolcu',gx,gz,25);
   void bed;
 
   const addHome = (site: Point, id: string, number: number, w = 6.5, d = 5) => {
@@ -168,5 +170,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   coords.forEach(([x,z],i)=>{ const y=dermanliHeight(x,z); dummy.position.set(x,y+3.8,z); dummy.rotation.y=random()*6.28; dummy.scale.setScalar(.75+random()*.6); dummy.updateMatrix(); trees.setMatrixAt(i,dummy.matrix); dummy.position.y=y+1; dummy.scale.setScalar(1); dummy.updateMatrix(); trunks.setMatrixAt(i,dummy.matrix); }); objects.add(trees,trunks);
   const figures=createHorrorFigures(); for(const figure of figures){figure.visible=false;objects.add(figure);}
   const apparition=createKaraBasma().root; apparition.position.set(-1000,0,-1000); objects.add(apparition);
-  return {targets,colliders,gasil,homes,apparition,figures,arrivalBody,slabBody,wheel,homeLight,elif,riza,master,updateArt(x:number,z:number){art.approach({x,z});}, dispose(){ disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,gasil,homes,apparition,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,elif,riza,master,updateArt(x:number,z:number){art.approach({x,z});}, dispose(){ disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

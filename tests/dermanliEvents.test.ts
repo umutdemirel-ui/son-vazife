@@ -9,3 +9,9 @@ test('clock and proximity/gaze events are bounded and cannot repeat in same nigh
  assert.equal(nextEvent(4,x,z,0,new Set())?.id,'school');
  assert.equal(nextEvent(4,x,z,0,new Set(['4:school'])),null);
 });
+
+test('burial advances to a new dawn',async()=>{
+ const {nextDawn}=await import('../src/game/dermanliEvents');
+ assert.equal(nextDawn(130),DAY_SECONDS);assert.equal(isNight(nextDawn(130)),false);
+ assert.equal(nextDawn(DAY_SECONDS),DAY_SECONDS*2);
+});

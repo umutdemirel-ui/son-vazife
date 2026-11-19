@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {interactRitual as act,leaveUnwatched,newRitual} from '../src/game/dermanliRitual';
+import {interactRitual,leaveUnwatched,newRitual} from '../src/game/dermanliRitual';
+const act=(s:ReturnType<typeof newRitual>,id:string,night=true)=>interactRitual(s,id,night,true);
+test('washing requires a lit candle and deliberate work',()=>{const s=newRitual();act(s,'arrival');act(s,'slab');assert.match(interactRitual(s,'slab',true,true),/mumunu yak/);assert.equal(s.stage,0);act(s,'candle');assert.match(interactRitual(s,'slab'),/basılı tut/);assert.equal(s.stage,0);act(s,'slab');assert.equal(s.stage,1);});
 test('separate tools and two-handed washing enforce the ritual and safe disposal',()=>{
  const s=newRitual(); act(s,'arrival');act(s,'slab');act(s,'candle');act(s,'slab');
  act(s,'soap');act(s,'slab');assert.equal(s.stage,1);act(s,'slab');assert.equal(s.stage,1);act(s,'soap');act(s,'slab');
@@ -22,4 +24,7 @@ test('all five nights advance only after the body is wrapped and buried',()=>{
 test('missed records or careless handling choose the dark ending',()=>{
  const s=newRitual();s.night=5;s.body='burialCarry';act(s,'cemetery');assert.equal(s.ending,'dark');
  const t=newRitual();t.night=5;t.body='burialCarry';t.clues=['home','school','mill','well','cemetery'];t.violations=1;act(t,'cemetery');assert.equal(t.ending,'dark');
+});
+test('a new funeral arrives at night, not during the day',()=>{
+ const s=newRitual();assert.match(act(s,'arrival',false),/gece/);assert.equal(s.body,'arrival');act(s,'arrival',true);assert.equal(s.body,'carrying');
 });
