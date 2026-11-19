@@ -4,7 +4,7 @@ import { DERMANLI_PATHS, DERMANLI_SITES as S, dermanliHeight, distanceToPath, ty
 import { loadVillageTextures } from './textures';
 import { VillageCraft } from './villageCraft';
 import { createMosqueAndGasilhane, createKaraBasma, createSisGozcusu, createCopperEwerAndSoap, createMuhtarHouse } from './models';
-import { buildHome, type HomeSpec } from './homes';
+import { buildHome, homeCollider, type HomeSpec } from './homes';
 import { NightArt, watcherFigure } from './nightArt';
 import { funeralFigure } from './funerary';
 import {createHorrorFigures,disposeHorrorFigures} from './horrorFigures';
@@ -17,7 +17,7 @@ export interface NewTarget { id: string; label: string; x: number; z: number; ra
 export function createDermanliWorld(scene: THREE.Scene) {
   const textures = loadVillageTextures(2, true);
   const terrain = createDermanliTerrain(textures); scene.add(terrain.root);
-  const craft = new VillageCraft(textures), art = new NightArt(true, () => {});
+  const craft = new VillageCraft(textures,'DERMANLI'), art = new NightArt(true, () => {});
   const colliders: BoxCollider[] = [], targets: NewTarget[] = [], homes: ReturnType<typeof buildHome>['home'][] = [];
   const objects = new THREE.Group(); scene.add(objects);
   const ownGeometry: THREE.BufferGeometry[] = [], ownMaterial: THREE.Material[] = [];
@@ -85,7 +85,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const addHome = (site: Point, id: string, number: number, w = 6.5, d = 5) => {
     const spec: HomeSpec = {x:site[0],z:site[1],rotY:0,w,d,h:3,style:number%2 ? 'himis' : 'tas'};
     const {home,walls} = buildHome(spec,number,dermanliHeight(...site),craft);
-    home.door.rotation.y = -Math.PI*.52; homes.push(home); objects.add(home.root); colliders.push(...walls);
+    home.door.rotation.y = -Math.PI*.5; homes.push(home); objects.add(home.root); colliders.push(...walls);
+    // The opened door leaf projects into the yard; do not let players stand inside its mesh.
+    colliders.push(homeCollider(spec,-.725,d/2+.75,.14,1.5));
     target(id, id === 'home' ? 'Gassalın evi · Günlük' : id === 'school' ? 'Eski okul · Tahta ve dolap' : id === 'mill' ? 'Değirmen · Defter' : 'Terk edilmiş ev', [site[0],site[1]+d/2+1.0],2.6);
   };
   addHome(S.gassalHome,'home',0,7,5); addHome(S.school,'school',1,8,6); addHome(S.mill,'mill',2,6,5);
@@ -105,11 +107,14 @@ export function createDermanliWorld(scene: THREE.Scene) {
   if(bellContext){bellContext.fillStyle='#dcc7a1';bellContext.fillRect(0,0,768,256);bellContext.fillStyle='#241d15';bellContext.font='bold 74px serif';BELL_SYMBOLS.forEach((label,i)=>bellContext.fillText(label,40+i*256,155));}
   const bellTexture=new THREE.CanvasTexture(bellCanvas);bellTexture.colorSpace=THREE.SRGBColorSpace;
   const bellMaterial=new THREE.MeshStandardMaterial({map:bellTexture,roughness:1});ownMaterial.push(bellMaterial);
-  box(6.6,.7,.07,S.school[0],2.0,S.school[1]+3.08,bellMaterial);
+  // A freestanding rack beside the building keeps the doorway and its collider clear.
+  const bellX=S.school[0]-6.4,bellZ=S.school[1]+3;
+  box(3.5,.65,.12,bellX,2.1,bellZ-.25,bellMaterial);
+  for(const x of [-1.6,1.6])box(.12,2.2,.12,bellX+x,1.1,bellZ-.25,wood);
   for(let i=0;i<3;i++){
-    const x=S.school[0]-2.1+i*2.1,z=S.school[1]+3.55;
+    const x=bellX-1.1+i*1.1,z=bellZ;
     const g=new THREE.CylinderGeometry(.16,.28,.4,12);ownGeometry.push(g);const bell=new THREE.Mesh(g,craft.metal);bell.position.set(x,1.45,z);objects.add(bell);
-    target(`bell_${i}`,`Okul çanı · ${BELL_SYMBOLS[i]}`,[x,z],1.25);
+    target(`bell_${i}`,`Okul çanı · ${BELL_SYMBOLS[i]}`,[x,z],.95);
   }
   const boardCanvas=document.createElement('canvas');boardCanvas.width=512;boardCanvas.height=256;
   const boardContext=boardCanvas.getContext('2d');

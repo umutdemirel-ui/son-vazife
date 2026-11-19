@@ -131,7 +131,7 @@ export function pitchedRoof(
 }
 
 /** A single enamel atlas for nameplates, street directions and house numbers. */
-function enamelAtlas() {
+function enamelAtlas(villageName = 'KUZDAĞ') {
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = atlasHeight;
@@ -165,7 +165,7 @@ function enamelAtlas() {
       ctx.fillRect(x + t, y + u, (i % 5) + 1, (i % 3) + 1);
     }
   }
-  inscriptions.forEach(([s, t], i) => plate(0, 128 * i, 512, 128, s, t));
+  inscriptions.forEach(([s, t], i) => plate(0, 128 * i, 512, 128, s.replaceAll('KUZDAĞ',villageName), t.replaceAll('KUZDAĞ',villageName))); 
   for (let i = 0; i < 24; i++)
     plate(
       (i % 8) * 64,
@@ -206,7 +206,7 @@ export class VillageCraft {
   }[] = [];
   private entryFinish: THREE.MeshStandardMaterial;
 
-  constructor(t: VillageTextures) {
+  constructor(t: VillageTextures, villageName = 'KUZDAĞ') {
     const standard = (
       map: THREE.Texture | null,
       color: number,
@@ -234,7 +234,7 @@ export class VillageCraft {
       metalness: 0.12,
     });
     this.entryFinish = standard(t.entry, 0xf2ece0, 0.94);
-    const atlas = enamelAtlas();
+    const atlas = enamelAtlas(villageName);
     this.maps.push(atlas);
     this.enamel = standard(atlas, 0xffffff, 0.74);
   }
