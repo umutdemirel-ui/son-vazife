@@ -21,7 +21,7 @@ function Postmark() {
         letterSpacing="1.15"
       >
         <textPath href="#seal-arc" startOffset="50%" textAnchor="middle">
-          KUZDAĞ ARŞİVİ
+          DERMANLI ARŞİVİ
         </textPath>
       </text>
       <path d="m18 41 12-15 7 8 4-6 11 13Zm8-10 4 2 3-3m-12 14h28" strokeWidth="1.3" />

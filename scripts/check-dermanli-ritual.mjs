@@ -17,6 +17,7 @@ try {
  if((await page.evaluate(()=>window.__dermanliTest.clock()))-clockBefore>.05)throw Error('Clock advanced while the map was open');
  await page.getByRole('button',{name:'Kapat'}).click();await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);
 
+ await page.waitForFunction(()=>window.__dermanliTest.residentModels().every(r=>r.loaded),{timeout:60000});
  const loaded=await page.evaluate(()=>window.__dermanliTest.verifyThreatArt());
  if(!loaded.pursuer||!loaded.scare)throw Error(`Original threat models failed to load: ${JSON.stringify(loaded)}`);
  const missing=await page.evaluate(()=>window.__dermanliTest.scanReachability());
@@ -46,7 +47,7 @@ try {
  if(!(await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell.solved)))throw Error('Bell progress was not restored');
  for (let night=1;night<=5;night++) {
    const steps=['slab','candle','slab','soap','slab','soap','slab','soap','slab','soap','slab','ewer','slab','ewer','bucket','drain','camphor','slab','camphor','shroud','slab','shroud','slab','cemetery'];
-   if(night>1){await page.evaluate(()=>window.__dermanliTest.advanceToNight());await action('arrival');}
+   if(night>1){await page.evaluate(()=>window.__dermanliTest.advanceToNight());if(night===2){for(const id of ['memory_bekci','memory_serife','memory_kenan','memory_idris'])await action(id);for(const id of ['memory_bekci','memory_serife','memory_kenan','memory_idris'])if(!(await state()).clues.includes(id))throw Error(`Missing character ${id}`);}await action('arrival');}
    for (const [index,id] of steps.entries()) {
      if(night===1 && index===1){
        // At the slab, neither E nor F plus strokes may wash an unlit body.

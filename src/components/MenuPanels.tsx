@@ -26,7 +26,7 @@ export function ArchivePanel({
 }) {
   const entry = ARCHIVE[index];
   return (
-    <MenuDialog title="Köy arşivi" kicker="KUZDAĞ / SAHA DOSYASI" onClose={onClose} wide>
+    <MenuDialog title="Köy arşivi" kicker="DERMANLI / SAHA DOSYASI" onClose={onClose} wide>
       <div className="archive-reader" aria-live="polite">
         <figure>
           <img src={entry.image} alt={entry.alt} />
@@ -74,23 +74,16 @@ export function ArchivePanel({
 }
 
 const KEYS = [
-  ['Hareket et', 'W A S D'],
-  ['Etrafına bak', 'Fare'],
-  ['Etkileşime gir', 'E'],
-  ['Odaklan', 'Sağ tık'],
-  ['Koş', 'Shift'],
-  ['Eğil', 'C'],
-  ['Mumu yak / söndür', 'F'],
-  ['Defter ve harita', 'Tab'],
-  ['Sesi aç / kapat', 'M'],
-  ['Duraklat', 'Esc'],
+  ['Hareket et', 'W A S D'], ['Etrafına bak', 'Fare'], ['Etkileşime gir', 'E'],
+  ['Koş', 'Shift'], ['Çömel', 'Ctrl / C'], ['Mumu yak', 'E'],
+  ['Yıka', 'F + A / D'], ['Diğer işlemler', 'F basılı'],
+  ['Harita / defter', 'H / N'], ['Sesi aç / kapat', 'M'], ['Fareyi bırak', 'Esc'],
 ];
 export function ControlsPanel({ onClose }: { onClose: () => void }) {
   return (
     <MenuDialog title="Nasıl oynanır?" kicker="OYUNCU REHBERİ / 01" onClose={onClose}>
       <p className="panel-intro">
-        İlk nöbetinde teslim fişini eski kayıtlarla karşılaştır. Ardından köyü dolaş, kapıları yokla ve
-        tanıkları dinle. Bulduğun belgeler defterinde saklanır.
+        Gündüz köyü keşfet, kayıtları defterinde topla. Gece cenazeyi teneşire taşı, sabır mumunu yak ve malzemeleri sırayla kullan. Yıkarken F basılıyken A ve D tuşlarına sırayla bas.
       </p>
       <h3 className="section-tag">
         <Keyboard size={16} />
@@ -108,8 +101,7 @@ export function ControlsPanel({ onClose }: { onClose: () => void }) {
       </dl>
       <p className="panel-tip">
         <MousePointer2 size={17} />
-        Bakış kilidi kullanılamıyorsa fareyi basılı tutup sürükle. Dokunmatik ekranda soldan yürü, sağdan
-        bak.
+        Oyuna dönmek ve fareyle bakmak için görüntüye tıkla. Kontroller klavye ve fare gerektirir.
       </p>
       <button className="menu-button secondary full-button" onClick={onClose}>
         Anladım
@@ -174,8 +166,7 @@ export function SettingsPanel({
         ))}
       </div>
       <p className="setting-help">
-        Otomatik mod cihazına uyum sağlar. Asgari mod görüş mesafesini ve bellek kullanımını azaltır.
-        Doku paketi köye girişte seçilir; yazılım çizicisinde Asgari kullanılır.
+        Görüntü kalitesi köye girerken çizim çözünürlüğünü belirler. Düşük değerler daha hızlı çalışabilir.
       </p>
       <div className="sensitivity">
         <label htmlFor="look-speed">
@@ -200,17 +191,9 @@ export function SettingsPanel({
         />
       </div>
       <div className="setting-row">
-        <span>Bakışı yumuşat</span>
+        <span>C ile tek basışta eğil</span>
         <Switch
-          label="Bakışı yumuşat"
-          value={controls.lookSmoothing}
-          onClick={() => update({ lookSmoothing: !controls.lookSmoothing })}
-        />
-      </div>
-      <div className="setting-row">
-        <span>Tek basışla eğil</span>
-        <Switch
-          label="Tek basışla eğil"
+          label="C ile tek basışta eğil"
           value={controls.crouchToggle}
           onClick={() => update({ crouchToggle: !controls.crouchToggle })}
         />

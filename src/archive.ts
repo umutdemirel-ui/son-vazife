@@ -11,13 +11,13 @@ export interface ArchiveEntry {
 // The four prints can be inspected before play; none gives away a case solution.
 export const ARCHIVE: ArchiveEntry[] = [
   {
-    title: 'Kuzdağ Köyü',
+    title: 'Dermanlı Köyü',
     image: '/assets/archive/kuzdag.jpg',
     alt: 'Dağların arasında, dar bir sokağa bakan eski ahşap köy evleri.',
     category: 'Yerleşim',
     caption: 'Anadolu, Kasım 1993',
     description:
-      'Minibüsün son durağı. Meydandaki çeşmeden su akıyor, ama karşısındaki üç evin bacası da soğuk. Köyün yeni gassalını bekleyen tek kişi, anahtarları taşıyan bekçi.',
+      'Gassal Halil ustasının mektubuyla ıssız Dermanlı’ya gelir. Meydan, evler ve çevresindeki yollar sessizliğe gömülmüştür.',
     note: 'Gece gelen cenazelerle ilgili soru sorma.',
   },
   {
@@ -27,7 +27,7 @@ export const ARCHIVE: ArchiveEntry[] = [
     category: 'İç mekân',
     caption: 'Cami avlusu, 1993',
     description:
-      'İbrik taşın sağında, temiz bezler soldaki dolapta. Senden önce çalışan gassal odasını yarın dönecekmiş gibi bırakmış. Kapının arkasında bir tek anahtar eksik.',
+      'Teneşir ve malzemeler yerlerinde. Her gece yarım kalmış bir son vazife bu odada tamamlanmayı bekler.',
     note: 'Çıkarken ışığı kapatmıştım. Buna eminim.',
   },
   {
@@ -37,7 +37,7 @@ export const ARCHIVE: ArchiveEntry[] = [
     category: 'Dış mekân',
     caption: 'Kuzey yamacı, 1993',
     description:
-      'Yokuşun sonunda demir bir kapı var. Taşların bazıları okunmayacak kadar eski. Yalnızca birinin üzerindeki harfler yeni kazınmış; altındaki tarihse yirmi yıl öncesine ait.',
+      'Kuzeydeki mezarlıkta eski taşların arasından bir yol geçer. Yıpranmış kayıtlar bazı isimlerin eksik olduğunu düşündürür.',
     note: 'Defterde yazan herkes burada yatmıyor.',
   },
   {

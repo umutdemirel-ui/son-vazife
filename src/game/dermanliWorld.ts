@@ -6,6 +6,9 @@ import { VillageCraft } from './villageCraft';
 import { createMosqueAndGasilhane, createKaraBasma, createSisGozcusu, createCopperEwerAndSoap, createMuhtarHouse } from './models';
 import { buildHome, homeCollider, type HomeSpec } from './homes';
 import { NightArt, watcherFigure } from './nightArt';
+import {ResidentVisual} from './residentVisual';
+import {createModelLoader} from './modelLoader';
+import {RESIDENT_MEMORIES, type MemoryId} from './dermanliCharacters';
 import { funeralFigure } from './funerary';
 import {createHorrorFigures,disposeHorrorFigures} from './horrorFigures';
 import {surfaceUrl} from './quality';
@@ -143,6 +146,15 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const elif=makeSpirit(S.school[0]+5,S.school[1]+4,.75),riza=makeSpirit(S.square[0]-4,S.square[1]-3,1.15);
   target('elif','Elif ile konuş',[S.school[0]+5,S.school[1]+4],2.2);
   target('riza','Muhtar Rıza ile konuş',[S.square[0]-4,S.square[1]-3],2.2);
+  // The previous village cast appears only outdoors as memories; homes remain empty.
+  const residentLoader=createModelLoader();
+  const residentPositions:Record<MemoryId,Point>={bekci:[S.square[0]-4,S.square[1]+4],serife:[S.well[0]+3,S.well[1]+3],kenan:[S.office[0]-5,S.office[1]+4],idris:[S.cemetery[0]+9,S.cemetery[1]+9]};
+  const residents=(Object.keys(RESIDENT_MEMORIES) as MemoryId[]).map(id=>{
+    const [x,z]=residentPositions[id],visual=new ResidentVisual(id,residentLoader,undefined,true);
+    visual.group.position.set(x,dermanliHeight(x,z),z);visual.group.visible=false;objects.add(visual.group);
+    target(`memory_${id}`,`${RESIDENT_MEMORIES[id].name} · Anı`,[x,z],2);
+    return {id,visual,x,z};
+  });
   // Hacı Süleyman is a separate final tableau, never an NPC in a house.
   const master=new THREE.Group();master.position.set(gx-1.9,0,gz+.9);master.rotation.y=Math.PI/2;
   const robeGeo=new THREE.CylinderGeometry(.3,.43,1.3,12),headGeo=new THREE.SphereGeometry(.2,12,10),armGeo=new THREE.CapsuleGeometry(.07,.55,4,8);
@@ -184,5 +196,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu());
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,elif,riza,master,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

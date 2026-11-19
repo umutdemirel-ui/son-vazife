@@ -12,8 +12,9 @@ import { DAY_SECONDS, isNight, nextDawn, nextEvent } from './game/dermanliEvents
 import { createCopperEwerAndSoap } from './game/models';
 import { DermanliThreat } from './game/dermanliThreat';
 import { newBell, bellHint, ringBell } from './game/dermanliBell';
-import {spiritAvailable,SPIRIT_LINES} from './game/dermanliCharacters';
+import {spiritAvailable,SPIRIT_LINES,memoryAvailable,RESIDENT_MEMORIES} from './game/dermanliCharacters';
 import {canReadClue,SCHOOL_LOCKED} from './game/dermanliClues';
+import {readControls,readMuted,storeMuted} from './game/preferences';
 import {DermanliMapPanel} from './components/DermanliMapPanel';
 import {isScrubbing,newScrub,scrubStroke,SCRUB_STROKES} from './game/dermanliWashing';
 
@@ -30,25 +31,28 @@ const notes: Record<string,string> = {
   abandoned0: 'Terk edilmiş evdeki masada boş bir mektup zarfı var.', abandoned1: 'Pencereler içeriden tahtalarla kapatılmış.',
   abandoned2: 'Burası yıllardır boş. Bir tabak masada kalmış.', abandoned3: 'Yerde eski, okunaksız bir takvim var.',
   ...SPIRIT_LINES,
+  ...Object.fromEntries(Object.entries(RESIDENT_MEMORIES).map(([id,m])=>[`memory_${id}`,m.line])),
   gasil: 'Gasilhanenin içi soğuk. Teneşir ve malzemeler yerlerinde; burası son vazifenin merkezi.',
 };
 interface Hud { prompt:string; caption:string; place:string; count:number; locked:boolean; objective:string; held:string; ending:string; hits:number; clues:string[]; bellHint:string; bellSolved:boolean; x:number; z:number; yaw:number }
 const initial: Hud={prompt:'',caption:'Ustanın mektubu seni Dermanlı’ya getirdi. Gassal evini ve gasilhaneyi bul.',place:'Dermanlı Köyü',count:0,locked:false,objective:'Gasilhane önündeki sedyeye git.',held:'',ending:'',hits:0,clues:[],bellHint:'',bellSolved:false,x:S.entrance[0],z:S.entrance[1]+2,yaw:0};
 
 export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:boolean}) {
-  const mount=useRef<HTMLDivElement>(null), [hud,setHud]=useState<Hud>(initial), [failed,setFailed]=useState(false), [notebook,setNotebook]=useState(false), [muted,setMuted]=useState(false), [mapOpen,setMapOpen]=useState(false);
+  const mount=useRef<HTMLDivElement>(null), [hud,setHud]=useState<Hud>(initial), [failed,setFailed]=useState(false), [notebook,setNotebook]=useState(false), [muted,setMuted]=useState(readMuted), [mapOpen,setMapOpen]=useState(false);
   const overlayBlocked=useRef(false);overlayBlocked.current=notebook||mapOpen;
   useEffect(()=>{
     const host=mount.current; if(!host)return;
     let renderer: THREE.WebGLRenderer;
     try { renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'}); } catch { setFailed(true); return; }
-    renderer.setPixelRatio(Math.min(devicePixelRatio,1.5)); renderer.setSize(host.clientWidth,host.clientHeight); renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.setClearColor(0x465255); host.appendChild(renderer.domElement);
+    const controls=readControls();
+    const ratio=({minimum:.55,low:.8,medium:1,high:1.5,auto:1} as const)[controls.graphicsQuality];
+    renderer.setPixelRatio(Math.min(devicePixelRatio,ratio)); renderer.setSize(host.clientWidth,host.clientHeight); renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.setClearColor(0x465255); host.appendChild(renderer.domElement);
     const scene=new THREE.Scene(); scene.background=new THREE.Color(0x465255); scene.fog=new THREE.FogExp2(0x465255,.018);
     scene.add(new THREE.HemisphereLight(0xb7c8d2,0x535248,1.8)); const sun=new THREE.DirectionalLight(0xd9d3b8,1.6); sun.position.set(25,45,10); scene.add(sun);
     const world=createDermanliWorld(scene);
     const camera=new THREE.PerspectiveCamera(72,host.clientWidth/host.clientHeight,.08,210); camera.rotation.order='YXZ'; scene.add(camera);
     const hands=createWorkHands(); hands.position.set(0,-.29,-.65); camera.add(hands);
-    const audio=new HorrorAudioEngine();
+    const audio=new HorrorAudioEngine();audio.setMuted(readMuted());
     const handItems = {
       soap:createCopperEwerAndSoap('sabun'), ewer:createCopperEwerAndSoap('ibrik'),
       camphor:createCopperEwerAndSoap('kafur'), shroud:createCopperEwerAndSoap('kefen'),
@@ -62,13 +66,15 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     const ritual=saved?.ritual??newRitual();
     const bell=saved?.bell??newBell(saved?0:undefined);
     let elapsed=saved?.elapsed??0, nextCue=0, hits=saved?.hits??0, nextRandomScare=75+Math.random()*45; const threat=new DermanliThreat(); const seenEvents=new Set(saved?.events??[]);
-    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false, threatArtRequested=false; let scrub=newScrub();
+    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false, threatArtRequested=false, crouchToggled=false; let scrub=newScrub();
     const save=()=>writeDermanliSave({version:1,ritual,x:pos.x,z:pos.z,yaw,pitch,elapsed,events:[...seenEvents],hits,bell});
+    // Establish the new-session save before the menu can be rendered again.
+    save();
     const keys=new Set<string>();
-    const onMove=(e:MouseEvent)=>{if(!locked)return; yaw-=e.movementX*.0022; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*.0022));};
+    const onMove=(e:MouseEvent)=>{if(!locked)return; yaw-=e.movementX*.0022*controls.mouseSensitivity; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*.0022*controls.mouseSensitivity*(controls.invertY?-1:1)));};
     const onLock=()=>{locked=document.pointerLockElement===renderer.domElement; if(!locked){keys.clear();workHeld=false;workProgress=0;}};
     const targetAt=(x:number,z:number,angle:number)=>world.targets.map(t=>{const dx=t.x-x,dz=t.z-z,dist=Math.hypot(dx,dz);return {...t,dist,dot:dist<.1?1:(dx*-Math.sin(angle)+dz*-Math.cos(angle))/dist};})
-      .filter(t=>t.dist<t.radius && t.dot>.45 && (t.id!=='discard'||ritual.held==='bucket') && (t.id!=='drain'||(ritual.held==='bucket'&&ritual.dirty)) && (t.id!=='forest'||ritual.body!=='burialCarry') && ((t.id!=='elif'&&t.id!=='riza')||spiritAvailable(t.id,ritual.night,isNight(elapsed))))
+      .filter(t=>t.dist<t.radius && t.dot>.45 && (t.id!=='discard'||ritual.held==='bucket') && (t.id!=='drain'||(ritual.held==='bucket'&&ritual.dirty)) && (t.id!=='forest'||ritual.body!=='burialCarry') && ((t.id!=='elif'&&t.id!=='riza')||spiritAvailable(t.id,ritual.night,isNight(elapsed))) && (!t.id.startsWith('memory_')||memoryAvailable(ritual.night,isNight(elapsed))))
       .sort((a,b)=>(a.dist+(1-a.dot)*2)-(b.dist+(1-b.dot)*2))[0];
     const target=()=>targetAt(pos.x,pos.z,yaw);
     // Development-only end-to-end helper: move to a collision-free viewpoint but
@@ -77,6 +83,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       const debug = {
         state: () => JSON.parse(JSON.stringify(ritual)),
         clock: () => elapsed,
+        residentModels: () => world.residents.map(r=>({id:r.id,loaded:!!r.visual.group.getObjectByName('HandL')})),
         verifyThreatArt: async () => {await world.loadThreatArt();return {pursuer:!!world.pursuer.root.getObjectByName('Dokulu model'),scare:!!world.scare.root.getObjectByName('Dokulu model')};},
         advanceToNight: () => {if(!isNight(elapsed))elapsed=Math.floor(elapsed/DAY_SECONDS)*DAY_SECONDS+DAY_SECONDS/2;},
         scanReachability: () => {
@@ -149,7 +156,8 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       keys.add(e.code);
       if(e.code==='KeyN'&&!e.repeat){setMapOpen(false);setNotebook(v=>!v);if(document.pointerLockElement===renderer.domElement)document.exitPointerLock();}
       if(e.code==='KeyH'&&!e.repeat){setNotebook(false);setMapOpen(v=>!v);if(document.pointerLockElement===renderer.domElement)document.exitPointerLock();}
-      if(e.code==='KeyM'&&!e.repeat){audio.setMuted(!audio.isMuted());setMuted(audio.isMuted());}
+      if(e.code==='KeyM'&&!e.repeat){audio.setMuted(!audio.isMuted());setMuted(audio.isMuted());storeMuted(audio.isMuted());}
+      if(e.code==='KeyC'&&!e.repeat&&locked&&controls.crouchToggle)crouchToggled=!crouchToggled;
       if(e.code==='KeyF'&&!e.repeat&&locked&&!overlayBlocked.current&&target()?.id==='slab'&&ritual.body==='slab'&&ritual.stage<6){
         const problem=workProblem(ritual);
         if(problem){caption=problem;captionUntil=performance.now()+4500;}
@@ -193,7 +201,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       if(scene.fog instanceof THREE.FogExp2){scene.fog.color.copy(scene.background as THREE.Color);scene.fog.density=night?.023+ritual.night*.001:.018;}
       if(locked&&night&&!ritual.ending&&now>nextCue){const event=nextEvent(ritual.night,pos.x,pos.z,yaw,seenEvents);if(event){seenEvents.add(`${ritual.night}:${event.id}`);caption=event.text;captionUntil=now+6500;nextCue=now+30000;if(event.sound==='water')audio.playWaterPour();else if(event.sound==='whisper')audio.playWhisper();else if(event.sound==='knock')audio.playWindowKnock();else audio.playFloorboardCreak();save();}}
       let forward=0,side=0; if(locked&&!overlayBlocked.current){forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));}
-      const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight'), crouch=keys.has('ControlLeft')||keys.has('ControlRight')||keys.has('KeyC');
+      const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight'), crouch=keys.has('ControlLeft')||keys.has('ControlRight')||(controls.crouchToggle?crouchToggled:keys.has('KeyC'));
       const len=Math.hypot(forward,side), speed=(crouch?1.55:sprint?5.1:2.8); if(len){forward/=len;side/=len;moveDermanliPlayer(pos,(-Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed*dt,(-Math.cos(yaw)*forward-Math.sin(yaw)*side)*speed*dt,world.colliders);phase+=dt*(sprint?12:8);}
       camera.position.set(pos.x,dermanliHeight(pos.x,pos.z)+(crouch?1.1:1.68),pos.z);camera.rotation.set(pitch,yaw,0);
       if(locked && Math.hypot(pos.x-S.gasilhane[0],pos.z-S.gasilhane[1])>8 && leaveUnwatched(ritual)){caption='Sabır mumu yanmadan uzaklaştın. Arkanda bir hareket duyuluyor.';captionUntil=now+7000;audio.playViolationSting();scareUntil=now+1100;save();}
@@ -208,6 +216,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       world.gasil.vigilFlame.visible=ritual.candle;world.gasil.vigilLight.intensity=ritual.candle?1.8:0;
       world.updateArt(pos.x,pos.z);
       if(night)world.wheel.rotation.z+=dt*.5;
+      for(const r of world.residents){r.visual.group.visible=memoryAvailable(ritual.night,night)&&!ritual.ending;if(r.visual.group.visible){r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
       world.elif.visible=spiritAvailable('elif',ritual.night,night);world.riza.visible=spiritAvailable('riza',ritual.night,night);
       world.elif.position.y=.08*Math.sin(elapsed*1.3);world.riza.position.y=.06*Math.sin(elapsed*.9);
       world.homeLight.intensity=night ? 4.5+Math.sin(elapsed*11)*.12 : 1.5;
@@ -230,7 +239,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         if(left)left.rotation.x=-.8+Math.sin(now*.003)*.14;if(right)right.rotation.x=-.8-Math.sin(now*.003)*.14;
         sun.intensity=1.5;(scene.background as THREE.Color).set(0x9c9685);if(scene.fog instanceof THREE.FogExp2){scene.fog.color.copy(scene.background as THREE.Color);scene.fog.density=.009;}
       }else if(ritual.ending==='dark'){
-        world.figures[1].visible=true;world.figures[1].position.set(pos.x-Math.sin(yaw)*2,dermanliHeight(pos.x,pos.z),pos.z-Math.cos(yaw)*2);world.figures[1].rotation.y=yaw+Math.PI;
+        world.figures[1].visible=true;world.figures[1].position.set(pos.x-Math.sin(yaw)*2,dermanliHeight(pos.x,pos.z),pos.z-Math.cos(yaw)*2);world.figures[1].rotation.y=yaw;
       }else if(ritual.ending==='escape'){
         camera.position.set(S.entrance[0],1.68,S.entrance[1]+2);camera.lookAt(S.entrance[0],1.5,S.entrance[1]-6);
       }
