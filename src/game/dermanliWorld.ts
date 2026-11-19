@@ -94,11 +94,12 @@ export function createDermanliWorld(scene: THREE.Scene) {
 
   const addHome = (site: Point, id: string, number: number, w = 6.5, d = 5) => {
     const spec: HomeSpec = {x:site[0],z:site[1],rotY:0,w,d,h:3,style:number%2 ? 'himis' : 'tas'};
-    const {home,walls} = buildHome(spec,number,dermanliSurfaceHeight(...site),craft);
+    const {home,walls} = buildHome(spec,number,dermanliSurfaceHeight(...site),craft,id === 'school' ? 'school' : 'home');
     home.door.rotation.y = -Math.PI*.5; homes.push(home); objects.add(home.root); colliders.push(...walls);occluders.push(...walls.slice(0,5));
     // The opened door leaf projects into the yard; do not let players stand inside its mesh.
-    const openDoor=homeCollider(spec,-.725,d/2+.75,.14,1.5);colliders.push(openDoor);occluders.push(openDoor);
-    target(id, id === 'home' ? 'Gassalın evi · Günlük' : id === 'school' ? 'Eski okul · Tahta ve dolap' : id === 'mill' ? 'Değirmen · Defter' : id === 'coffee' ? 'Kahvehane · Eski ilan' : 'Terk edilmiş ev', [site[0],site[1]+d/2+1.0],2.6);
+    const leafWidth=id === 'school' ? 2 : 1.45;
+    const openDoor=homeCollider(spec,-leafWidth/2,d/2+leafWidth/2,.14,leafWidth);colliders.push(openDoor);occluders.push(openDoor);
+    if(id !== 'school') target(id, id === 'home' ? 'Gassalın evi · Günlük' : id === 'school' ? 'Eski okul · Tahta ve dolap' : id === 'mill' ? 'Değirmen · Defter' : id === 'coffee' ? 'Kahvehane · Eski ilan' : 'Terk edilmiş ev', [site[0],site[1]+d/2+1.0],2.6);
   };
   addHome(S.gassalHome,'home',0,7,5); addHome(S.school,'school',1,8,6);
   const coffeeSite=S.coffee;addHome(coffeeSite,'coffee',8,7,5);
@@ -154,10 +155,31 @@ export function createDermanliWorld(scene: THREE.Scene) {
   if(boardContext){boardContext.fillStyle='#25372e';boardContext.fillRect(0,0,512,256);boardContext.fillStyle='#c8c9b6';boardContext.font='30px serif';boardContext.fillText('Kapı açılınca',45,95);boardContext.fillText('anneme gideceğim.',45,145);boardContext.fillText('— Elif',320,205);}
   const boardTexture=new THREE.CanvasTexture(boardCanvas);boardTexture.colorSpace=THREE.SRGBColorSpace;
   const boardMat=new THREE.MeshStandardMaterial({map:boardTexture,roughness:1});ownMaterial.push(boardMat);
-  box(3,1.4,.08,S.school[0],1.8,S.school[1]-2.88,boardMat);
-  // Small compartment beside the entrance is where the unlocked record is found.
-  box(.8,.75,.25,S.school[0]+1.15,.85,S.school[1]+3.15,wood);
-  box(.06,.06,.06,S.school[0]+1.38,.85,S.school[1]+3.3,craft.metal);
+  const [sx,sz]=S.school,sy=dermanliSurfaceHeight(sx,sz);
+  // The board is a single inward-facing surface, avoiding stretched edge textures.
+  box(3.16,1.56,.07,sx,sy+1.8,sz-2.88,wood);
+  const boardGeometry=new THREE.PlaneGeometry(3,1.4);ownGeometry.push(boardGeometry);
+  const board=new THREE.Mesh(boardGeometry,boardMat);board.position.set(sx,sy+1.8,sz-2.83);objects.add(board);
+  box(3.15,.09,.16,sx,sy+1.03,sz-2.77,wood);
+  // Two rows of old classroom desks leave a clear aisle from the doorway.
+  for(const x of [-2.35,2.35])for(const z of [-.75,1.15]){
+    box(1.45,.1,.62,sx+x,sy+.76,sz+z,craft.wood);
+    for(const dx of [-.61,.61])for(const dz of [-.24,.24])box(.08,.7,.08,sx+x+dx,sy+.36,sz+z+dz,craft.wood);
+    box(1.45,.09,.32,sx+x,sy+.42,sz+z+.62,craft.wood);
+    for(const dx of [-.6,.6])box(.08,.39,.25,sx+x+dx,sy+.2,sz+z+.62,craft.wood);
+    colliders.push({minX:sx+x-.73,maxX:sx+x+.73,minZ:sz+z-.31,maxZ:sz+z+.8});
+  }
+  // Locked record cabinet is inside, beside the blackboard.
+  box(.9,1.3,.42,sx+2.7,sy+.68,sz-2.7,craft.wood);
+  box(.06,.06,.07,sx+2.55,sy+.7,sz-2.47,craft.metal);
+  colliders.push({minX:sx+2.25,maxX:sx+3.15,minZ:sz-2.91,maxZ:sz-2.49});
+  target('school','Eski okul · Kilitli dolap',[sx+2.7,sz-2.47],2.15);
+  const schoolSignCanvas=document.createElement('canvas');schoolSignCanvas.width=512;schoolSignCanvas.height=128;
+  const schoolSignContext=schoolSignCanvas.getContext('2d');if(schoolSignContext){schoolSignContext.fillStyle='#4d3929';schoolSignContext.fillRect(0,0,512,128);schoolSignContext.fillStyle='#e1d5bb';schoolSignContext.textAlign='center';schoolSignContext.font='bold 48px serif';schoolSignContext.fillText('DERMANLI İLKOKULU',256,80);}
+  const schoolSignTexture=new THREE.CanvasTexture(schoolSignCanvas);schoolSignTexture.colorSpace=THREE.SRGBColorSpace;
+  const schoolSignMaterial=new THREE.MeshStandardMaterial({map:schoolSignTexture,roughness:1});ownMaterial.push(schoolSignMaterial);
+  const schoolSignGeometry=new THREE.PlaneGeometry(2.7,.65);ownGeometry.push(schoolSignGeometry);
+  const schoolSign=new THREE.Mesh(schoolSignGeometry,schoolSignMaterial);schoolSign.position.set(sx,sy+2.5,sz+3.1);objects.add(schoolSign);
   // Reuse the detailed old-world hayrat and furnishings rather than primitive cylinders.
   const detailGeometry=new Set<THREE.BufferGeometry>();
   const millMaterials=new Set<THREE.Material>();
@@ -267,5 +289,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu());
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();coffeeTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();coffeeTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

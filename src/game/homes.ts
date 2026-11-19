@@ -36,10 +36,10 @@ export function homeFurnitureColliders(spec: HomeSpec): BoxCollider[] {
 }
 
 /** Walk-in version of a village home. Walls and the leaf use the same survey as collision. */
-export function buildHome(spec: HomeSpec, number: number, ground: number, craft: VillageCraft) {
+export function buildHome(spec: HomeSpec, number: number, ground: number, craft: VillageCraft, use: 'home' | 'school' = 'home') {
   const root = new THREE.Group(); root.position.set(spec.x, ground, spec.z); root.rotation.y = spec.rotY;
   root.name = `Hane ${number}`;
-  const { w, d } = spec, wall = 0.18, height = 2.75 + (number % 3) * 0.12, opening = 1.45;
+  const { w, d } = spec, wall = 0.18, height = 2.75 + (number % 3) * 0.12, opening = use === 'school' ? 2 : 1.45;
   const finish = spec.style === 'tas' ? craft.masonry : number % 4 === 0 ? craft.earthen : craft.lime[number % craft.lime.length];
   const upperFinish = spec.style === 'tas' ? craft.lime[(number + 1) % craft.lime.length] : finish;
   block(root, craft.wood, w, 0.12, d, 0, 0.02, 0, 1.5);
@@ -92,6 +92,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   face(door, craft.door, opening, 2.1, opening / 2, 1.05, 0.061);
   face(door, craft.door, opening, 2.1, opening / 2, 1.05, -0.061, Math.PI);
   root.add(door);
+  if (use === 'home') {
   // Simple furnishing, visible inside; the centre and doorway stay walkable.
   block(root, craft.wood, 1.2, 0.1, 0.65, 0, 0.72, -d / 2 + 0.65);
   for (const side of [-1, 1]) block(root, craft.wood, 0.1, 0.7, 0.1, side * 0.48, 0.35, -d / 2 + 0.65);
@@ -100,12 +101,16 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   block(root, craft.shutters[number % craft.shutters.length], 0.42, 0.3, 0.2, -w / 2 + 0.65, 2.03, -d / 2 + 0.2);
   block(root, craft.wood, 0.75, 0.35, 0.42, w / 2 - 0.55, 0.2, -d / 2 + 0.45, 1.0);
   block(root, craft.kilim, 1.4, 0.012, 0.8, 0, 0.09, 0.45);
+  } else {
+    // A closed ceiling prevents the sealed upper storey from showing through.
+    block(root, craft.wood, w, .1, d, 0, height-.05, 0, 1.5);
+  }
   bakeStaticChildrenByMaterial(root, new Set<THREE.Object3D>([door]));
   const walls = [
     homeCollider(spec, 0, -d / 2, w, wall),
     homeCollider(spec, -w / 2, 0, wall, d), homeCollider(spec, w / 2, 0, wall, d),
     ...[-1, 1].map(side => homeCollider(spec, side * (opening / 2 + flank / 2), d / 2, flank, wall)),
-    ...homeFurnitureColliders(spec),
+    ...(use === 'home' ? homeFurnitureColliders(spec) : []),
   ];
   return { home: { root, door, spec, ground, open: false, doorCollider: homeCollider(spec, 0, d / 2, opening, wall) } satisfies Home, walls };
 }
