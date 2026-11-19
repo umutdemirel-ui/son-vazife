@@ -50,6 +50,8 @@ export function createDermanliWorld(scene: THREE.Scene) {
     {minX:2.95,maxX:3.45,minZ:-3.2,maxZ:3.2},{minX:-3.45,maxX:-2.95,minZ:-3.2,maxZ:-.8},
     {minX:-3.45,maxX:-2.95,minZ:.8,maxZ:3.2},{minX:.6,maxX:1.9,minZ:-1.3,maxZ:.9},
   ]));
+  target('mosque','Cami · İmamın notu',[S.gasilhane[0]+3.8,S.gasilhane[1]-6.8],1.8);
+  box(.05,.45,.34,S.gasilhane[0]+3.56,1.35,S.gasilhane[1]-6.8,mat(0xbfb49a));
   target('office','Muhtarlık · Kayıt defteri',[S.office[0]+.4,S.office[1]+1.4],1.6);
   const [gx,gz]=S.gasilhane;
   target('slab','Teneşir', [gx,gz], 2.05);
@@ -84,7 +86,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
     const spec: HomeSpec = {x:site[0],z:site[1],rotY:0,w,d,h:3,style:number%2 ? 'himis' : 'tas'};
     const {home,walls} = buildHome(spec,number,dermanliHeight(...site),craft);
     home.door.rotation.y = -Math.PI*.52; homes.push(home); objects.add(home.root); colliders.push(...walls);
-    target(id, id === 'home' ? 'Gassalın evi · Günlük' : id === 'school' ? 'Eski okul · Tahta' : id === 'mill' ? 'Değirmen · Defter' : 'Terk edilmiş ev', [site[0],site[1]+d/2+1.0],2.6);
+    target(id, id === 'home' ? 'Gassalın evi · Günlük' : id === 'school' ? 'Eski okul · Tahta ve dolap' : id === 'mill' ? 'Değirmen · Defter' : 'Terk edilmiş ev', [site[0],site[1]+d/2+1.0],2.6);
   };
   addHome(S.gassalHome,'home',0,7,5); addHome(S.school,'school',1,8,6); addHome(S.mill,'mill',2,6,5);
   S.abandonedHomes.forEach((p,i)=>addHome(p,`abandoned${i}`,i+3));
@@ -115,6 +117,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const boardTexture=new THREE.CanvasTexture(boardCanvas);boardTexture.colorSpace=THREE.SRGBColorSpace;
   const boardMat=new THREE.MeshStandardMaterial({map:boardTexture,roughness:1});ownMaterial.push(boardMat);
   box(3,1.4,.08,S.school[0],1.8,S.school[1]-2.88,boardMat);
+  // Small compartment beside the entrance is where the unlocked record is found.
+  box(.8,.75,.25,S.school[0]+1.15,.85,S.school[1]+3.15,wood);
+  box(.06,.06,.06,S.school[0]+1.38,.85,S.school[1]+3.3,craft.metal);
   // Fountain, well, bridge, cemetery, field and entrance form recognisable navigation landmarks.
   const cylinder = (radius:number,height:number,p:Point,m:THREE.Material,y=height/2) => {
     const g=new THREE.CylinderGeometry(radius,radius,height,16); ownGeometry.push(g); const mesh=new THREE.Mesh(g,m); mesh.position.set(p[0],dermanliHeight(...p)+y,p[1]); objects.add(mesh); return mesh;

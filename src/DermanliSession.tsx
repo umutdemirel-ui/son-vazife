@@ -13,12 +13,14 @@ import { createCopperEwerAndSoap } from './game/models';
 import { DermanliThreat } from './game/dermanliThreat';
 import { newBell, bellHint, ringBell } from './game/dermanliBell';
 import {spiritAvailable,SPIRIT_LINES} from './game/dermanliCharacters';
+import {canReadClue,SCHOOL_LOCKED} from './game/dermanliClues';
 import {DermanliMapPanel} from './components/DermanliMapPanel';
 import {isScrubbing,newScrub,scrubStroke,SCRUB_STROKES} from './game/dermanliWashing';
 
 const notes: Record<string,string> = {
   home: 'Hacı Süleyman’ın günlüğü: “Kara humma kapıya dayandığında hastaları okula taşıdılar. Yardım geleceğini söylediler; bekledik. Ben her ölüye son vazifeyi borç bildim. İsimlerini unutma.”',
   school: 'Tahtada silik bir yazı var: “Kapı açılınca anneme gideceğim.” Altına Elif adı yazılmış. Kapının üzerindeki çiviler tahtaların dışarıdan çakıldığını gösteriyor.',
+  mosque: 'İmamın notu: “Kara humma sebebiyle cenazeleri toplayamadık. İsimler bu listede kalsın; bir gün her biri için dua edilsin.” Listenin sonunda birkaç satır boş bırakılmış.',
   mill: 'Değirmencinin defteri, bozulmuş hasattan ve cevapsız kalan yardım çağrılarından söz ediyor.',
   office: 'Muhtarlık defteri: “Hastalar okulda tutulacak. Yardım gelene kadar kapı açılmayacak.” Sonraki sayfada yardım çağrıları ve Muhtar Rıza’nın titrek el yazısıyla “Gelen olmadı” notu var.',
   well: 'Kuyunun yanında bulunan defterde mezarlık dışına gömülen isimler var. Sayfanın kenarında “Korkudan yaklaşamadık” yazıyor.',
@@ -159,10 +161,11 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         if(t.id==='slab'&&(stageBefore!==ritual.stage||soapedBefore!==ritual.soaped))workUntil=performance.now()+1500;
         if(t.id.startsWith('bell_')){
           const result=ringBell(bell,Number(t.id.slice(5)));audio.playSchoolBell(false);
-          action=result==='pending'?'Ses avluda yankılandı.':result==='solved'?'Son sesle birlikte duvardaki yazı belirginleşti: “Adımızı hatırla.”':result==='wrong'?'Çanların sesi sustu; sıra yeniden başladı.':'Çanların yankısı çoktan sustu.';
+          action=result==='pending'?'Ses avluda yankılandı.':result==='solved'?'Son sesle okuldaki dolaptan bir kilit sesi geldi.':result==='wrong'?'Çanların sesi sustu; sıra yeniden başladı.':'Çanların yankısı çoktan sustu.';
         }
         if(t.id==='home')action=`${notes.home} Okul avlusuyla ilgili bir satır: ${bellHint(bell.seed)}`;
-        if(notes[t.id] && !ritual.clues.includes(t.id)) ritual.clues.push(t.id);
+        if(t.id==='school'&&!canReadClue(t.id,bell.solved))action=SCHOOL_LOCKED;
+        if(notes[t.id] && canReadClue(t.id,bell.solved) && !ritual.clues.includes(t.id)) ritual.clues.push(t.id);
         caption=action || notes[t.id] || ''; captionUntil=performance.now()+9000;
         if(t.id.startsWith('bell_')){}else if(t.id==='candle')audio.playCandleToggle(ritual.candle);else if(t.id==='slab'&&ritual.stage===4)audio.playWaterPour();else audio.playPaperFlip();
         save(); if(ritual.ending && document.pointerLockElement===renderer.domElement)document.exitPointerLock();
@@ -250,7 +253,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     {hud.prompt && <div style={{position:'absolute',bottom:100,width:'100%',textAlign:'center',textShadow:'0 2px 5px black',pointerEvents:'none'}}>{hud.prompt}</div>}
     {hud.caption && <div style={{position:'absolute',bottom:36,left:'15%',width:'70%',textAlign:'center',background:'#121712bd',padding:'12px',pointerEvents:'none'}}>{hud.caption}</div>}
     {mapOpen && !hud.ending && <DermanliMapPanel x={hud.x} z={hud.z} yaw={hud.yaw} onClose={()=>setMapOpen(false)} />}
-    {notebook && !hud.ending && <div style={{position:'absolute',inset:'10% 20%',overflowY:'auto',padding:24,background:'#ded4bd',color:'#28291f',boxShadow:'0 8px 40px #000',zIndex:2}}><button onClick={()=>setNotebook(false)} style={{float:'right',cursor:'pointer'}}>Kapat</button><h2>Halil’in Defteri</h2><p>Bulduğun kayıtlar burada saklanır.</p>{hud.clues.length===0?<p>Henüz kayıt bulunmadı.</p>:hud.clues.map(id=><p key={id} style={{borderBottom:'1px solid #a69b80',paddingBottom:10}}>{notes[id]} {id==='home' && <>Okul avlusuyla ilgili bir satır: {hud.bellHint}</>}</p>)}{hud.bellSolved && <p>Okul çanlarından sonra beliren yazı: “Adımızı hatırla.”</p>}</div>}
+    {notebook && !hud.ending && <div style={{position:'absolute',inset:'10% 20%',overflowY:'auto',padding:24,background:'#ded4bd',color:'#28291f',boxShadow:'0 8px 40px #000',zIndex:2}}><button onClick={()=>setNotebook(false)} style={{float:'right',cursor:'pointer'}}>Kapat</button><h2>Halil’in Defteri</h2><p>Bulduğun kayıtlar burada saklanır.</p>{hud.clues.length===0?<p>Henüz kayıt bulunmadı.</p>:hud.clues.map(id=><p key={id} style={{borderBottom:'1px solid #a69b80',paddingBottom:10}}>{notes[id]} {id==='home' && <>Okul avlusuyla ilgili bir satır: {hud.bellHint}</>}</p>)}{hud.bellSolved && <p>Okuldaki çanlar okuldaki dolabın kilidini açtı.</p>}</div>}
     {hud.ending && <div style={{position:'absolute',top:'28%',left:'50%',transform:'translateX(-50%)',padding:24,background:'#101510ef',textAlign:'center',width:'min(80%,500px)'}}><h2>{hud.ending==='peace'?'HUZUR':hud.ending==='dark'?'KARANLIK':'KAÇIŞ'}</h2><p>{hud.ending==='peace'?'Halil köye gelirken köprüde öldüğünü hatırlar. Son vazife kendisidir. Hacı Süleyman belirir; çırağını uğurlarken sis dağılır ve sabah doğar.':hud.ending==='dark'?'Halil köprüde öldüğünü hatırlar; eksik vazifelerin ağırlığı onu köyün yeni sessiz gassalı yapar.':'Orman yolu yeniden köy kapısına çıkıyor. Aynı yol, aynı sis: köy bir sonraki gassalı bekliyor.'}</p><button onClick={onExit}>Menüye dön</button></div>}
     {!hud.locked && !hud.ending && !notebook && !mapOpen && <div style={{position:'absolute',top:'35%',left:'50%',transform:'translateX(-50%)',padding:20,background:'#111d',textAlign:'center',pointerEvents:'none'}}>{failed?'3D sahnesi başlatılamadı.':'Oyuna dönmek için görüntüye tıkla'}<br/><small>WASD: hareket · Shift: koş · Ctrl/C: çömel · E: incele · F + sırayla A/D: yıkama · F basılı: diğer işlemler · H: harita · N: defter · M: ses · Esc: fareyi bırak</small></div>}
   </div>;

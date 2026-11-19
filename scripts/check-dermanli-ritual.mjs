@@ -28,11 +28,14 @@ try {
     await page.waitForFunction(before=>{const s=window.__dermanliTest.state();return s.stage!==before.stage||s.soaped!==before.soaped;},before,{timeout:12000});await page.keyboard.up('f');}
   else await page.keyboard.press('e');
  }
- for (const id of ['home','school','mill','well','cemetery']) await action(id);
+ for (const id of ['home','school','mosque','mill','well','cemetery']) await action(id);
+ if((await state()).clues.includes('school'))throw Error('Locked school record was collected before solving bells');
+ if(!(await state()).clues.includes('mosque'))throw Error('Mosque record was not collected');
  const bellState=await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell);
  const bellOrders=[[0,1,2],[0,2,1],[1,0,2],[2,1,0]];
  for(const index of bellOrders[bellState.seed])await action(`bell_${index}`);
  if(!(await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell.solved)))throw Error('Bell puzzle not solved');
+ await action('school');if(!(await state()).clues.includes('school'))throw Error('School record did not unlock after bells');
  await page.evaluate(()=>window.__dermanliTest.advanceToNight());
  await action('arrival');
  await page.reload();await page.getByText('DEVAM ET').click();await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
