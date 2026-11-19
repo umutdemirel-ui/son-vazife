@@ -1,3 +1,4 @@
+import { DERMANLI_RECORDS, nearbyStoryEvent } from './dermanli';
 import { armSwing, createWorkHands } from './handRig';
 import { createHorrorFigures, disposeHorrorFigures } from './horrorFigures';
 import { requiredWashTool, washInstruction, type WashPerson, type WashTool } from './washing';
@@ -407,6 +408,8 @@ export class SonVazifeEngine {
   private karaCatchCooldown = 0;
   private caughtCount = 0;
   private survivalSeconds = 0;
+  private storyEventsSeen = new Set<string>();
+  private nextStoryEventTime = 0;
   private survivalSaveClock = 0;
   private endingReason = '';
 
@@ -783,6 +786,8 @@ export class SonVazifeEngine {
     this.karaCatchCooldown = 0;
     this.caughtCount = 0;
     this.survivalSeconds = 0;
+    this.storyEventsSeen.clear();
+    this.nextStoryEventTime = 0;
     this.survivalSaveClock = 0;
     this.endingReason = '';
     this.isNotebookOpen = false;
@@ -1106,6 +1111,7 @@ export class SonVazifeEngine {
     this.updatePuzzleClues();
     this.act = save.act;
     this.survivalSeconds = save.survivalSeconds ?? 0;
+    this.storyEventsSeen = new Set(save.storyEventsSeen ?? []);
     this.caughtCount = save.caughtCount ?? 0;
     this.extraWashes = { mahmut: save.additionalWashes?.mahmut ?? 0, yolcu: save.additionalWashes?.yolcu ?? 0 };
     const homePosition = save.villageRevision === 6
@@ -1276,6 +1282,7 @@ export class SonVazifeEngine {
       version: 2,
       villageRevision: 6,
       survivalSeconds: this.survivalSeconds,
+      storyEventsSeen: [...this.storyEventsSeen],
       caughtCount: this.caughtCount,
       additionalWashes: { ...this.extraWashes },
       openHomes: this.world.homes.flatMap((home, i) => home.open ? [i] : []),
@@ -2120,6 +2127,8 @@ export class SonVazifeEngine {
       if (quiet && !this.hasEntry(id)) return quiet;
       return `[E] ${this.hasEntry(id) ? 'Kaydı yeniden oku' : PAGES[id].prompt}`;
     }
+    const storyRecord = DERMANLI_RECORDS.find(record => record.id === id);
+    if (storyRecord) return `[E] ${storyRecord.title} · Oku`;
     if (Object.hasOwn(FIELD_NOTES, id))
       return `[E] ${FIELD_NOTES[id as keyof typeof FIELD_NOTES].title} · İncele`;
     if (id === 'wash_soap' || id === 'wash_ewer') {
@@ -2310,6 +2319,12 @@ export class SonVazifeEngine {
       else this.audio.playPaperFlip();
       this.pushHudState(true);
       return;
+    }
+    if (DERMANLI_RECORDS.some(record => record.id === id)) {
+      const clue = this.clues.find(c => c.id === id);
+      if (!clue) return;
+      clue.discovered = true; this.audio.playPaperFlip();
+      this.showCaption(clue.body, 9); this.triggerAutoSave(true); return;
     }
     if (Object.hasOwn(FIELD_NOTES, id)) {
       const c = this.clues.find((c) => c.id === id)!;
@@ -3357,6 +3372,15 @@ export class SonVazifeEngine {
       const oldDay = survivalDay(this.survivalSeconds);
       this.survivalSeconds += dt;
       this.survivalSaveClock += dt;
+      if (this.elapsedTime >= this.nextStoryEventTime && !this.activeAutopsyCaseId && !this.captionText) {
+        const cue = nearbyStoryEvent(this.survivalSeconds, this.playerPos.x, this.playerPos.z, this.storyEventsSeen);
+        if (cue) {
+          this.storyEventsSeen.add(cue.key);
+          this.nextStoryEventTime = this.elapsedTime + 30;
+          this.showCaption(cue.event.text, 5);
+          this.triggerAutoSave(false);
+        }
+      }
       if (survivalDay(this.survivalSeconds) !== oldDay) {
         this.showCaption(`${survivalDay(this.survivalSeconds)}. gün: Sis hâlâ dağılmadı. Hayatta kal.`, 5);
       }

@@ -13,6 +13,7 @@ export interface SaveGamePayload {
   version: 2;
   villageRevision?: 1 | 2 | 3 | 4 | 5 | 6;
   survivalSeconds?: number;
+  storyEventsSeen?: string[];
   puzzleSeed?: number;
   caughtCount?: number;
   openHomes?: number[];
@@ -125,6 +126,7 @@ export function readAutoSave(): SaveGamePayload | null {
       (parsed.caughtCount !== undefined &&
         (!Number.isInteger(parsed.caughtCount) || parsed.caughtCount < 0 || parsed.caughtCount > 2)) ||
       [
+        'storyEventsSeen',
         'inventoryCollected',
         'rulesViolated',
         'cluesDiscovered',
