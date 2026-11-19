@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { createDermanliTerrain } from './dermanliTerrain';
-import { DERMANLI_PATHS, DERMANLI_SITES as S, dermanliHeight, distanceToPath, type Point } from './dermanliMap';
+import { createDermanliTerrain, dermanliSurfaceHeight } from './dermanliTerrain';
+import { DERMANLI_PATHS, DERMANLI_SITES as S, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
 import { VillageCraft } from './villageCraft';
 import { createMosqueAndGasilhane, createKaraBasma, createSisGozcusu, createCopperEwerAndSoap, createMuhtarHouse } from './models';
@@ -32,7 +32,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const target = (id: string,label: string,p: Point,radius = 2.1) => targets.push({ id,label,x:p[0],z:p[1],radius });
   // Existing detailed, walk-in gasilhane: its local origin is the wash slab.
   const gasil = createMosqueAndGasilhane(textures, craft, art);
-  gasil.group.position.set(S.gasilhane[0], dermanliHeight(...S.gasilhane), S.gasilhane[1]); objects.add(gasil.group);
+  gasil.group.position.set(S.gasilhane[0], dermanliSurfaceHeight(...S.gasilhane), S.gasilhane[1]); objects.add(gasil.group);
   gasil.ceilingLight.color.set(0x91b9dc);gasil.ceilingLight.intensity=5;
   const slabBody=funeralFigure(art,'arif',false); gasil.deceasedGroup.add(slabBody);
   art.near('arif',S.gasilhane[0],S.gasilhane[1],25);
@@ -50,7 +50,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   occluders.push(...gasilWalls);
   // Retain the detailed previous muhtarlık interior in the new square.
   const office=createMuhtarHouse(textures,craft);
-  office.group.position.set(S.office[0],dermanliHeight(...S.office),S.office[1]);office.doorPivot.rotation.y=Math.PI*.56;objects.add(office.group);
+  office.group.position.set(S.office[0],dermanliSurfaceHeight(...S.office),S.office[1]);office.doorPivot.rotation.y=Math.PI*.56;objects.add(office.group);
   const officeWalls=translateColliders({x:S.office[0],z:S.office[1]},[
     {minX:-3.4,maxX:3.4,minZ:-3.25,maxZ:-2.75},{minX:-3.4,maxX:3.4,minZ:2.75,maxZ:3.25},
     {minX:2.95,maxX:3.45,minZ:-3.2,maxZ:3.2},{minX:-3.45,maxX:-2.95,minZ:-3.2,maxZ:-.8},
@@ -93,7 +93,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
 
   const addHome = (site: Point, id: string, number: number, w = 6.5, d = 5) => {
     const spec: HomeSpec = {x:site[0],z:site[1],rotY:0,w,d,h:3,style:number%2 ? 'himis' : 'tas'};
-    const {home,walls} = buildHome(spec,number,dermanliHeight(...site),craft);
+    const {home,walls} = buildHome(spec,number,dermanliSurfaceHeight(...site),craft);
     home.door.rotation.y = -Math.PI*.5; homes.push(home); objects.add(home.root); colliders.push(...walls);occluders.push(...walls.slice(0,5));
     // The opened door leaf projects into the yard; do not let players stand inside its mesh.
     const openDoor=homeCollider(spec,-.725,d/2+.75,.14,1.5);colliders.push(openDoor);occluders.push(openDoor);
@@ -141,7 +141,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   box(.06,.06,.06,S.school[0]+1.38,.85,S.school[1]+3.3,craft.metal);
   // Fountain, well, bridge, cemetery, field and entrance form recognisable navigation landmarks.
   const cylinder = (radius:number,height:number,p:Point,m:THREE.Material,y=height/2) => {
-    const g=new THREE.CylinderGeometry(radius,radius,height,16); ownGeometry.push(g); const mesh=new THREE.Mesh(g,m); mesh.position.set(p[0],dermanliHeight(...p)+y,p[1]); objects.add(mesh); return mesh;
+    const g=new THREE.CylinderGeometry(radius,radius,height,16); ownGeometry.push(g); const mesh=new THREE.Mesh(g,m); mesh.position.set(p[0],dermanliSurfaceHeight(...p)+y,p[1]); objects.add(mesh); return mesh;
   };
   cylinder(1.7,.65,S.square,stone); cylinder(1,.9,S.well,stone);
   colliders.push({minX:S.square[0]-1.7,maxX:S.square[0]+1.7,minZ:S.square[1]-1.7,maxZ:S.square[1]+1.7});
@@ -165,7 +165,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const residentPositions:Record<MemoryId,Point>={bekci:[S.square[0]-4,S.square[1]+4],serife:[S.well[0]+3,S.well[1]+3],kenan:[S.office[0]-5,S.office[1]+4],idris:[S.cemetery[0]+9,S.cemetery[1]+9]};
   const residents=(Object.keys(RESIDENT_MEMORIES) as MemoryId[]).map(id=>{
     const [x,z]=residentPositions[id],visual=new ResidentVisual(id,residentLoader,undefined,true);
-    visual.group.position.set(x,dermanliHeight(x,z),z);visual.group.visible=false;objects.add(visual.group);
+    visual.group.position.set(x,dermanliSurfaceHeight(x,z),z);visual.group.visible=false;objects.add(visual.group);
     target(`memory_${id}`,`${RESIDENT_MEMORIES[id].name} · Anı`,[x,z],2);
     return {id,visual,x,z};
   });
@@ -191,7 +191,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const moundMaterial=mat(0x403229);
   const graveMounds=Array.from({length:5},(_,i)=>{
     const mound=new THREE.Mesh(moundGeometry,moundMaterial);const x=cx-16,z=cz-8+i*4;
-    mound.position.set(x,dermanliHeight(x,z)+.06,z);mound.scale.set(1.25,.3,.7);mound.visible=false;objects.add(mound);return mound;
+    mound.position.set(x,dermanliSurfaceHeight(x,z)+.06,z);mound.scale.set(1.25,.3,.7);mound.visible=false;objects.add(mound);return mound;
   });
   for(const x of [-2.4,2.4]) {box(.8,2.8,.8,S.entrance[0]+x,1.4,S.entrance[1],stone);colliders.push({minX:S.entrance[0]+x-.4,maxX:S.entrance[0]+x+.4,minZ:S.entrance[1]-.4,maxZ:S.entrance[1]+.4});}
   target('bridge','Taş köprü',S.bridge,3);
@@ -211,8 +211,8 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const pineMaterial=new THREE.MeshLambertMaterial({color:0xb2bbae,side:THREE.DoubleSide,alphaTest:.32});ownMaterial.push(pineMaterial);
   const pines=new THREE.InstancedMesh(pineGeometry,pineMaterial,coords.length);pines.visible=false;
   const pineMap=new THREE.TextureLoader().load(surfaceUrl('karacam',true),()=>{pines.visible=true;trees.visible=false;trunks.visible=false;});pineMap.colorSpace=THREE.SRGBColorSpace;pineMaterial.map=pineMap;
-  coords.forEach(([x,z],i)=>{const y=dermanliHeight(x,z);dummy.position.set(x,y,z);dummy.rotation.y=random()*6.28;dummy.scale.setScalar(.8+random()*.4);dummy.updateMatrix();pines.setMatrixAt(i,dummy.matrix);colliders.push({minX:x-.25,maxX:x+.25,minZ:z-.25,maxZ:z+.25});});objects.add(pines);
-  coords.forEach(([x,z],i)=>{ const y=dermanliHeight(x,z); dummy.position.set(x,y+3.8,z); dummy.rotation.y=random()*6.28; dummy.scale.setScalar(.75+random()*.6); dummy.updateMatrix(); trees.setMatrixAt(i,dummy.matrix); dummy.position.y=y+1; dummy.scale.setScalar(1); dummy.updateMatrix(); trunks.setMatrixAt(i,dummy.matrix); }); objects.add(trees,trunks);
+  coords.forEach(([x,z],i)=>{const y=dermanliSurfaceHeight(x,z);dummy.position.set(x,y,z);dummy.rotation.y=random()*6.28;dummy.scale.setScalar(.8+random()*.4);dummy.updateMatrix();pines.setMatrixAt(i,dummy.matrix);colliders.push({minX:x-.25,maxX:x+.25,minZ:z-.25,maxZ:z+.25});});objects.add(pines);
+  coords.forEach(([x,z],i)=>{ const y=dermanliSurfaceHeight(x,z); dummy.position.set(x,y+3.8,z); dummy.rotation.y=random()*6.28; dummy.scale.setScalar(.75+random()*.6); dummy.updateMatrix(); trees.setMatrixAt(i,dummy.matrix); dummy.position.y=y+1; dummy.scale.setScalar(1); dummy.updateMatrix(); trunks.setMatrixAt(i,dummy.matrix); }); objects.add(trees,trunks);
   const figures=createHorrorFigures(); for(const figure of figures){figure.visible=false;objects.add(figure);}
   // The original animated models load on demand; solid figures remain while loading fails.
   const pursuer=watcherFigure(art,'karabasma',createKaraBasma().root);

@@ -42,3 +42,14 @@ test('map landmarks match the actual mosque and cover the full movement area',as
  assert.ok(Math.abs(DERMANLI_SITES.mosque[1]-DERMANLI_SITES.gasilhane[1]+5.7)<1e-9);
  for(const site of [DERMANLI_SITES.gasilhane,DERMANLI_SITES.mosque,DERMANLI_SITES.entrance,DERMANLI_SITES.well])assert.ok(site[0]>=b.minX&&site[0]<=b.maxX&&site[1]>=b.minZ&&site[1]<=b.maxZ);
 });
+
+test('terrain height used by characters and trees matches visible triangles on hills',async()=>{
+ const THREE=await import('three');const {createDermanliTerrain,dermanliSurfaceHeight}=await import('../src/game/dermanliTerrain');
+ const terrain=createDermanliTerrain();terrain.root.updateMatrixWorld(true);const ground=terrain.root.children[0];
+ for(const [x,z] of [[-65,0],[65,23],[-71,-45],[83,88],[45,-95],[2,2],[119,119]]){
+  const ray=new THREE.Raycaster(new THREE.Vector3(x,100,z),new THREE.Vector3(0,-1,0));
+  const hit=ray.intersectObject(ground)[0];assert.ok(hit,`missing ground at ${x},${z}`);
+  assert.ok(Math.abs(hit.point.y-dermanliSurfaceHeight(x,z))<.0001,`surface mismatch at ${x},${z}`);
+ }
+ terrain.dispose();
+});

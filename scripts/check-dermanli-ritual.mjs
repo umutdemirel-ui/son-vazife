@@ -75,6 +75,14 @@ try {
    if(night<5 && (await page.evaluate(()=>window.__dermanliTest.visualState())).litWindows!==0)throw Error('Abandoned house light did not turn off at dawn');
  }
  const end=await state();if(end.ending!=='peace')throw Error(`incorrect ending ${JSON.stringify(end)}`);
+ const ending=page.getByRole('region',{name:'HUZUR sonu'});await ending.waitFor();
+ await ending.getByRole('button',{name:'Devam',exact:true}).click();
+ if(!(await ending.innerText()).includes('köprüde ölmüştür'))throw Error('Peace revelation missing');
+ await ending.getByRole('button',{name:'Devam',exact:true}).click();
+ await page.waitForFunction(()=>window.__dermanliTest.endingView().x>35&&!window.__dermanliTest.endingView().master,null,{timeout:15000});
+ await ending.getByRole('button',{name:'Devam',exact:true}).click();
+ if(!(await ending.getByRole('heading',{name:'HUZUR'}).isVisible()))throw Error('Peace title missing');
+
  if(errors.length)throw Error(errors.join('\n'));
  console.log('Five nights completed using collision-resolved movement and real keyboard interactions; peace ending and no page errors.');
 } finally { await browser.close(); }
