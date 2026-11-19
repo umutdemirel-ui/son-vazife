@@ -47,7 +47,7 @@ try {
  if(!(await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell.solved)))throw Error('Bell progress was not restored');
  for (let night=1;night<=5;night++) {
    const steps=['slab','candle','slab','soap','slab','soap','slab','soap','slab','soap','slab','ewer','slab','ewer','bucket','drain','camphor','slab','camphor','shroud','slab','shroud','slab','cemetery'];
-   if(night>1){await page.evaluate(()=>window.__dermanliTest.advanceToNight());if(night===2){for(const id of ['memory_bekci','memory_serife','memory_kenan','memory_idris'])await action(id);for(const id of ['memory_bekci','memory_serife','memory_kenan','memory_idris'])if(!(await state()).clues.includes(id))throw Error(`Missing character ${id}`);}await action('arrival');}
+   if(night>1){await page.evaluate(()=>window.__dermanliTest.advanceToNight());await page.waitForFunction(()=>window.__dermanliTest.visualState().litWindows===1,null,{timeout:15000});if(night===2){for(const id of ['memory_bekci','memory_serife','memory_kenan','memory_idris'])await action(id);for(const id of ['memory_bekci','memory_serife','memory_kenan','memory_idris'])if(!(await state()).clues.includes(id))throw Error(`Missing character ${id}`);}await action('arrival');}
    for (const [index,id] of steps.entries()) {
      if(night===1 && index===1){
        // At the slab, neither E nor F plus strokes may wash an unlit body.
@@ -62,6 +62,8 @@ try {
      await action(id);
    }
    const s=await state(); if(night<5 && (s.night!==night+1||s.body!=='arrival')) throw Error(`night ${night} failed ${JSON.stringify(s)}`);
+   await page.waitForFunction(n=>window.__dermanliTest.visualState().mounds===n,night,{timeout:15000});
+   if(night<5 && (await page.evaluate(()=>window.__dermanliTest.visualState())).litWindows!==0)throw Error('Abandoned house light did not turn off at dawn');
  }
  const end=await state();if(end.ending!=='peace')throw Error(`incorrect ending ${JSON.stringify(end)}`);
  if(errors.length)throw Error(errors.join('\n'));

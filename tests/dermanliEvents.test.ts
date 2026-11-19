@@ -15,3 +15,18 @@ test('burial advances to a new dawn',async()=>{
  assert.equal(nextDawn(130),DAY_SECONDS);assert.equal(isNight(nextDawn(130)),false);
  assert.equal(nextDawn(DAY_SECONDS),DAY_SECONDS*2);
 });
+
+test('visual village progression follows saved burials and the night phase',async()=>{
+ const {villageNightVisuals}=await import('../src/game/dermanliEvents');
+ assert.deepEqual(villageNightVisuals(1,false,false),{completed:0,litHome:-1,fountainFlowing:false});
+ assert.deepEqual(villageNightVisuals(2,true,false),{completed:1,litHome:0,fountainFlowing:true});
+ assert.deepEqual(villageNightVisuals(5,true,false),{completed:4,litHome:3,fountainFlowing:true});
+ assert.equal(villageNightVisuals(5,false,true).completed,5);
+});
+test('village time follows active wall time even at low frame rates and pauses when inactive',async()=>{
+ const {advanceVillageClock}=await import('../src/game/dermanliEvents');
+ assert.equal(advanceVillageClock(10,.5,true),10.5);
+ assert.equal(advanceVillageClock(10,4,false),10);
+ assert.equal(advanceVillageClock(10,-1,true),10);
+ assert.equal(advanceVillageClock(10,Infinity,true),10);
+});

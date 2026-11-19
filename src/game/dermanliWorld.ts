@@ -96,6 +96,11 @@ export function createDermanliWorld(scene: THREE.Scene) {
   addHome(S.gassalHome,'home',0,7,5); addHome(S.school,'school',1,8,6); addHome(S.mill,'mill',2,6,5);
   S.abandonedHomes.forEach((p,i)=>addHome(p,`abandoned${i}`,i+3));
   const homeLight=new THREE.PointLight(0xffb15c,4,12,1.7);homeLight.position.set(S.gassalHome[0],2.1,S.gassalHome[1]);objects.add(homeLight);
+  const emptyHomeGlow=new THREE.MeshBasicMaterial({color:0xd29952});ownMaterial.push(emptyHomeGlow);
+  const emptyHomeWindows=S.abandonedHomes.map(([x,z])=>{
+    const window=box(.55,.68,.02,x+1.85,1.67,z+2.61,emptyHomeGlow);window.visible=false;return window;
+  });
+  const emptyHomeLight=new THREE.PointLight(0xffa354,0,5,2);objects.add(emptyHomeLight);
   addHome(S.barn,'barn',7,7,5);
   // A wheel on the mill and a chalkboard inside the school make both landmarks legible at close range.
   const wheel=new THREE.Group();wheel.position.set(S.mill[0]+3.2,1.9,S.mill[1]-.5);
@@ -133,6 +138,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
     const g=new THREE.CylinderGeometry(radius,radius,height,16); ownGeometry.push(g); const mesh=new THREE.Mesh(g,m); mesh.position.set(p[0],dermanliHeight(...p)+y,p[1]); objects.add(mesh); return mesh;
   };
   cylinder(1.7,.65,S.square,stone); cylinder(1,.9,S.well,stone);
+  colliders.push({minX:S.square[0]-1.7,maxX:S.square[0]+1.7,minZ:S.square[1]-1.7,maxZ:S.square[1]+1.7});
+  const fountainWaterGeo=new THREE.CircleGeometry(1.36,24);ownGeometry.push(fountainWaterGeo);
+  const fountainWater=new THREE.Mesh(fountainWaterGeo,craft.water);fountainWater.rotation.x=-Math.PI/2;fountainWater.position.set(S.square[0],.66,S.square[1]);fountainWater.visible=false;objects.add(fountainWater);
   colliders.push({minX:S.well[0]-1,maxX:S.well[0]+1,minZ:S.well[1]-1,maxZ:S.well[1]+1}); target('well','Kuyu · Kayıt', [S.well[0]+1.6,S.well[1]],2.4);
   const [bx,bz] = S.bridge; box(7,.35,2.8,bx,.2,bz,stone); for (const side of [-1,1]) box(7,.85,.15,bx,.66,bz+side*1.3,stone);
   // These are outdoor memories, not residents inside houses.
@@ -170,6 +178,13 @@ export function createDermanliWorld(scene: THREE.Scene) {
   for (const x of [-13.5,13.5]) box(.22,1,23.4,cx+x,.5,cz,wood);
   box(27,1,.22,cx,.5,cz-11.7,wood); box(11.5,1,.22,cx-7.75,.5,cz+11.7,wood); box(11.5,1,.22,cx+7.75,.5,cz+11.7,wood);
   target('cemetery','Mezarlık · İsimler', [cx,cz+7], 2.6);
+  // Five modest fresh-earth markers track completed burials, outside the stone fence.
+  const moundGeometry=new THREE.SphereGeometry(1,14,8);ownGeometry.push(moundGeometry);
+  const moundMaterial=mat(0x403229);
+  const graveMounds=Array.from({length:5},(_,i)=>{
+    const mound=new THREE.Mesh(moundGeometry,moundMaterial);const x=cx-16,z=cz-8+i*4;
+    mound.position.set(x,dermanliHeight(x,z)+.06,z);mound.scale.set(1.25,.3,.7);mound.visible=false;objects.add(mound);return mound;
+  });
   for(const x of [-2.4,2.4]) box(.8,2.8,.8,S.entrance[0]+x,1.4,S.entrance[1],stone);
   target('bridge','Taş köprü',S.bridge,3);
   // Grove with deterministic placement; preserve clearances for every path and building.
@@ -196,5 +211,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu());
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures); bellTexture.dispose(); boardTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

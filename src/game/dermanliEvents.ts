@@ -26,3 +26,13 @@ export function nextEvent(night:number,x:number,z:number,yaw:number,seen:Readonl
  }
  return null;
 }
+
+/** Render changes are derived from saved ritual progress, so reloading cannot reset them. */
+export function villageNightVisuals(nightNumber:number, night:boolean, finished:boolean) {
+ const completed=finished?5:Math.max(0,Math.min(4,Math.floor(nightNumber)-1));
+ return { completed, litHome:night&&nightNumber>=2?(nightNumber-2)%S.abandonedHomes.length:-1, fountainFlowing:night };
+}
+/** Physics may cap frame steps, but the village clock measures active real time. */
+export function advanceVillageClock(seconds:number,frameSeconds:number,active:boolean) {
+ return active&&Number.isFinite(frameSeconds)&&frameSeconds>0?seconds+frameSeconds:seconds;
+}
