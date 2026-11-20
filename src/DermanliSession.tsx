@@ -134,6 +134,25 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             return ray.intersectObject(world.gasil.group,true).map(hit=>{const mesh=hit.object as THREE.Mesh,material=Array.isArray(mesh.material)?mesh.material[0]:mesh.material;return {distance:hit.distance,transparent:material.transparent,opacity:material.opacity};});
           });
         },
+        homeEntranceAudit: () => {
+          world.terrainGround.updateWorldMatrix(true,true);
+          return world.homes.map(home=>{
+            home.root.updateWorldMatrix(true,true);
+            const local=new THREE.Vector3(0,0,home.spec.d/2-.5),p=home.root.localToWorld(local);
+            const ray=new THREE.Raycaster(new THREE.Vector3(p.x,home.ground+.5,p.z),new THREE.Vector3(0,-1,0),0,1);
+            const floor=ray.intersectObject(home.root,true)[0]?.point.y;
+            const door=new THREE.Box3().setFromObject(home.door),doorCenter=door.getCenter(new THREE.Vector3());
+            const blocked={x:doorCenter.x,z:doorCenter.z};for(const c of world.colliders)pushOutsideBox(blocked,c,.32);
+            const free=home.root.localToWorld(new THREE.Vector3(0,0,home.spec.d/2+.3)),resolved={x:free.x,z:free.z};for(const c of world.colliders)pushOutsideBox(resolved,c,.32);
+            return {floor,walking:dermanliWalkingHeight(p.x,p.z,world.homes),doorBlocked:Math.hypot(blocked.x-doorCenter.x,blocked.z-doorCenter.z),entryShift:Math.hypot(resolved.x-free.x,resolved.z-free.z)};
+          });
+        },
+        homeWalk: () => {
+          const h=world.homes[0];h.root.updateWorldMatrix(true,true);
+          const ray=new THREE.Raycaster(new THREE.Vector3(pos.x,h.ground+.5,pos.z),new THREE.Vector3(0,-1,0),0,1);
+          const floor=ray.intersectObject(h.root,true)[0]?.point.y;
+          return {x:pos.x,z:pos.z,foot:camera.position.y-1.68,floor:floor??null};
+        },
         outdoorCharacterAudit: () => {
           world.terrainGround.updateWorldMatrix(true,true);
           return [...world.outdoorResidents.map(r=>({id:r.id,visual:r.visual,x:r.x,z:r.z})),...world.residents.map(r=>({id:r.id,visual:r.visual,x:r.x,z:r.z}))].map(r=>{
@@ -289,7 +308,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
           const root=world.pursuer.root,visual=root.getObjectByName('Dokulu model'),vertex=new THREE.Vector3();let bottom=Infinity;
           root.updateWorldMatrix(true,true);
           for(const name of ['bootL','bootR']){const mesh=visual?.getObjectByName(name);if(mesh instanceof THREE.Mesh){const positions=mesh.geometry.getAttribute('position');for(let i=0;i<positions.count;i++){vertex.fromBufferAttribute(positions,i).applyMatrix4(mesh.matrixWorld);bottom=Math.min(bottom,vertex.y);}}}
-          return {active:threat.active,visible:root.visible,loaded:!!visual,x:threat.x,z:threat.z,gap:Number.isFinite(bottom)?bottom-dermanliWalkingHeight(root.position.x,root.position.z):null};
+          return {active:threat.active,visible:root.visible,loaded:!!visual,x:threat.x,z:threat.z,gap:Number.isFinite(bottom)?bottom-dermanliWalkingHeight(root.position.x,root.position.z,world.homes):null};
         },
         advanceToNight: () => {if(!isNight(elapsed))elapsed=Math.floor(elapsed/DAY_SECONDS)*DAY_SECONDS+DAY_SECONDS/2;},
         scanReachability: () => {
@@ -413,14 +432,14 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       let forward=0,side=0; if(locked&&!overlayBlocked.current){forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));}
       const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight'), crouch=keys.has('ControlLeft')||keys.has('ControlRight')||(controls.crouchToggle?crouchToggled:keys.has('KeyC'));
       const len=Math.hypot(forward,side), speed=(crouch?1.55:sprint?5.1:2.8); if(len){forward/=len;side/=len;moveDermanliPlayer(pos,(-Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed*dt,(-Math.cos(yaw)*forward-Math.sin(yaw)*side)*speed*dt,world.colliders);phase+=dt*(sprint?12:8);}
-      camera.position.set(pos.x,dermanliWalkingHeight(pos.x,pos.z)+(crouch?1.1:1.68),pos.z);camera.rotation.set(pitch,yaw,0);
+      camera.position.set(pos.x,dermanliWalkingHeight(pos.x,pos.z,world.homes)+(crouch?1.1:1.68),pos.z);camera.rotation.set(pitch,yaw,0);
       if(locked && Math.hypot(pos.x-S.gasilhane[0],pos.z-S.gasilhane[1])>8 && leaveUnwatched(ritual)){caption='Sabır mumu yanmadan uzaklaştın. Arkanda bir hareket duyuluyor.';captionUntil=now+7000;audio.playViolationSting();scareUntil=now+1100;save();}
       const safe=Math.hypot(pos.x-S.gasilhane[0],pos.z-S.gasilhane[1])<7 || Math.hypot(pos.x-S.gassalHome[0],pos.z-S.gassalHome[1])<5;
       const result=locked?threat.tick(dt,night&&ritual.night>=2&&!ritual.ending,safe,{...pos,yaw},world.colliders):'none';
       const pursuer=world.pursuer.root;pursuer.visible=threat.active;
       if(!threatArtRequested&&(night||threat.active||now<scareUntil)){threatArtRequested=true;void world.loadThreatArt();}
       if(threat.active)world.pursuer.pose(elapsed,true);if(now<scareUntil)world.scare.pose(elapsed,false);
-      if(threat.active){pursuer.position.set(threat.x,dermanliWalkingHeight(threat.x,threat.z),threat.z);pursuer.rotation.y=Math.atan2(pos.x-threat.x,pos.z-threat.z);}
+      if(threat.active){pursuer.position.set(threat.x,dermanliWalkingHeight(threat.x,threat.z,world.homes),threat.z);pursuer.rotation.y=Math.atan2(pos.x-threat.x,pos.z-threat.z);}
       if(result==='hit'){hits=Math.min(3,hits+1);scareUntil=now+1200;audio.playViolationSting();caption='Bir gölge sana çarptı. Uzaklaş!';captionUntil=now+5000;if(hits===3){ritual.ending='dark';caption='Halil gücünü kaybetti; köyün sessizliği onu içine aldı.';if(document.pointerLockElement===renderer.domElement)document.exitPointerLock();}save();}
       if(locked&&night&&!safe&&!ritual.ending&&elapsed>=nextRandomScare){scareUntil=now+850;audio.playWhisper(.7);nextRandomScare=elapsed+75+Math.random()*60;}
       for(const [id,item] of Object.entries(world.stationMeshes))item.visible=ritual.held!==id;
@@ -447,7 +466,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         world.schoolChalkPiece.position.x=-1+2*progress;
       }
       world.slabBody.visible=ritual.body==='slab'&&ritual.stage<6;world.slabBody.rotation.z=ritual.risen?-Math.PI/2:0;
-      world.apparition.visible=now<scareUntil; if(world.apparition.visible){const sx=pos.x-Math.sin(yaw)*1.8,sz=pos.z-Math.cos(yaw)*1.8;world.apparition.position.set(sx,dermanliWalkingHeight(sx,sz),sz);world.apparition.rotation.y=yaw;}
+      world.apparition.visible=now<scareUntil; if(world.apparition.visible){const sx=pos.x-Math.sin(yaw)*1.8,sz=pos.z-Math.cos(yaw)*1.8;world.apparition.position.set(sx,dermanliWalkingHeight(sx,sz,world.homes),sz);world.apparition.rotation.y=yaw;}
       world.gasil.pestemalMesh.visible=ritual.body==='slab'&&ritual.stage<6;world.gasil.kefenWrapGroup.visible=ritual.body==='slab'&&ritual.stage===6;
       world.gasil.basinWaterMesh.visible=ritual.dirty;
       world.arrivalBody.visible=ritual.body==='arrival'&&night;

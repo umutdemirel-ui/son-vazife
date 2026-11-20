@@ -23,3 +23,20 @@ test('Dermanlı home windows are actual openings but remain collision-safe',()=>
  }
  stone.dispose();wood.dispose();glass.dispose();
 });
+
+test('house walking height follows the actual floor, including rotated buildings',async()=>{
+ const {dermanliWalkingHeight}=await import('../src/game/dermanliBridge');
+ const stone=new THREE.MeshStandardMaterial(),wood=new THREE.MeshStandardMaterial(),glass=new THREE.MeshStandardMaterial({transparent:true,side:THREE.DoubleSide});
+ const craft={wood,masonry:stone,lime:[stone],earthen:stone,limestone:stone,shutters:[wood],windowGlass:glass,roofVariants:[stone],metalRoof:stone,door:wood,kilim:stone,metal:wood,plate:()=>{},window:()=>{}} as unknown as VillageCraft;
+ for(const rotation of [0,Math.PI/3]){
+  const spec={x:0,z:0,rotY:rotation,w:6.5,d:5,h:3,style:'tas' as const};
+  const {home}=buildHome(spec,3,0,craft,'gassal');home.root.updateMatrixWorld(true);
+  const local=new THREE.Vector3(0,0,1.8),world=local.applyMatrix4(home.root.matrixWorld);
+  const hits=new THREE.Raycaster(new THREE.Vector3(world.x,.5,world.z),new THREE.Vector3(0,-1,0)).intersectObject(home.root,true);
+  assert.ok(hits.length>0);assert.ok(Math.abs(dermanliWalkingHeight(world.x,world.z,[home])-hits[0].point.y)<1e-6);
+  const outside=new THREE.Vector3(0,0,3.2).applyMatrix4(home.root.matrixWorld);
+  assert.equal(dermanliWalkingHeight(outside.x,outside.z,[home]),dermanliWalkingHeight(outside.x,outside.z));
+  home.root.traverse(o=>{if(o instanceof THREE.Mesh)o.geometry.dispose();});
+ }
+ stone.dispose();wood.dispose();glass.dispose();
+});
