@@ -488,6 +488,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
   coords.forEach(([x,z],i)=>{const y=dermanliSurfaceHeight(x,z);dummy.position.set(x,y,z);dummy.rotation.y=random()*6.28;dummy.scale.setScalar(.8+random()*.4);dummy.updateMatrix();pines.setMatrixAt(i,dummy.matrix);colliders.push({minX:x-.25,maxX:x+.25,minZ:z-.25,maxZ:z+.25});});objects.add(pines);
   coords.forEach(([x,z],i)=>{ const y=dermanliSurfaceHeight(x,z); dummy.position.set(x,y+3.8,z); dummy.rotation.y=random()*6.28; dummy.scale.setScalar(.75+random()*.6); dummy.updateMatrix(); trees.setMatrixAt(i,dummy.matrix); dummy.position.y=y+1; dummy.scale.setScalar(1); dummy.updateMatrix(); trunks.setMatrixAt(i,dummy.matrix); }); objects.add(trees,trunks);
   const figures=createHorrorFigures(); for(const figure of figures){figure.visible=false;objects.add(figure);}
+  // The shrouded guest is an apparition inside a window, not a household NPC.
+  const [shadowX,shadowZ]=S.abandonedHomes[0];
+  figures[0].position.set(shadowX-2.125,dermanliSurfaceHeight(shadowX,shadowZ)+HOME_FLOOR_HEIGHT,shadowZ+2.08);
   // The original animated models load on demand; solid figures remain while loading fails.
   const pursuer=watcherFigure(art,'karabasma',createKaraBasma().root,true);
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu(),true);

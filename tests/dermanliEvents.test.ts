@@ -30,3 +30,13 @@ test('village time follows active wall time even at low frame rates and pauses w
  assert.equal(advanceVillageClock(10,-1,true),10);
  assert.equal(advanceVillageClock(10,Infinity,true),10);
 });
+
+test('house apparition only triggers while looking at its front window on the second night',async()=>{
+ const {DERMANLI_SITES:S}=await import('../src/game/dermanliMap');
+ const [hx,hz]=S.abandonedHomes[0],x=hx-2.125;
+ assert.equal(nextEvent(1,x,hz+5,0,new Set()),null);
+ assert.equal(nextEvent(2,x,hz+5,Math.PI,new Set()),null);
+ assert.equal(nextEvent(2,x,hz-2,Math.PI,new Set()),null);
+ assert.equal(nextEvent(2,x,hz+5,0,new Set())?.id,'house');
+ assert.equal(nextEvent(2,x,hz+5,0,new Set(['2:house'])),null);
+});
