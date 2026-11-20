@@ -661,13 +661,19 @@ export function createMosqueAndGasilhane(
     gasilGroup.add(northWall, southWall);
   }
 
-  const eastLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
-  eastLeft.position.set(rw / 2, rh / 2, -2.0);
-  const eastRight = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
-  eastRight.position.set(rw / 2, rh / 2, 2.0);
-  const eastHeader = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.35, 1.6), gasilWallMat);
-  eastHeader.position.set(rw / 2, 2.35 + (rh - 2.35) / 2, 0);
-  gasilGroup.add(eastLeft, eastRight, eastHeader);
+  if(layout === 'dermanli') {
+    block(gasilGroup,gasilWallMat,.24,rh,2.4,rw/2,rh/2,-2,2);
+    block(gasilGroup,gasilWallMat,.24,rh,2.4,rw/2,rh/2,2,2);
+    block(gasilGroup,gasilWallMat,.24,rh-2.35,1.6,rw/2,2.35+(rh-2.35)/2,0,2);
+  } else {
+    const eastLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
+    eastLeft.position.set(rw / 2, rh / 2, -2.0);
+    const eastRight = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
+    eastRight.position.set(rw / 2, rh / 2, 2.0);
+    const eastHeader = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.35, 1.6), gasilWallMat);
+    eastHeader.position.set(rw / 2, 2.35 + (rh - 2.35) / 2, 0);
+    gasilGroup.add(eastLeft, eastRight, eastHeader);
+  }
   block(gasilGroup, gasilWallMat, 0.24, rh, 1.2, rw / 2, rh / 2, rd / 2 + 0.6);
 
   const doorPivot = new THREE.Group();

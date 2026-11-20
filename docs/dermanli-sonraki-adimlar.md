@@ -8,6 +8,8 @@ Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden pro
 - [x] Değirmen çarkını gündüz/gece döndür ve duvar dokularını ölçekle.
 - [x] Gassal evi, okul, terk evler ve gasilhanenin belirtilen cephelerinde gerçek camlı pencere açıklıkları oluştur.
 - [x] Gasilhanede malzeme tezgâhlarını, dış sedyeyi ve örtülü girişi yerleştir; yıkama ve beş geceyi sına.
+- [x] Masaüstü SwiftShader tarayıcıda gasilhaneyi düşük/yüksek ayarlarda içten ve dıştan incele; tezgâh desteklerini, camları ve istasyon rotalarını doğrula. Ön cephedeki gerilmiş kaplama düzeltildi.
+- [x] Bu değişiklik sonrası çarpışmalı beş gece ve huzur, karanlık, kaçış sonlarını yeniden test et.
 - [x] Kahvehane, gassal evi, okul, terk evler ve ahırdaki düzeltilen mobilyaların desteklerini sahnede test et.
 - [x] Taş köprüye rampalar ekle; yüzey yüksekliğini ve oyuncunun rampada yürüyüşünü sına.
 - [x] İki gece ruhunun ve iki animasyonlu korku modelinin tabanlarını düzelt; takipçiyi gerçek render döngüsünde sına.
@@ -19,8 +21,8 @@ Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden pro
 ## Kalan işler — sırayla, ölçülebilir alt görevler
 
 1. **Gasilhane:**
-   - [ ] İç ve dış cepheleri, yıkama istasyonlarını, kamera ve çarpışmaları düşük/yüksek grafik ayarlarında ayrı ayrı gözden geçir; tespitleri düzelt ve görsel kanıt al.
-   - [ ] Beş gecelik yıkama ve üç son testini yeniden çalıştır. Kullanıcı değerlendirmesinden önce tasarımı nihai kabul etme.
+   - [ ] Masaüstü yazılımsal tarayıcı dışında gerçek cihazlarda iç/dış görünüm ve yıkama istasyonlarını doğrula; bulguları düzelt.
+   - [ ] Kullanıcı değerlendirmesini al; tasarım onaylanana kadar nihai kabul etme ve değişikliklerden sonra yıkama/son testlerini tekrarla.
 2. **Haritanın zemin ve çarpışma taraması:**
    - [ ] Ağaçlar, mezarlık ve açık arazi eşyalarını gerçek araziye göre tara; doğrulanan hataları konum ve görsel testleriyle düzelt.
    - [ ] Diğer yapıların dış detayları ve karakterlerini destek yüzeylerine göre tara. Taşınan veya kasıtlı yüzen öğeleri yanlışlıkla sabitleme.

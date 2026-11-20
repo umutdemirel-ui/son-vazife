@@ -428,9 +428,13 @@ export class VillageCraft {
       return p;
     };
     const jamb = (d - 1.6) / 2;
-    panel(entry, jamb, h, -0.8 - jamb / 2, h / 2, 0.012, [53, 91, 201, 245], 0, earthenWall);
-    panel(entry, jamb, h, 0.8 + jamb / 2, h / 2, 0.012, [264, 91, 448, 245], 0, earthenWall);
-    panel(entry, 1.6, h - 2.35, 0, (h + 2.35) / 2, 0.012, [201, 91, 264, 119], 0, earthenWall);
+    // Dermanlı has real, metre-scaled masonry underneath; do not cover it with
+    // cropped photographic projection panels intended for the legacy facade.
+    if (!realFlankWindows) {
+      panel(entry, jamb, h, -0.8 - jamb / 2, h / 2, 0.012, [53, 91, 201, 245], 0, earthenWall);
+      panel(entry, jamb, h, 0.8 + jamb / 2, h / 2, 0.012, [264, 91, 448, 245], 0, earthenWall);
+      panel(entry, 1.6, h - 2.35, 0, (h + 2.35) / 2, 0.012, [201, 91, 264, 119], 0, earthenWall);
+    }
     for (const sign of [-1, 1]) block(entry, this.wood, 0.1, 2.31, 0.135, sign * 0.85, 1.16, 0.02);
     block(entry, this.wood, 1.93, 0.13, 0.16, 0, 2.38, 0.048);
     this.plate(entry, 'GASİLHANE', 1.28, 0.3, 0, 2.77, 0.035);

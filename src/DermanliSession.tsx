@@ -98,6 +98,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       const debug = {
         state: () => JSON.parse(JSON.stringify(ritual)),
         clock: () => elapsed,
+        renderInfo: () => ({quality:controls.graphicsQuality,pixelRatio:renderer.getPixelRatio(),width:renderer.domElement.width,height:renderer.domElement.height,camera:{x:camera.position.x,y:camera.position.y,z:camera.position.z}}),
         look: () => ({yaw,pitch,targetYaw:targetLook.yaw,targetPitch:targetLook.pitch,smoothing:controls.lookSmoothing,locked}),
         endingView: () => ({x:camera.position.x,y:camera.position.y,z:camera.position.z,master:world.master.visible}),
         targetFrom: (x:number,z:number,angle:number) => targetAt(x,z,angle)?.id ?? null,
