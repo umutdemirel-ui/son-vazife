@@ -14,6 +14,7 @@ Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden pro
 - [x] Taş köprüye rampalar ekle; yüzey yüksekliğini ve oyuncunun rampada yürüyüşünü sına.
 - [x] 260 çam ağacının arazi temasını ve çarpışmasını, 30 mezar taşının yerleşimini, beş toprak yığınını ve mezarlık girişini sahnede tara. Çam dokusunun şeffaf alt kenarından kaynaklanan küçük boşluğu düzelt; yamaç ve mezarlık görüntülerini kontrol et.
 - [x] Tüm harita yolu, patika ve dere şeritlerinin üçgen içlerini örnekle; gerçek arazi yüzeyinden yükseklik farklarının 4–9 cm aralığında kaldığını test et. Bu yalnız zemin yüzeyi kontrolüdür, bütün çarpışma rotalarının testi değildir.
+- [x] Değirmen çarkının çarpışma kutusunu dönen modelin gerçek köşelerini 72 açıda kapsayacak şekilde düzelt; kapı açıklığını ve beş gecelik çarpışmalı değirmen rotasını test et.
 - [x] Değirmen yanındaki bitki kümesini araziye oturt; su kanalını dereyle örtüşen bölgede ayrıştır, çarkın dönüşünü ve kanal/çark sınırlayıcı kutularının kesişimini canlı sahnede doğrula. Dış görünümü incele.
 - [x] Köy girişinin iki sütununu ve yön levhasını, okul çanlarının direklerini zemine ve çarpışmaya göre kontrol et; çanlara kiriş ve askı ekle. Giriş merkezinin ve çanların yaklaşma noktalarının açık olduğunu, beş gece testinde çan etkileşimini doğrula; giriş ve çan görsellerini incele.
 - [x] Meydan ağacının şeffaf taban boşluğunu düzelt; iki bank, çeşme ve kuyunun zemin yüksekliğini ve merkezlerinde çarpışma kaydını canlı sahnede kontrol et. Meydan ve kuyu görsellerini incele.

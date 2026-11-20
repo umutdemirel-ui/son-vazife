@@ -4,6 +4,7 @@ import { createDermanliTerrain, dermanliSurfaceHeight } from './dermanliTerrain'
 import { createBridgeApproaches } from './dermanliBridge';
 import {PINE_SPRITE_HEIGHT,pineGroundInset,OAK_SPRITE_HEIGHT,OAK_GROUND_INSET} from './dermanliGrove';
 import {FIELD_FURROW_HEIGHT,stalkCenterHeight} from './dermanliField';
+import {MILL_WHEEL_COLLIDER} from './dermanliMill';
 import { DERMANLI_PATHS, DERMANLI_SITES as S, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
 import { VillageCraft, block, pitchedRoof } from './villageCraft';
@@ -206,7 +207,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   ]);colliders.push(...millWalls);occluders.push(...millWalls);
   const millFurniture=translateColliders({x:mx,z:mz},[
     {minX:-2,maxX:-.6,minZ:-1.8,maxZ:-.4},{minX:-2.1,maxX:-.9,minZ:.65,maxZ:1.55},
-    {minX:3.15,maxX:4.2,minZ:1.2,maxZ:3.3},{minX:1.55,maxX:3.1,minZ:-.86,maxZ:-.7},
+    {...MILL_WHEEL_COLLIDER},{minX:1.55,maxX:3.1,minZ:-.86,maxZ:-.7},
   ]);colliders.push(...millFurniture);occluders.push(millFurniture[3]);
   target('mill','Değirmen · Defter',[mx-1.5,mz+1.1],1.6);
   const wheel=millAndBridge.wheelPivot;
