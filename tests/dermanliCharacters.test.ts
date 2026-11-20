@@ -40,3 +40,12 @@ test('villager dialogue advances on later days and has stable notebook entries',
   assert.equal(VILLAGER_FOLLOWUP_NOTES[day2.key],day2.line);assert.equal(VILLAGER_FOLLOWUP_NOTES[day4.key],day4.line);
  }
 });
+
+
+test('outdoor memory identities match the legacy village characters',async()=>{
+ const {RESIDENT_MEMORIES}=await import('../src/game/dermanliCharacters');
+ const {VILLAGE_NPCS}=await import('../src/game/npcs');
+ for(const id of Object.keys(RESIDENT_MEMORIES) as Array<keyof typeof RESIDENT_MEMORIES>){
+  assert.equal(RESIDENT_MEMORIES[id].name,VILLAGE_NPCS[id].name,`${id} name changed from the original`);
+ }
+});

@@ -41,3 +41,12 @@ test('house apparition only triggers while looking at its front window on the se
  assert.equal(nextEvent(2,x,hz+5,0,new Set())?.id,'house');
  assert.equal(nextEvent(2,x,hz+5,0,new Set(['2:house'])),null);
 });
+
+test('square fountain event requires facing the fountain and is not repeated that night',async()=>{
+ const {DERMANLI_SITES:S}=await import('../src/game/dermanliMap');
+ const [x,z]=S.square;
+ assert.equal(nextEvent(1,x,z+4,Math.PI,new Set()),null);
+ assert.equal(nextEvent(1,x,z+4,0,new Set(),1.1),null,'looking up must not trigger a visual event');
+ assert.equal(nextEvent(1,x,z+4,0,new Set())?.id,'square');
+ assert.equal(nextEvent(1,x,z+4,0,new Set(['1:square'])),null);
+});

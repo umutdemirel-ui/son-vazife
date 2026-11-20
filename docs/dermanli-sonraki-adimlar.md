@@ -2,6 +2,8 @@
 
 Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden production dağıtımı yapılmayacak. Evlerin içine NPC yerleştirilmeyecek; kullanıcının özellikle istediği kahvehane bunun istisnası.
 
+Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik ertelendi; tamamlanmış sayılmaz.
+
 ## Tamamlanan ve doğrulanan alt işler
 
 - [x] Kahvehane binasını yeniden kur; kahveci ve iki oturan müşteri ekle; rotaları ve mobilya desteklerini sına.
@@ -25,6 +27,9 @@ Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden pro
 - [x] Model isteklerini engelleyerek üç gündüz köylüsü ve dört gece anısının yedek görünümlerinin zeminini ve görünürlüğünü doğrula; iki yedek karakterle klavye etkileşimini ve gündüz/gece örneklerini kontrol et.
 - [x] Üç gündüz köylüsü ve dört gece anısının yüklü modellerinde ayak/zemin ve konum çarpışma açıklığını, gündüz/gece görünürlüğünü tarayıcıda denetle; gündüz ve gece örneklerini görsel olarak incele.
 - [x] Üç dış mekân köylüsü ekle; altı gündüz köylüsüne farklı giysi ayrıntıları ve ilerlemeye bağlı, kaydedilen konuşmalar ver.
+- [x] Meydan çeşmesinin bakışla tetiklenen su akışını görselleştir; süre, kayıt sonrası tekrarlamama ve görsel kontrolü doğrula. Gasilhanede görünmeyen musluğa ilişkin yanıltıcı olay metnini düzelt.
+- [x] Gassal evinin iki yan cephesine gerçek cam açıklıkları ekle; içten görünürlük, çarpışma ve dış görünümü kontrol et.
+- [x] Dört eski karakterin adlarını Kuzdağ tanımlarıyla karşılaştır; Kenan adını özgün yazımıyla eşleştir ve test et. Bu, eski hikâye ve vakaların aktarımı değildir.
 - [x] Terk evdeki pencere gölgesini tetiklenme, görünme ve kayıt sonrası tekrar etmeme açısından sına.
 - [x] Dördüncü gecedeki okul tebeşiri olayını gerçek tahtada animasyonla göster; yalnız içeriden bakıldığında tetiklenmesini ve kayıt sonrası tekrar etmemesini sına.
 - [x] Fare yumuşatma ayarını menüden Dermanlı sahnesine bağla; menü, ters Y ve kayıt davranışını tarayıcıda sına.
@@ -39,12 +44,12 @@ Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden pro
    - [ ] Diğer yapıların dış detaylarını ve henüz taranmamış karakter/alternatif modelleri destek yüzeylerine göre tara; yedi dış karakterin yüklü ve yedek görünümleri kontrol edildi. Taşınan veya kasıtlı yüzen öğeleri yanlışlıkla sabitleme.
 3. **NPC'ler:**
    - [ ] Yeniden kullanılan temel modellerin yerine özgün karakter görünümü tasarla; yedek model, animasyon ve kaynak temizliğini doğrula.
-   - [ ] Eski karakterlerin kimliklerini ve yerlerini eski oyunla karşılaştır; gündüz/gece erişilebilirliği, diyalog ve kayıtları test et.
+   - [ ] Eski karakterlerin adları karşılaştırıldı; yerlerini ve davranışlarını eski oyunla karşılaştır; gündüz/gece erişilebilirliği, diyalog ve kayıtları test et.
 4. **Korku olayları:**
    - [ ] Kalan olayları tek tek tetik, yön/görünürlük, ses, tekrar ve kayıt açısından denetle; anlatılan görsel olayların gerçekten görünmesini sağla.
    - [ ] Eksik korku karakterlerini belirleyip ekle; çarpışma ve yıkama akışını bozmadıklarını sına.
 5. **Yapılar ve dokular:**
-   - [ ] Gassal evi, okul ve terk evlerin diğer cephelerini ayrı ayrı inceleyip düzelt.
+   - [ ] Gassal evinin yan cepheleri tamamlandı; gassal evinin arka cephesi ile okul ve terk evlerin diğer cephelerini ayrı ayrı inceleyip düzelt.
    - [ ] Değirmenin kalan ayrıntıları ve diğer yapı cephelerini gözden geçir; doku, açıklık ve erişim testleri ekle.
 6. **Eski oyun bütünlüğü:**
    - [ ] Eski menü ve karakterlerin eksik davranışlarını karşılaştırıp gider.
