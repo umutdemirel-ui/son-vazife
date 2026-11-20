@@ -34,7 +34,7 @@ function finish(color: number, metalness = 0, roughness = 0.91) {
 
 /** A readable figure even during/offline after a failed model request. No point light is hidden with it. */
 function waitingFigure(id: NpcId) {
-  const g = new THREE.Group();
+  const g = new THREE.Group(); g.name = 'standing-fallback';
   const cloth = finish(wardrobe[id].coat),
     dark = finish(0x383832),
     skin = finish(0xb99c81);

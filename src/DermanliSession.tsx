@@ -140,9 +140,10 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             r.visual.group.updateWorldMatrix(true,true);
             const mesh:THREE.SkinnedMesh[]=[];r.visual.group.traverse(o=>{if(o instanceof THREE.SkinnedMesh)mesh.push(o);});
             const bounds=new THREE.Box3();for(const m of mesh)bounds.union(new THREE.Box3().setFromObject(m,true));
+            const fallback=r.visual.group.getObjectByName('standing-fallback');
             const ground=new THREE.Raycaster(new THREE.Vector3(r.x,100,r.z),new THREE.Vector3(0,-1,0)).intersectObject(world.terrainGround,false)[0]?.point.y;
             const resolved={x:r.x,z:r.z};for(const c of world.colliders)pushOutsideBox(resolved,c,.3);
-            return {id:r.id,x:r.x,z:r.z,visible:r.visual.group.visible,loaded:mesh.length>0,ground,root:r.visual.group.position.y,base:mesh.length?bounds.min.y:null,clearance:Math.hypot(resolved.x-r.x,resolved.z-r.z)};
+            return {id:r.id,x:r.x,z:r.z,visible:r.visual.group.visible,loaded:mesh.length>0,ground,root:r.visual.group.position.y,base:mesh.length?bounds.min.y:null,fallbackBase:fallback?new THREE.Box3().setFromObject(fallback,true).min.y:null,clearance:Math.hypot(resolved.x-r.x,resolved.z-r.z)};
           });
         },
         millExteriorAudit: () => {
