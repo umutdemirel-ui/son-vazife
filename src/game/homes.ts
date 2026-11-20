@@ -45,7 +45,25 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   const finish = spec.style === 'tas' ? craft.masonry : number % 4 === 0 ? craft.earthen : craft.lime[number % craft.lime.length];
   const upperFinish = spec.style === 'tas' ? craft.lime[(number + 1) % craft.lime.length] : finish;
   block(root, craft.wood, w, 0.12, d, 0, HOME_FLOOR_HEIGHT - 0.06, 0, 1.5);
-  block(root, finish, w, height, wall, 0, height / 2, -d / 2, 2.2);
+  if(use==='gassal'||use==='school') {
+    // Keep the central classroom board and the home's rear shelving clear of the openings.
+    const center=w*.32,width=.9,sill=1.08,top=2.2,z=-d/2;
+    const middle=2*center-width,edge=w/2-center-width/2;
+    block(root,finish,middle,height,wall,0,height/2,z,2.2);
+    for(const side of [-1,1]){
+      const x=side*center;
+      block(root,finish,edge,height,wall,side*(w/2-edge/2),height/2,z,2.2);
+      block(root,finish,width,sill,wall,x,sill/2,z,2.2);
+      block(root,finish,width,height-top,wall,x,(height+top)/2,z,2.2);
+      const glass=new THREE.Mesh(new THREE.PlaneGeometry(width,top-sill),craft.windowGlass);
+      glass.name='Dermanlı arka pencere camı';glass.position.set(x,(sill+top)/2,z);root.add(glass);
+      for(const dx of [-width/2,width/2])block(root,craft.wood,.08,top-sill+.12,.24,x+dx,(sill+top)/2,z,1.2);
+      for(const y of [sill,top])block(root,craft.wood,width+.12,.08,.24,x,y,z,1.2);
+      block(root,craft.wood,.055,top-sill,.24,x,(sill+top)/2,z,1.2);
+      block(root,craft.wood,width,.055,.24,x,(sill+top)/2,z,1.2);
+      block(root,craft.limestone,width+.22,.08,.3,x,sill-.06,z,1.0);
+    }
+  }else block(root, finish, w, height, wall, 0, height / 2, -d / 2, 2.2);
   for (const side of [-1, 1]) {
     const x=side*w/2;
     if(use==='home')block(root,finish,wall,height,d,x,height/2,0,2.2);

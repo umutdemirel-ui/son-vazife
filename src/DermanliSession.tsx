@@ -82,7 +82,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     const ritual=saved?.ritual??newRitual();
     const bell=saved?.bell??newBell(saved?0:undefined);
     let elapsed=saved?.elapsed??0, nextCue=0, hits=saved?.hits??0, nextRandomScare=(saved?.elapsed??0)+75+Math.random()*45; const threat=new DermanliThreat(); const seenEvents=new Set(saved?.events??[]);
-    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false, threatArtRequested=false, crouchToggled=false, windowShadowUntil=0, houseShadowUntil=0, schoolChalkUntil=0, fountainJetUntil=0, wellRopeUntil=0; let scrub=newScrub();
+    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false, threatArtRequested=false, crouchToggled=false, windowShadowUntil=0, houseShadowUntil=0, schoolChalkUntil=0, fountainJetUntil=0, wellRopeUntil=0, lastBridgeMove=0; let scrub=newScrub();
     let targetLook={yaw,pitch};
     const setYaw=(value:number)=>{yaw=value;targetLook.yaw=value;};
     const save=()=>writeDermanliSave({version:1,ritual,x:pos.x,z:pos.z,yaw,pitch,elapsed,events:[...seenEvents],hits,bell});
@@ -151,6 +151,15 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             return {id,visibleFloor:hit?.point.y??null,walking:dermanliWalkingHeight(x,z,world.homes)};
           });
         },
+        rearWindows: () => world.homes.slice(0,2).map(home=>{
+          home.root.updateWorldMatrix(true,true);const {x,z,w,d}=home.spec;
+          return [-1,1].map(side=>{
+            const px=x+side*w*.32+.16,ray=new THREE.Raycaster(new THREE.Vector3(px,home.ground+1.8,z),new THREE.Vector3(0,0,-1),0,d/2+.3);
+            const hits=ray.intersectObject(home.root,true).map(h=>{const m=h.object as THREE.Mesh,mat=Array.isArray(m.material)?m.material[0]:m.material;return {transparent:mat.transparent,opacity:mat.opacity};});
+            const p={x:px,z:z-d/2},after={...p};for(const c of world.colliders)pushOutsideBox(after,c,.32);
+            return {hits,blocked:Math.hypot(after.x-p.x,after.z-p.z)};
+          });
+        }),
         homeSideWindows: () => world.homes.map(home=>{
           home.root.updateWorldMatrix(true,true);const {x,z,w}=home.spec;
           return [-1,1].map(side=>{
@@ -324,6 +333,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
           return {barn:world.barnSupports.map(item=>check(item,world.barnFloorMesh)),clues:world.clueSupports.map(({item,support})=>check(item,support))};
         },
         outdoorResidents: () => world.outdoorResidents.map(r=>{const p={x:r.x,z:r.z};for(const wall of world.colliders)pushOutsideBox(p,wall,.3);return {id:r.id,visible:r.visual.group.visible,loaded:!!r.visual.group.getObjectByName('HandL'),dressed:!!r.visual.group.getObjectByName(`outfit-${OUTDOOR_RESIDENTS[r.id].outfit}`),x:r.x,z:r.z,clearance:Math.hypot(p.x-r.x,p.z-r.z)};}),
+        bridgeEvent: () => ({seen:seenEvents.has(`${ritual.night}:bridge`),lastMove:lastBridgeMove}),
         wellEvent: () => ({swing:world.wellRope.rotation.z,seen:seenEvents.has(`${ritual.night}:well`),remaining:Math.max(0,wellRopeUntil-performance.now())}),
         squareWaterEvent: () => ({visible:world.fountainJet.visible,seen:seenEvents.has(`${ritual.night}:square`),remaining:Math.max(0,fountainJetUntil-performance.now())}),
         schoolChalk: () => ({visible:world.schoolChalk.visible,seen:seenEvents.has(`${ritual.night}:school`),progress:world.schoolChalkTrace.scale.x}),
@@ -455,7 +465,10 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       sun.intensity=night?.46:1.6;
       (scene.background as THREE.Color).set(night?0x1c2930:0x465255);
       if(scene.fog instanceof THREE.FogExp2){scene.fog.color.copy(scene.background as THREE.Color);scene.fog.density=night?.023+ritual.night*.001:.018;}
-      if(locked&&night&&!ritual.ending&&now>nextCue){const event=nextEvent(ritual.night,pos.x,pos.z,yaw,seenEvents,pitch);if(event){if(event.id==='gasil'&&ritual.night>=2)windowShadowUntil=now+4500;if(event.id==='house')houseShadowUntil=now+4500;if(event.id==='square')fountainJetUntil=now+4500;if(event.id==='well')wellRopeUntil=now+4500;if(event.id==='school')schoolChalkUntil=now+4500;seenEvents.add(`${ritual.night}:${event.id}`);caption=event.text;captionUntil=now+6500;nextCue=now+30000;if(event.sound==='water')audio.playWaterPour();else if(event.sound==='whisper')audio.playWhisper();else if(event.sound==='knock')audio.playWindowKnock();else audio.playFloorboardCreak();save();}}
+      const movingKey=['KeyW','KeyA','KeyS','KeyD'].some(k=>keys.has(k));
+      if(locked&&night&&!overlayBlocked.current&&movingKey&&Math.hypot(pos.x-S.bridge[0],pos.z-S.bridge[1])<7)lastBridgeMove=now;
+      const bridgeStopped=lastBridgeMove>0&&!movingKey&&now-lastBridgeMove>=350&&now-lastBridgeMove<4000;
+      if(locked&&night&&!ritual.ending&&now>nextCue){const event=nextEvent(ritual.night,pos.x,pos.z,yaw,seenEvents,pitch,bridgeStopped);if(event){if(event.id==='gasil'&&ritual.night>=2)windowShadowUntil=now+4500;if(event.id==='house')houseShadowUntil=now+4500;if(event.id==='square')fountainJetUntil=now+4500;if(event.id==='well')wellRopeUntil=now+4500;if(event.id==='school')schoolChalkUntil=now+4500;seenEvents.add(`${ritual.night}:${event.id}`);caption=event.text;captionUntil=now+6500;nextCue=now+30000;if(event.sound==='water')audio.playWaterPour();else if(event.sound==='whisper')audio.playWhisper();else if(event.sound==='knock')audio.playWindowKnock();else if(event.sound==='footsteps')audio.playGhostFootsteps();else audio.playFloorboardCreak();save();}}
       if(locked)({yaw,pitch}=advanceLook({yaw,pitch},targetLook,dt,controls.lookSmoothing));
       let forward=0,side=0; if(locked&&!overlayBlocked.current){forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));}
       const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight'), crouch=keys.has('ControlLeft')||keys.has('ControlRight')||(controls.crouchToggle?crouchToggled:keys.has('KeyC'));

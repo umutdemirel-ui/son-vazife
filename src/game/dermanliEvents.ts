@@ -3,7 +3,7 @@ export const DAY_SECONDS=240;
 export function isNight(seconds:number) { return Math.max(0,seconds)%DAY_SECONDS >= DAY_SECONDS/2; }
 /** Burial opens a new day, not a second funeral during the same night. */
 export function nextDawn(seconds:number) { return (Math.floor(Math.max(0,seconds)/DAY_SECONDS)+1)*DAY_SECONDS; }
-type Event = {id:string; at:Point; radius:number; minNight:number; text:string; look?:boolean; sound:'water'|'whisper'|'knock'|'creak'};
+type Event = {id:string; at:Point; radius:number; minNight:number; text:string; look?:boolean; sound:'water'|'whisper'|'knock'|'creak'|'footsteps'};
 export const EVENTS: readonly Event[] = [
  {id:'gasil',at:S.gasilhane,radius:5,minNight:1,text:'Gasilhanede kimse dokunmadığı hâlde bir an su sesi duyuluyor.',sound:'water'},
  {id:'square',at:S.square,radius:6,minNight:1,text:'Meydandaki çeşme bir an kendi kendine akıyor.',look:true,sound:'water'},
@@ -14,11 +14,12 @@ export const EVENTS: readonly Event[] = [
  {id:'barn',at:S.barn,radius:8,minNight:3,text:'Ahırdan bir an hayvan sesi duyuluyor; içerisi boş.',sound:'creak'},
  {id:'school',at:[S.school[0],S.school[1]-2.83],radius:5.5,minNight:4,text:'Boş sınıfta tebeşir tahtaya dokunuyor.',look:true,sound:'knock'},
  {id:'cemetery',at:S.cemetery,radius:10,minNight:5,text:'Mezarlık dışında yeni eşelenmiş toprak görünüyor.',sound:'whisper'},
- {id:'bridge',at:S.bridge,radius:7,minNight:5,text:'Köprüde ayak sesleri sen durduktan sonra da devam ediyor.',sound:'creak'},
+ {id:'bridge',at:S.bridge,radius:7,minNight:5,text:'Köprüde ayak sesleri sen durduktan sonra da devam ediyor.',sound:'footsteps'},
 ];
-export function nextEvent(night:number,x:number,z:number,yaw:number,seen:ReadonlySet<string>,pitch=0): Event | null {
+export function nextEvent(night:number,x:number,z:number,yaw:number,seen:ReadonlySet<string>,pitch=0,bridgeStopped=false): Event | null {
  for(const e of EVENTS){
   if(night<e.minNight||seen.has(`${night}:${e.id}`))continue;
+  if(e.id==='bridge'&&!bridgeStopped)continue;
   // The figure is behind the front window; do not announce it from the back of the house.
   if(e.id==='house' && z<=S.abandonedHomes[0][1]+2.7)continue;
   // The chalk can only be seen from inside the classroom.

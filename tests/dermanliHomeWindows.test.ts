@@ -58,3 +58,20 @@ test('gassal, school and abandoned side windows are transparent and collision-sa
  }
  stone.dispose();wood.dispose();glass.dispose();
 });
+
+test('gassal and school rear windows have visible glass and retain collision',()=>{
+ const stone=new THREE.MeshStandardMaterial(),wood=new THREE.MeshStandardMaterial(),glass=new THREE.MeshStandardMaterial({transparent:true,opacity:.3,side:THREE.DoubleSide});
+ const craft={wood,masonry:stone,lime:[stone],earthen:stone,limestone:stone,shutters:[wood],windowGlass:glass,roofVariants:[stone],metalRoof:stone,door:wood,kilim:stone,metal:wood,plate:()=>{},window:()=>{}} as unknown as VillageCraft;
+ for(const use of ['gassal','school'] as const){
+  const w=use==='school'?8:7,d=use==='school'?6:5;
+  const {home,walls}=buildHome({x:0,z:0,rotY:0,w,d,h:3,style:'tas'},0,0,craft,use);home.root.updateMatrixWorld(true);
+  for(const side of [-1,1]){
+   const x=side*w*.32+.16,ray=new THREE.Raycaster(new THREE.Vector3(x,1.8,0),new THREE.Vector3(0,0,-1),0,d/2+.3);
+   const hits=ray.intersectObject(home.root,true);assert.ok(hits.some(h=>(h.object as THREE.Mesh).material===glass),`${use} rear glazing missing`);
+   assert.ok(hits.every(h=>(h.object as THREE.Mesh).material===glass),`${use} rear glazing blocked`);
+   const p={x,z:-d/2};for(const wall of walls)pushOutsideBox(p,wall,.32);assert.notEqual(p.z,-d/2);
+  }
+  home.root.traverse(o=>{if(o instanceof THREE.Mesh)o.geometry.dispose();});
+ }
+ stone.dispose();wood.dispose();glass.dispose();
+});

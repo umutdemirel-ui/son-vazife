@@ -194,6 +194,18 @@ export class HorrorAudioEngine {
     osc.stop(t + 0.1);
   }
 
+  /** A few distant steps continue after the player stops, independent of walking cadence. */
+  public playGhostFootsteps(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const ctx=this.ctx, start=ctx.currentTime;
+    for(const [i,delay] of [0.12,0.68,1.24].entries()){
+      const at=start+delay,osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.type='sine';osc.frequency.setValueAtTime(95-i*5,at);osc.frequency.exponentialRampToValueAtTime(38,at+.08);
+      gain.gain.setValueAtTime(.075-i*.012,at);gain.gain.exponentialRampToValueAtTime(.001,at+.11);
+      osc.connect(gain);gain.connect(this.masterGain);osc.start(at);osc.stop(at+.12);
+    }
+  }
+
   public playPickup(): void {
     if (!this.ctx || !this.masterGain || this.muted) return;
     const t = this.ctx.currentTime;

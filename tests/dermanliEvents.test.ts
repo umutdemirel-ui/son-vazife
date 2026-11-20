@@ -59,3 +59,11 @@ test('well apparition requires night two and a view of the well',async()=>{
  assert.equal(nextEvent(2,x,z+4,0,new Set())?.id,'well');
  assert.equal(nextEvent(2,x,z+4,0,new Set(['2:well'])),null);
 });
+
+test('bridge footsteps only occur after the player stops and only on night five',async()=>{
+ const {DERMANLI_SITES:S}=await import('../src/game/dermanliMap');const [x,z]=S.bridge;
+ assert.equal(nextEvent(4,x,z,0,new Set(),0,true),null);
+ assert.equal(nextEvent(5,x,z,0,new Set(),0,false),null);
+ assert.equal(nextEvent(5,x,z,0,new Set(),0,true)?.sound,'footsteps');
+ assert.equal(nextEvent(5,x,z,0,new Set(['5:bridge']),0,true),null);
+});
