@@ -224,7 +224,7 @@ try {
   await use(...ewer); await use(...slab); await use(...ewer);
   assert.ok((await saved()).ritual.wash);
   await use('gasil_shutter', -12.9, 6.85);
-  await use('vigil_candle', -12.04, 4.77);
+  assert.equal(await val('vigilLit'), true); // Already lit before manual washing.
   await use('dirty_bucket', -11.4, 7.3);
   assert.equal(await val('heldWashTool'), 'dirty');
   await page.keyboard.press('f');

@@ -7,9 +7,13 @@ Kullanıcının yeni yönü: Dermanlı köyü tamamen kaldırılacak; beğenilen
 - Kuzdağ'ın mevcut yıkama noktalarında sabır mumu, araç seçimi, F basılıyken A/D ile dönüşümlü yıkama ve durulama için F basılı tutma kullanılıyor.
 - Kuzdağ kayıt biçimine eski kayıtlarda zorunlu olmayan, sınırları denetlenen ayrı bir gassallık durumu eklendi; mevcut vaka ilerlemesiyle karıştırılmıyor. Kâfur/kefen istasyonları ve mezarlık işareti sahnede hazırlandı ancak akış etkinleştirilene kadar gizli.
 - Kuzdağ hikâyesinde ilk cenaze nakledildikten sonra dış sedyeden ek gassallık vazifesi başlatılabilir. Cenazeyi alma, teneşire koyma, mum, sabun, elle yıkama, temiz su, kirli su, kâfur, kefen, taşıma ve defin işlemleri sahnedeki noktalara bağlandı; dört defin sonraki sabahı açar, beşinci vazifeyi bitirir. İşlemler Kuzdağ kaydındaki ayrı alana yazılır.
+- Kullanılmayan Dermanlı gasilhane yerleşim dalı ve ilgili duvar modülü kaldırıldı; Kuzdağ yerleşimi korunuyor.
 - Önceki ritüelin taşınabilir durum mantığı `src/game/funeralDuty.ts` içinde Kuzdağ hikâyesini zorla sonlandırmayacak şekilde ayrıldı; `scrubbing.ts` elle yıkamanın durumunu taşıyor.
 
+## Son kontroller
+- Derleme, TypeScript kontrolü ve 66 birim testi geçti.
+- Otomatik tarayıcı senaryoları Kuzdağ açılışı ve kayıt korumasını; üç vaka, sekiz bölüm ve üç sonu; beş vazifenin sahne hedefleri ve klavye ile tamamlanmasını kontrol etti. Vazife senaryosu sahneye ışınlanma kullanır; yürüyüş ve görsel kaliteyi doğrulamaz.
+
 ## Kalanlar
-- Uygulanan beş vazifenin sahne yerleşimi, erişim, el/cenaze görselleri, kayıt ve mevcut üç vaka ile uyumu henüz doğrulanmadı.
-- Kuzdağ'daki mekân, görev ve kullanıcı arayüzü üzerindeki diğer yeni köy kalıntılarını gözden geçir. Yıkama görsellerini ve etkileşim sırasını beğenilen sürümle eşleştir.
-- Kullanıcının daha önce istediği gibi şimdilik doğrulama çalıştırılmadı. İleride son kontroller geçmeden production deploy yapma.
+- Vazifelerin doğal yürüyüşle erişimini, görsel akışı ve kullanıcı arayüzünü son kez incele; yıkama görsellerini beğenilen sürümle karşılaştır.
+- Son kontroller ve oyun tamamlanmadan production deploy yapma.

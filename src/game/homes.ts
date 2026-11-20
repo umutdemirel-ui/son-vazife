@@ -56,7 +56,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
       block(root,finish,width,sill,wall,x,sill/2,z,2.2);
       block(root,finish,width,height-top,wall,x,(height+top)/2,z,2.2);
       const glass=new THREE.Mesh(new THREE.PlaneGeometry(width,top-sill),craft.windowGlass);
-      glass.name='Dermanlı arka pencere camı';glass.position.set(x,(sill+top)/2,z);root.add(glass);
+      glass.name='Arka pencere camı';glass.position.set(x,(sill+top)/2,z);root.add(glass);
       for(const dx of [-width/2,width/2])block(root,craft.wood,.08,top-sill+.12,.24,x+dx,(sill+top)/2,z,1.2);
       for(const y of [sill,top])block(root,craft.wood,width+.12,.08,.24,x,y,z,1.2);
       block(root,craft.wood,.055,top-sill,.24,x,(sill+top)/2,z,1.2);
@@ -76,7 +76,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
       block(root,finish,wall,sill,width,x,sill/2,center,2.2);
       block(root,finish,wall,height-top,width,x,(height+top)/2,center,2.2);
       const glass=new THREE.Mesh(new THREE.PlaneGeometry(width,top-sill),craft.windowGlass);
-      glass.name='Dermanlı yan pencere camı';glass.rotation.y=Math.PI/2;glass.position.set(x,(sill+top)/2,center);root.add(glass);
+      glass.name='Yan pencere camı';glass.rotation.y=Math.PI/2;glass.position.set(x,(sill+top)/2,center);root.add(glass);
       for(const z of [center-width/2,center+width/2])block(root,craft.wood,.24,top-sill+.12,.08,x,(sill+top)/2,z,1.2);
       for(const y of [sill,top])block(root,craft.wood,.24,.08,width+.12,x,y,center,1.2);
       block(root,craft.wood,.24,top-sill,.055,x,(sill+top)/2,center,1.2);
@@ -97,7 +97,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
       block(root,finish,windowWidth,sill,wall,center,sill/2,d/2,2.2);
       block(root,finish,windowWidth,height-top,wall,center,(height+top)/2,d/2,2.2);
       const glass=new THREE.Mesh(new THREE.PlaneGeometry(windowWidth,top-sill),craft.windowGlass);
-      glass.name='Dermanlı pencere camı';glass.position.set(center,(sill+top)/2,d/2);root.add(glass);
+      glass.name='Pencere camı';glass.position.set(center,(sill+top)/2,d/2);root.add(glass);
       for(const dx of [-windowWidth/2,windowWidth/2])block(root,craft.wood,.08,top-sill+.12,.24,center+dx,(sill+top)/2,d/2,1.2);
       for(const y of [sill,top])block(root,craft.wood,windowWidth+.12,.08,.24,center,y,d/2,1.2);
       block(root,craft.wood,.055,top-sill,.24,center,(sill+top)/2,d/2,1.2);

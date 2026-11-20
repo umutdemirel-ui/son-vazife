@@ -1,4 +1,3 @@
-import { createGasilSouthWall } from './gasilWindows';
 import { CEMETERY_GRAVES, MOSQUE_GRAVES } from './cemetery';
 import { funeralFigure, preparationTowel } from './funerary';
 import { watcherFigure, type NightArt } from './nightArt';
@@ -484,7 +483,6 @@ export function createMosqueAndGasilhane(
   textures: VillageTextures,
   craft: VillageCraft,
   art: NightArt,
-  layout: 'legacy' | 'dermanli' = 'legacy',
 ): GasilhaneRefs {
   const root = new THREE.Group();
 
@@ -610,12 +608,10 @@ export function createMosqueAndGasilhane(
   const rd = 6.4;
   const rh = 3.4;
 
-  const floor = layout === 'dermanli'
-    ? block(gasilGroup,gasilFloorMat,rw,.16,rd+1.2,0,.08,.6,1.5)
-    : new THREE.Mesh(new THREE.BoxGeometry(rw, 0.16, rd + 1.2), gasilFloorMat);
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.16, rd + 1.2), gasilFloorMat);
   floor.position.set(0, 0.08, 0.6);
   floor.receiveShadow = true;
-  if(layout === 'legacy')gasilGroup.add(floor);
+  gasilGroup.add(floor);
 
   const ceiling = new THREE.Mesh(new THREE.BoxGeometry(rw + 0.3, 0.22, rd + 1.5), plasterMat);
   ceiling.position.set(0, rh + 0.11, 0.6);
@@ -648,32 +644,21 @@ export function createMosqueAndGasilhane(
   porchLanternLight.position.set(rw / 2 + 0.49, 2.3, 1.18);
   gasilGroup.add(lanternBracket, lanternGlass, porchLanternLight);
 
-  const northWall = layout === 'dermanli'
-    ? block(gasilGroup,gasilWallMat,rw,rh,.24,0,rh/2,-rd/2,2)
-    : new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
+  const northWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
   northWall.position.set(0, rh / 2, -rd / 2);
   northWall.receiveShadow = true;
-  if(layout === 'dermanli')createGasilSouthWall(gasilGroup,gasilWallMat,craft.windowGlass,craft.wood,craft.metal);
-  else {
-    const southWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
-    southWall.position.set(0, rh / 2, rd / 2 + 1.2);
-    southWall.receiveShadow = true;
-    gasilGroup.add(northWall, southWall);
-  }
+  const southWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
+  southWall.position.set(0, rh / 2, rd / 2 + 1.2);
+  southWall.receiveShadow = true;
+  gasilGroup.add(northWall, southWall);
 
-  if(layout === 'dermanli') {
-    block(gasilGroup,gasilWallMat,.24,rh,2.4,rw/2,rh/2,-2,2);
-    block(gasilGroup,gasilWallMat,.24,rh,2.4,rw/2,rh/2,2,2);
-    block(gasilGroup,gasilWallMat,.24,rh-2.35,1.6,rw/2,2.35+(rh-2.35)/2,0,2);
-  } else {
-    const eastLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
-    eastLeft.position.set(rw / 2, rh / 2, -2.0);
-    const eastRight = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
-    eastRight.position.set(rw / 2, rh / 2, 2.0);
-    const eastHeader = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.35, 1.6), gasilWallMat);
-    eastHeader.position.set(rw / 2, 2.35 + (rh - 2.35) / 2, 0);
-    gasilGroup.add(eastLeft, eastRight, eastHeader);
-  }
+  const eastLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
+  eastLeft.position.set(rw / 2, rh / 2, -2.0);
+  const eastRight = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
+  eastRight.position.set(rw / 2, rh / 2, 2.0);
+  const eastHeader = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.35, 1.6), gasilWallMat);
+  eastHeader.position.set(rw / 2, 2.35 + (rh - 2.35) / 2, 0);
+  gasilGroup.add(eastLeft, eastRight, eastHeader);
   block(gasilGroup, gasilWallMat, 0.24, rh, 1.2, rw / 2, rh / 2, rd / 2 + 0.6);
 
   const doorPivot = new THREE.Group();
@@ -688,7 +673,7 @@ export function createMosqueAndGasilhane(
   doorKnobIn.position.set(-0.08, 1.05, 1.38);
   doorPivot.add(doorMesh, doorKnob, doorKnobIn);
   gasilGroup.add(doorPivot);
-  craft.gasilEntry(gasilGroup, doorPivot, rw, rd, rh, gasilWallMat, 1.2, layout === 'dermanli');
+  craft.gasilEntry(gasilGroup, doorPivot, rw, rd, rh, gasilWallMat, 1.2);
 
   const westLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.3), gasilWallMat);
   westLeft.position.set(-rw / 2, rh / 2, -2.05);
@@ -772,21 +757,11 @@ export function createMosqueAndGasilhane(
   for (const z of [-2.1, 0.1, 2.3, 3.9])
     block(gasilGroup, timberMat, rw - 0.25, 0.16, 0.16, 0, rh - 0.1, z);
   const towelMat = new THREE.MeshStandardMaterial({ color: 0xa9a49a, roughness: 1, side: THREE.DoubleSide });
-  if(layout === 'legacy') {
-    block(gasilGroup, timberMat, 2.1, 0.08, 0.12, -1.75, 2.35, rd / 2 + 0.98);
-    for (const x of [-2.45, -1.75, -1.05]) {
-      const towel = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.94, 4, 4), towelMat);
-      towel.position.set(x, 1.83, rd / 2 + 0.90);gasilGroup.add(towel);
-    }
-  } else {
-    // Move the towel rail to the west wall so it doesn't cover the new windows.
-    block(gasilGroup,timberMat,.12,.08,1.55,-3.23,2.35,2.75);
-    for(const z of [2.25,2.75,3.25]){
-      const towel=new THREE.Mesh(new THREE.PlaneGeometry(.36,.85,4,4),towelMat);
-      towel.rotation.y=Math.PI/2;towel.position.set(-3.20,1.88,z);gasilGroup.add(towel);
-    }
+  block(gasilGroup, timberMat, 2.1, 0.08, 0.12, -1.75, 2.35, rd / 2 + 0.98);
+  for (const x of [-2.45, -1.75, -1.05]) {
+    const towel = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.94, 4, 4), towelMat);
+    towel.position.set(x, 1.83, rd / 2 + 0.90);gasilGroup.add(towel);
   }
-  if (layout === 'legacy') {
   // Shallow wall-mounted cupboards and stacks of folded linen, away from the slab.
   for (const x of [-1.8, -0.65]) {
     block(gasilGroup, craft.shutters[0], 1.0, 0.86, 0.26, x, 2.35, rd / 2 + 0.92, 1.4);
@@ -856,30 +831,6 @@ export function createMosqueAndGasilhane(
         z + depth / 2 + 0.055,
       );
     }
-  }
-
-  } else {
-    // Grounded counters: all four ritual tools have a real supporting surface.
-    // The north counter stays against the wall; the west stand leaves the window aisle open.
-    block(gasilGroup, craft.shutters[0], 6.0, .62, .82, 0, .51, -2.68, 1.5);
-    block(gasilGroup, marbleMat, 6.08, .09, .88, 0, .805, -2.68, 1.4);
-    for(const x of [-2.25,-.75,.75,2.25]){
-      block(gasilGroup, craft.wood, 1.35, .49, .035, x, .51, -2.247, 1.2);
-      block(gasilGroup, craft.shutters[0], 1.22, .36, .025, x, .51, -2.222, 1.2);
-      block(gasilGroup, craft.metal, .12, .035, .035, x, .62, -2.2);
-    }
-    block(gasilGroup, craft.shutters[0], .86, .62, 1.04, -2.72, .51, 2.32, 1.3);
-    block(gasilGroup, marbleMat, .92, .09, 1.1, -2.72, .805, 2.32, 1.4);
-    block(gasilGroup, craft.wood, .035, .48, .88, -2.27, .51, 2.32, 1.2);
-    block(gasilGroup, craft.metal, .035, .035, .13, -2.24, .61, 2.32);
-    // Shallow closed storage above the counter is separated from the towels and working area.
-    for(const x of [-1.8,1.8]){
-      block(gasilGroup, craft.shutters[0], 1.15, .72, .24, x, 2.28, -2.99, 1.4);
-      block(gasilGroup, craft.wood, 1.08, .65, .035, x, 2.28, -2.85, 1.3);
-      block(gasilGroup, craft.metal, .04, .1, .04, x+.42, 2.28, -2.81);
-    }
-    // An unobtrusive rail and tiled splashback make the water station readable.
-    block(gasilGroup, craft.metal, .04, .04, .9, -3.23, 1.35, 2.32);
   }
 
   // Marble Teneşir Slab
