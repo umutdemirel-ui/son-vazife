@@ -36,7 +36,7 @@ export function homeFurnitureColliders(spec: HomeSpec): BoxCollider[] {
 }
 
 /** Walk-in version of a village home. Walls and the leaf use the same survey as collision. */
-export function buildHome(spec: HomeSpec, number: number, ground: number, craft: VillageCraft, use: 'home' | 'school' | 'gassal' | 'abandoned' | 'coffee' = 'home') {
+export function buildHome(spec: HomeSpec, number: number, ground: number, craft: VillageCraft, use: 'home' | 'school' | 'gassal' | 'abandoned' = 'home') {
   const root = new THREE.Group(); root.position.set(spec.x, ground, spec.z); root.rotation.y = spec.rotY;
   root.name = `Hane ${number}`;
   const { w, d } = spec, wall = 0.18, height = 2.75 + (number % 3) * 0.12, opening = use === 'home' ? 1.45 : 2;

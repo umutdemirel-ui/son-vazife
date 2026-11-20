@@ -98,6 +98,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         gassalHome: () => [...S.gassalHome],
         barn: () => [...S.barn],
         coffee: () => [...S.coffee],
+        millWheel: () => world.wheel.rotation.x,
         abandonedHomes: () => S.abandonedHomes.map(p=>[...p]),
         approachNight: () => {elapsed=DAY_SECONDS/2-2;previousNight=false;},
         worldTools: () => Object.fromEntries(Object.entries(world.stationMeshes).map(([id,mesh])=>[id,mesh.visible])),
@@ -248,7 +249,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       for(const [id,item] of Object.entries(world.stationMeshes))item.visible=ritual.held!==id;
       world.gasil.vigilFlame.visible=ritual.candle;world.gasil.vigilLight.intensity=ritual.candle?1.8:0;
       world.updateArt(pos.x,pos.z);
-      if(night)world.wheel.rotation.x+=dt*.5;
+      world.wheel.rotation.x=(elapsed*.5)%(Math.PI*2);
       for(const r of world.residents){r.visual.group.visible=memoryAvailable(ritual.night,night)&&!ritual.ending;if(r.visual.group.visible){r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
       for(const r of world.coffeeResidents){r.visual.group.visible=coffeeResidentAvailable(night)&&!ritual.ending;if(r.visual.group.visible){if(!r.seated)r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
       world.elif.visible=!ritual.ending&&spiritAvailable('elif',ritual.night,night);world.riza.visible=!ritual.ending&&spiritAvailable('riza',ritual.night,night);

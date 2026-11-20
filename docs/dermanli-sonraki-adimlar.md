@@ -7,3 +7,5 @@ Bu liste devam eden işlerdir; tamamlanmış sayılmaz. Oyun bitmeden production
 3. **NPC'ler:** Eski karakterleri koru ve çeşitliliği artır. Kahvehanede kahveci ve iki oturan müşteri ilk adım olarak eklendi; şu an mevcut karakter modelleri yeniden kullanılıyor, özgün görünüm ve daha kapsamlı diyaloglar hâlâ gerekiyor. NPC'ler kullanıcının özellikle istediği kahvehane dışında evlerin içine yerleştirilmeyecek.
 4. **Korku karakterleri:** Mevcut takip ve sahne tetiklerini, gerçek oyun sırasında görünürlük, modellerin yüklenmesi, araziye oturması, davranış ve oynanış üzerindeki etkileriyle baştan sona denetle; gerekli eksik karakter ve olayları ekle. Yalnızca model dosyasının varlığını yeterli sayma.
 5. **Bütünlük:** Her büyük değişiklikten sonra rotaları, beş geceyi, kayıtları, tüm sonları ve menüyü tarayıcıda test et; sonucu görsel olarak da incele.
+
+6. **Yapılar ve dokular:** Kahvehane bağımsız bir yapı olarak yeniden kuruldu; değirmen çarkı gündüz ve gece dönüyor, değirmenin duvar UV’leri yeniden ölçeklendi. Diğer evleri, değirmenin geri kalan ayrıntılarını ve bütün yapıların dokularını tek tek görsel olarak gözden geçirip düzeltmeye devam et.

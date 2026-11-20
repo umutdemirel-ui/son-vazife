@@ -10,6 +10,10 @@ try {
  await page.goto(process.env.VILLAGE_URL || 'http://localhost:3016/');
  await page.getByText('KÖYE GİR').click(); await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
  await page.locator('canvas').click({position:{x:500,y:350}}); await page.waitForFunction(()=>!!document.pointerLockElement);
+ const wheelBefore=await page.evaluate(()=>window.__dermanliTest.millWheel());
+ await page.waitForTimeout(650);
+ const wheelAfter=await page.evaluate(()=>window.__dermanliTest.millWheel());
+ if(Math.abs(wheelAfter-wheelBefore)<.05)throw Error('Mill wheel did not turn during the day');
  await page.keyboard.press('h'); await page.getByRole('dialog',{name:'Dermanlı haritası'}).waitFor();
  const clockBefore=await page.evaluate(()=>window.__dermanliTest.clock());
  await page.waitForTimeout(300);await page.locator('canvas').click({position:{x:10,y:10}});await page.waitForTimeout(200);
@@ -66,6 +70,8 @@ try {
  await action('school');if(!(await state()).clues.includes('school'))throw Error('School record did not unlock after bells');
  await page.evaluate(()=>window.__dermanliTest.advanceToNight());
  await page.waitForFunction(()=>window.__dermanliTest.coffeeResidents().every(r=>!r.visible),null,{timeout:15000});
+ const nightWheel=await page.evaluate(()=>window.__dermanliTest.millWheel());await page.waitForTimeout(650);
+ if(Math.abs((await page.evaluate(()=>window.__dermanliTest.millWheel()))-nightWheel)<.05)throw Error('Mill wheel did not turn at night');
  await action('arrival');
  await page.reload();await page.getByText('DEVAM ET').click();await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
  await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);

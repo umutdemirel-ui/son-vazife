@@ -1683,19 +1683,12 @@ export function createWatermillAndBridge(textures: VillageTextures, bridgeFinish
   const ceiling=new THREE.Mesh(new THREE.BoxGeometry(rw,.12,rd),woodMat);
   ceiling.position.y=rh-.06;millGroup.add(ceiling);
 
-  const westW = new THREE.Mesh(new THREE.BoxGeometry(0.26, rh, rd), stoneMat);
-  westW.position.set(-rw / 2, rh / 2, 0);
-  const northW = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.26), stoneMat);
-  northW.position.set(0, rh / 2, -rd / 2);
-  const southW = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.26), woodMat);
-  southW.position.set(0, rh / 2, rd / 2);
-  const eastL = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.1), woodMat);
-  eastL.position.set(rw / 2, rh / 2, -1.85);
-  const eastR = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.1), woodMat);
-  eastR.position.set(rw / 2, rh / 2, 1.85);
-  const eastTop = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh - 2.3, 1.6), woodMat);
-  eastTop.position.set(rw / 2, 2.3 + (rh - 2.3) / 2, 0);
-  millGroup.add(westW, northW, southW, eastL, eastR, eastTop);
+  // Metre-scaled UVs prevent a single stone or plank being stretched across a wall.
+  block(millGroup,stoneMat,.26,rh,rd,-rw/2,rh/2,0,2.0);
+  block(millGroup,stoneMat,rw,rh,.26,0,rh/2,-rd/2,2.0);
+  block(millGroup,woodMat,rw,rh,.26,0,rh/2,rd/2,1.5);
+  for(const z of [-1.85,1.85])block(millGroup,woodMat,.24,rh,2.1,rw/2,rh/2,z,1.5);
+  block(millGroup,woodMat,.24,rh-2.3,1.6,rw/2,2.3+(rh-2.3)/2,0,1.5);
 
   // Uneven tiled eaves and a long ridge, rather than a pyramidal placeholder.
   pitchedRoof(millGroup, roofMat, roofMat, rw + 0.65, rd + 0.65, rh, 0.9, 1.45);

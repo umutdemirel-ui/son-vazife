@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createCoffeehouse,COFFEEHOUSE_WALLS,COFFEEHOUSE_OPEN_DOOR,COFFEEHOUSE_POSTS } from './coffeehouse';
 import { createDermanliTerrain, dermanliSurfaceHeight } from './dermanliTerrain';
 import { DERMANLI_PATHS, DERMANLI_SITES as S, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
@@ -109,10 +110,10 @@ export function createDermanliWorld(scene: THREE.Scene) {
 
   const addHome = (site: Point, id: string, number: number, w = 6.5, d = 5) => {
     const spec: HomeSpec = {x:site[0],z:site[1],rotY:0,w,d,h:3,style:number%2 ? 'himis' : 'tas'};
-    const {home,walls} = buildHome(spec,number,dermanliSurfaceHeight(...site),craft,id === 'school' ? 'school' : id === 'home' ? 'gassal' : id.startsWith('abandoned') ? 'abandoned' : id === 'coffee' ? 'coffee' : 'home');
+    const {home,walls} = buildHome(spec,number,dermanliSurfaceHeight(...site),craft,id === 'school' ? 'school' : id === 'home' ? 'gassal' : id.startsWith('abandoned') ? 'abandoned' : 'home');
     home.door.rotation.y = -Math.PI*.5; homes.push(home); objects.add(home.root); colliders.push(...walls);occluders.push(...walls.slice(0,5));
     // The opened door leaf projects into the yard; do not let players stand inside its mesh.
-    const leafWidth=id === 'school' || id === 'home' || id === 'coffee' || id.startsWith('abandoned') ? 2 : 1.45;
+    const leafWidth=id === 'school' || id === 'home' || id.startsWith('abandoned') ? 2 : 1.45;
     const openDoor=homeCollider(spec,-leafWidth/2,d/2+leafWidth/2,.14,leafWidth);colliders.push(openDoor);occluders.push(openDoor);
   };
   addHome(S.gassalHome,'home',0,7,5); addHome(S.school,'school',1,8,6);
@@ -136,7 +137,11 @@ export function createDermanliWorld(scene: THREE.Scene) {
   box(1.2,.1,.25,hx-2.65,hy+1.8,hz-2.28,craft.wood);
   for(let i=0;i<3;i++)box(.16,.32,.17,hx-3.02+i*.19,hy+2.01,hz-2.28,craft.shutters[i%craft.shutters.length]);
 
-  const coffeeSite=S.coffee;addHome(coffeeSite,'coffee',8,7,5);
+  const coffeeSite=S.coffee,coffeehouse=createCoffeehouse(craft);
+  coffeehouse.root.position.set(coffeeSite[0],dermanliSurfaceHeight(...coffeeSite),coffeeSite[1]);objects.add(coffeehouse.root);
+  const coffeeWalls=translateColliders({x:coffeeSite[0],z:coffeeSite[1]},COFFEEHOUSE_WALLS);
+  const coffeeDoor=translateColliders({x:coffeeSite[0],z:coffeeSite[1]},[COFFEEHOUSE_OPEN_DOOR]);
+  colliders.push(...coffeeWalls,...coffeeDoor,...translateColliders({x:coffeeSite[0],z:coffeeSite[1]},COFFEEHOUSE_POSTS));occluders.push(...coffeeWalls,...coffeeDoor);
   S.abandonedHomes.forEach((p,i)=>addHome(p,`abandoned${i}`,i+3));
   // Each empty house has a physical trace, with matching movement and sight blockers.
   S.abandonedHomes.forEach(([x,z],i)=>{
@@ -175,7 +180,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const coffeeContext=coffeeCanvas.getContext('2d');if(coffeeContext){coffeeContext.fillStyle='#3e3024';coffeeContext.fillRect(0,0,512,128);coffeeContext.fillStyle='#dfcfaa';coffeeContext.font='bold 52px serif';coffeeContext.textAlign='center';coffeeContext.fillText('KÖY KAHVEHANESİ',256,82);}
   const coffeeTexture=new THREE.CanvasTexture(coffeeCanvas);coffeeTexture.colorSpace=THREE.SRGBColorSpace;
   const coffeeSignMaterial=new THREE.MeshStandardMaterial({map:coffeeTexture,roughness:1});ownMaterial.push(coffeeSignMaterial);
-  const coffeeSignGeometry=new THREE.PlaneGeometry(3,.55);ownGeometry.push(coffeeSignGeometry);const coffeeSign=new THREE.Mesh(coffeeSignGeometry,coffeeSignMaterial);coffeeSign.position.set(coffeeSite[0],2.48,coffeeSite[1]+2.63);objects.add(coffeeSign);
+  const coffeeGround=dermanliSurfaceHeight(...coffeeSite);
+  box(3.3,.53,.08,coffeeSite[0],coffeeGround+2.82,coffeeSite[1]+3.93,craft.wood);
+  const coffeeSignGeometry=new THREE.PlaneGeometry(3.16,.46);ownGeometry.push(coffeeSignGeometry);const coffeeSign=new THREE.Mesh(coffeeSignGeometry,coffeeSignMaterial);coffeeSign.position.set(coffeeSite[0],coffeeGround+2.82,coffeeSite[1]+3.98);objects.add(coffeeSign);
   const homeLight=new THREE.PointLight(0xffb15c,4,12,1.7);homeLight.position.set(S.gassalHome[0],2.1,S.gassalHome[1]);objects.add(homeLight);
   const emptyHomeGlow=new THREE.MeshBasicMaterial({color:0xd29952});ownMaterial.push(emptyHomeGlow);
   const emptyHomeWindows=S.abandonedHomes.map(([x,z])=>{
@@ -250,6 +257,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const detailGeometry=new Set<THREE.BufferGeometry>();
   const millMaterials=new Set<THREE.Material>();
   const ownDetails=(group:THREE.Object3D)=>group.traverse(o=>{if(o instanceof THREE.Mesh)detailGeometry.add(o.geometry);});
+  ownDetails(coffeehouse.root);
   for(const group of [millAndBridge.millGroup,millAndBridge.bridgeGroup]){ownDetails(group);group.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])millMaterials.add(m);});}
   // A single-storey timber barn, with a wide, permanently open entrance and no residents.
   const [ax,az]=S.barn,ay=dermanliSurfaceHeight(ax,az),barn=new THREE.Group();barn.position.set(ax,ay,az);barn.name='Ahır';objects.add(barn);
@@ -363,7 +371,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const coffeeResidents=(Object.keys(COFFEE_RESIDENTS) as CoffeeResidentId[]).map(id=>{
     const def=COFFEE_RESIDENTS[id],x=kx+def.x,z=kz+def.z;
     const visual=new ResidentVisual(def.model,residentLoader,undefined,true,{seated:def.seated,props:false});
-    visual.group.name=`coffee-${id}`;visual.group.position.set(x,ky,z);visual.group.rotation.y=def.seated?Math.PI:0;
+    visual.group.name=`coffee-${id}`;visual.group.position.set(x,ky+(def.seated?0:.10),z);visual.group.rotation.y=def.seated?Math.PI:0;
     visual.group.visible=false;objects.add(visual.group);target(`coffee_${id}`,`${def.name} ile konuş`,[x,z],1.65);
     return {id,visual,x,z,seated:def.seated};
   });
