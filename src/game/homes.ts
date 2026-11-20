@@ -45,7 +45,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   const finish = spec.style === 'tas' ? craft.masonry : number % 4 === 0 ? craft.earthen : craft.lime[number % craft.lime.length];
   const upperFinish = spec.style === 'tas' ? craft.lime[(number + 1) % craft.lime.length] : finish;
   block(root, craft.wood, w, 0.12, d, 0, HOME_FLOOR_HEIGHT - 0.06, 0, 1.5);
-  if(use==='gassal'||use==='school') {
+  if(use==='gassal'||use==='school'||use==='abandoned') {
     // Keep the central classroom board and the home's rear shelving clear of the openings.
     const center=w*.32,width=.9,sill=1.08,top=2.2,z=-d/2;
     const middle=2*center-width,edge=w/2-center-width/2;

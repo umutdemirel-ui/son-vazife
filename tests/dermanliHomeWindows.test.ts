@@ -59,10 +59,10 @@ test('gassal, school and abandoned side windows are transparent and collision-sa
  stone.dispose();wood.dispose();glass.dispose();
 });
 
-test('gassal and school rear windows have visible glass and retain collision',()=>{
+test('gassal, school and abandoned rear windows have visible glass and retain collision',()=>{
  const stone=new THREE.MeshStandardMaterial(),wood=new THREE.MeshStandardMaterial(),glass=new THREE.MeshStandardMaterial({transparent:true,opacity:.3,side:THREE.DoubleSide});
  const craft={wood,masonry:stone,lime:[stone],earthen:stone,limestone:stone,shutters:[wood],windowGlass:glass,roofVariants:[stone],metalRoof:stone,door:wood,kilim:stone,metal:wood,plate:()=>{},window:()=>{}} as unknown as VillageCraft;
- for(const use of ['gassal','school'] as const){
+ for(const use of ['gassal','school','abandoned'] as const){
   const w=use==='school'?8:7,d=use==='school'?6:5;
   const {home,walls}=buildHome({x:0,z:0,rotY:0,w,d,h:3,style:'tas'},0,0,craft,use);home.root.updateMatrixWorld(true);
   for(const side of [-1,1]){

@@ -54,7 +54,7 @@ Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik erte
    - [ ] Kalan olayları tek tek tetik, yön/görünürlük, ses, tekrar ve kayıt açısından denetle; anlatılan görsel olayların gerçekten görünmesini sağla.
    - [ ] Eksik korku karakterlerini belirleyip ekle; çarpışma ve yıkama akışını bozmadıklarını sına.
 5. **Yapılar ve dokular:**
-   - [ ] Gassal evi ve okulun yan/arka cepheleri, terk evlerin yan cepheleri tamamlandı; terk evlerin arka cepheleri ve kalan ayrıntıları inceleyip düzelt.
+   - [ ] Gassal evi, okul ve dört terk evin yan/arka camları tamamlandı; kalan cephe ayrıntılarını inceleyip düzelt.
    - [ ] Değirmenin kalan ayrıntıları ve diğer yapı cephelerini gözden geçir; doku, açıklık ve erişim testleri ekle.
 6. **Eski oyun bütünlüğü:**
    - [ ] Eski menü ve karakterlerin eksik davranışlarını karşılaştırıp gider.
@@ -66,3 +66,6 @@ Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik erte
 ### Kuzdağ'a ayrı erişim
 - Ana menüden önceki Kuzdağ oyunu ayrı bir hikâye olarak açılır; mevcut geçerli v2 kaydı sürdürülür, kayıt yoksa yeni hikâye başlatılır. Okunamayan/erişilemeyen kayıt üzerine yazılmaz; oturum kurulurken kayıt durumu tekrar kontrol edilir. Dermanlı ve ilk nöbet kayıtları bu geçişte değiştirilmez.
 - Tarayıcı testi yeni oturumun açılışını, hasarlı kayıt korumasını ve devam seçeneğini sınar; eski hikâyenin tüm vakalarını ve sonlarını bu test baştan sona doğrulamaz. İki köyün hikâyeleri veya ilerlemesi birleştirilmiş değildir.
+
+- Dört terk evin arka cephesine sekiz cam açıklığı eklendi; gerçek dünya geometrisi ve çarpışması tarayıcıda sınandı. Ev gölgesi ve çarpışmalı beş gece testi yeniden geçti.
+- Kuzdağ senaryo testi yeni menüye uyarlandı: otomatik test üç vaka, sekiz bölüm, on altı kayıt ve üç sonu geçti. Test rotayı hızlandırmak için yer yer simülasyon/konumlandırma kullanır; bu, tüm güzergâhın manuel oynanış veya gerçek cihaz kabulü değildir.

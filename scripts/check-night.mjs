@@ -45,13 +45,8 @@ try {
   });
   await page.goto(process.env.VILLAGE_URL || 'http://localhost:3000', { waitUntil: 'networkidle' });
   const btn = (name) => page.getByRole('button', { name, exact: typeof name === 'string' });
-  await btn('Oyuna başla').click();
-  await btn('Defteri aç').click();
-  await page.getByRole('radio', { name: /Hacı Arif/ }).check();
-  await btn('Kaydı iliştir').click();
-  await btn('Bekle').click();
-  assert.equal(assets.length, 0);
-  await btn('Meydana çık').click();
+  await btn('Kuzdağ · Önceki oyun').click();
+  await btn('Kuzdağ hikâyesine başla').click();
   await btn('Duraklat').waitFor();
   const helpers = async () => {
     await page.waitForFunction(() => window.fixture?.assetsReady);
@@ -94,7 +89,8 @@ try {
   await helpers();
   const reload = async () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await btn('Devam et').click();
+    await btn('Kuzdağ · Önceki oyun').click();
+    await btn('Kuzdağ kaydına devam et').click();
     await btn('Duraklat').waitFor();
     await helpers();
   };
@@ -423,7 +419,8 @@ try {
   assert.equal(await val('screen'), 'playing');
   // The final choice and existing violation-based endings survive a page reload.
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await btn('Devam et').click();
+  await btn('Kuzdağ · Önceki oyun').click();
+  await btn('Kuzdağ kaydına devam et').click();
   await page.waitForFunction(() => window.fixture?.assetsReady);
   assert.equal(await val('screen'), 'playing');
   await escape();

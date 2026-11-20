@@ -151,7 +151,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             return {id,visibleFloor:hit?.point.y??null,walking:dermanliWalkingHeight(x,z,world.homes)};
           });
         },
-        rearWindows: () => world.homes.slice(0,2).map(home=>{
+        rearWindows: () => world.homes.map(home=>{
           home.root.updateWorldMatrix(true,true);const {x,z,w,d}=home.spec;
           return [-1,1].map(side=>{
             const px=x+side*w*.32+.16,ray=new THREE.Raycaster(new THREE.Vector3(px,home.ground+1.8,z),new THREE.Vector3(0,0,-1),0,d/2+.3);
