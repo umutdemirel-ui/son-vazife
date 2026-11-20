@@ -192,6 +192,7 @@ export class VillageCraft {
   readonly metalRoof: THREE.MeshStandardMaterial;
   readonly kilim: THREE.MeshStandardMaterial;
   readonly pane: THREE.MeshStandardMaterial;
+  readonly windowGlass: THREE.MeshStandardMaterial;
   readonly door: THREE.MeshStandardMaterial;
   readonly water: THREE.MeshStandardMaterial;
   readonly metal = new THREE.MeshStandardMaterial({ color: 0x786448, metalness: 0.42, roughness: 0.57 });
@@ -226,6 +227,7 @@ export class VillageCraft {
     this.metalRoof.metalness = 0.28;
     this.kilim = standard(t.kilim, 0xb4a79a, 0.99);
     this.pane = standard(t.sash, 0xd1d2c7, 0.73);
+    this.windowGlass = new THREE.MeshStandardMaterial({color:0xa9b9b6,roughness:.25,transparent:true,opacity:.28,depthWrite:false,side:THREE.DoubleSide});
     this.door = standard(t.door, 0xc1b4a6, 0.88);
     this.water = new THREE.MeshStandardMaterial({
       map: t.water,
@@ -459,6 +461,7 @@ export class VillageCraft {
       this.metalRoof,
       this.kilim,
       this.pane,
+      this.windowGlass,
       this.door,
       this.metal,
       this.enamel,

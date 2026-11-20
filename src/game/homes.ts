@@ -47,8 +47,26 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   for (const side of [-1, 1])
     block(root, finish, wall, height, d, side * w / 2, height / 2, 0, 2.2);
   const flank = (w - opening) / 2;
-  for (const side of [-1, 1])
-    block(root, finish, flank, height, wall, side * (opening / 2 + flank / 2), height / 2, d / 2, 2.2);
+  for (const side of [-1, 1]) {
+    const center=side*(opening/2+flank/2);
+    if(use==='home') {
+      // Preserve the older Kuzdağ house construction.
+      block(root,finish,flank,height,wall,center,height/2,d/2,2.2);
+    } else {
+      // Cut an actual window into the front wall rather than placing a photo on solid masonry.
+      const windowWidth=Math.min(1.0,flank*.6),edge=(flank-windowWidth)/2,sill=1.08,top=2.2;
+      for(const shift of [-1,1])block(root,finish,edge,height,wall,center+shift*(windowWidth/2+edge/2),height/2,d/2,2.2);
+      block(root,finish,windowWidth,sill,wall,center,sill/2,d/2,2.2);
+      block(root,finish,windowWidth,height-top,wall,center,(height+top)/2,d/2,2.2);
+      const glass=new THREE.Mesh(new THREE.PlaneGeometry(windowWidth,top-sill),craft.windowGlass);
+      glass.name='Dermanlı pencere camı';glass.position.set(center,(sill+top)/2,d/2);root.add(glass);
+      for(const dx of [-windowWidth/2,windowWidth/2])block(root,craft.wood,.08,top-sill+.12,.24,center+dx,(sill+top)/2,d/2,1.2);
+      for(const y of [sill,top])block(root,craft.wood,windowWidth+.12,.08,.24,center,y,d/2,1.2);
+      block(root,craft.wood,.055,top-sill,.24,center,(sill+top)/2,d/2,1.2);
+      block(root,craft.wood,windowWidth,.055,.24,center,(sill+top)/2,d/2,1.2);
+      block(root,craft.limestone,windowWidth+.22,.08,.3,center,sill-.06,d/2,1.0);
+    }
+  }
   block(root, finish, opening, height - 2.18, wall, 0, (height + 2.18) / 2, d / 2, 2.2);
   // Most facades have the low stone storey and timber-framed upper silhouette
   // of an old Anatolian hamlet. The upper storey is a sealed visual shell;
@@ -77,7 +95,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   }
   // Shuttered windows and structural timber read from the muddy street.
   for (const side of [-1, 1]) {
-    craft.window(root, side * (opening / 2 + flank / 2), 1.67, d / 2 + 0.1, Math.min(0.8, flank * 0.68), 0.95, 0, number % 3 === 0 ? craft.shutters[(number + 1) % craft.shutters.length] : undefined);
+    if(use==='home')craft.window(root, side * (opening / 2 + flank / 2), 1.67, d / 2 + 0.1, Math.min(0.8, flank * 0.68), 0.95, 0, number % 3 === 0 ? craft.shutters[(number + 1) % craft.shutters.length] : undefined);
     if (spec.style !== 'tas')
       block(root, craft.wood, 0.1, height, 0.09, side * (w / 2 - 0.12), height / 2, d / 2 + 0.12);
   }

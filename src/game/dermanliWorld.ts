@@ -146,9 +146,6 @@ export function createDermanliWorld(scene: THREE.Scene) {
   // Each empty house has a physical trace, with matching movement and sight blockers.
   S.abandonedHomes.forEach(([x,z],i)=>{
     const y=dermanliSurfaceHeight(x,z);
-    const insideWindows=new THREE.Group();insideWindows.position.set(x,y,z);objects.add(insideWindows);
-    for(const wx of [-2.125,2.125])craft.window(insideWindows,wx,1.67,2.39,.8,.95,Math.PI);
-    insideWindows.traverse(o=>{if(o instanceof THREE.Mesh)ownGeometry.push(o.geometry);});
     box(1.4,.1,.72,x+1.5,y+.74,z-1.35,craft.wood);
     for(const dx of [-.58,.58])for(const dz of [-.24,.24])box(.08,.7,.08,x+1.5+dx,y+.35,z-1.35+dz,craft.wood);
     colliders.push({minX:x+.8,maxX:x+2.2,minZ:z-1.71,maxZ:z-.99});
