@@ -5,6 +5,8 @@ import { DERMANLI_SITES as S, DERMANLI_BOUNDS as B } from './game/dermanliMap';
 import { dermanliSurfaceHeight } from './game/dermanliTerrain';
 import { dermanliWalkingHeight } from './game/dermanliBridge';
 import {applyLookDelta,advanceLook} from './game/dermanliLook';
+import {MOSQUE_GRAVES} from './game/cemetery';
+import {PINE_SPRITE_HEIGHT} from './game/dermanliGrove';
 import { pushOutsideBox } from './game/collision';
 import {moveDermanliPlayer} from './game/dermanliMovement';
 import {wallBetween} from './game/nightPatrol';
@@ -131,6 +133,39 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             const ray=new THREE.Raycaster(new THREE.Vector3(x+dx+.13,y+2.31,z+5.2),new THREE.Vector3(0,0,-1),0,1.45);
             return ray.intersectObject(world.gasil.group,true).map(hit=>{const mesh=hit.object as THREE.Mesh,material=Array.isArray(mesh.material)?mesh.material[0]:mesh.material;return {distance:hit.distance,transparent:material.transparent,opacity:material.opacity};});
           });
+        },
+        groveCemeteryAudit: () => {
+          const {pines,trunks,coords}=world.grove;
+          const image=(pines.material instanceof THREE.MeshLambertMaterial?pines.material.map?.image:undefined) as HTMLImageElement|undefined;
+          if(!pines.visible||!image)return null;
+          const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+          const ctx=canvas.getContext('2d');if(!ctx)return null;ctx.drawImage(image,0,0);
+          const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;let last=-1;
+          for(let y=canvas.height-1;y>=0&&last<0;y--)for(let x=0;x<canvas.width;x++)if(pixels[(y*canvas.width+x)*4+3]>82){last=y;break;}
+          const matrix=new THREE.Matrix4(),position=new THREE.Vector3(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3();
+          const ray=new THREE.Raycaster();world.terrainGround.updateWorldMatrix(true,true);
+          let maxGap=-Infinity,minGap=Infinity,maxFallbackError=0,missingColliders=0,missedGround=0;
+          const samples:Array<{x:number;z:number;y:number;gap:number}>=[];
+          coords.forEach(([x,z],i)=>{
+            ray.set(new THREE.Vector3(x,100,z),new THREE.Vector3(0,-1,0));const ground=ray.intersectObject(world.terrainGround,false)[0];
+            if(!ground){missedGround++;return;}
+            pines.getMatrixAt(i,matrix);matrix.decompose(position,quaternion,scale);
+            const visibleBase=position.y+PINE_SPRITE_HEIGHT*scale.y*(canvas.height-1-last)/canvas.height;
+            const gap=visibleBase-ground.point.y;maxGap=Math.max(maxGap,gap);minGap=Math.min(minGap,gap);
+            if(ground.point.y>1&&samples.length<4)samples.push({x,z,y:ground.point.y,gap});
+            trunks.getMatrixAt(i,matrix);matrix.decompose(position,quaternion,scale);maxFallbackError=Math.max(maxFallbackError,Math.abs(position.y-1-ground.point.y));
+            if(!world.colliders.some(c=>Math.abs(c.minX-(x-.25))<1e-7&&Math.abs(c.maxX-(x+.25))<1e-7&&Math.abs(c.minZ-(z-.25))<1e-7&&Math.abs(c.maxZ-(z+.25))<1e-7))missingColliders++;
+          });
+          const clusters=world.cemeteryClusters.map(g=>{const p=g.getWorldPosition(new THREE.Vector3()),bounds=new THREE.Box3().setFromObject(g);return {x:p.x,z:p.z,base:bounds.min.y,ground:dermanliSurfaceHeight(p.x,p.z)};});
+          let missingGraves=0,maxGraveGroundDelta=0;
+          for(const group of world.cemeteryClusters){const p=group.getWorldPosition(new THREE.Vector3());for(const grave of MOSQUE_GRAVES){
+            const x=p.x+grave.x,z=p.z+grave.z;maxGraveGroundDelta=Math.max(maxGraveGroundDelta,Math.abs(dermanliSurfaceHeight(x,z)-p.y));
+            if(!world.colliders.some(c=>Math.abs(c.minX-(x-.42))<1e-7&&Math.abs(c.maxX-(x+.42))<1e-7&&Math.abs(c.minZ-(z-.82))<1e-7&&Math.abs(c.maxZ-(z+.82))<1e-7))missingGraves++;
+          }}
+          const gate={x:S.cemetery[0],z:S.cemetery[1]+11.7},resolved={...gate};for(const wall of world.colliders)pushOutsideBox(resolved,wall,.32);
+          const gateShift=Math.hypot(resolved.x-gate.x,resolved.z-gate.z);
+          const mounds=world.graveMounds.map(m=>({x:m.position.x,z:m.position.z,center:m.position.y,ground:dermanliSurfaceHeight(m.position.x,m.position.z)}));
+          return {count:coords.length,lastOpaqueRow:last,imageHeight:canvas.height,maxGap,minGap,maxFallbackError,missingColliders,missedGround,samples,clusters,mounds,missingGraves,maxGraveGroundDelta,gateShift};
         },
         squareArt: () => ({fountain:!!world.fountain.getObjectByName('hayrat'),tree:world.squareTree.visible}),
         visualState: () => ({mounds:world.graveMounds.filter(m=>m.visible).length,litWindows:world.emptyHomeWindows.filter(w=>w.visible).length,fountain:world.fountainWater.visible}),
