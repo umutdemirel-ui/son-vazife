@@ -146,17 +146,18 @@ export function createDermanliWorld(scene: THREE.Scene) {
   colliders.push(...coffeeWalls,...coffeeDoor,...translateColliders({x:coffeeSite[0],z:coffeeSite[1]},COFFEEHOUSE_POSTS));occluders.push(...coffeeWalls,...coffeeDoor);
   S.abandonedHomes.forEach((p,i)=>addHome(p,`abandoned${i}`,i+3));
   // Each empty house has a physical trace, with matching movement and sight blockers.
+  const clueSupports: {item:THREE.Object3D;support:THREE.Object3D}[]=[];
   S.abandonedHomes.forEach(([x,z],i)=>{
-    const y=dermanliSurfaceHeight(x,z);
-    box(1.4,.1,.72,x+1.5,y+.74,z-1.35,craft.wood);
-    for(const dx of [-.58,.58])for(const dz of [-.24,.24])box(.08,.7,.08,x+1.5+dx,y+.35,z-1.35+dz,craft.wood);
+    const y=dermanliSurfaceHeight(x,z),floor=y+HOME_FLOOR_HEIGHT;
+    const table=box(1.4,.1,.72,x+1.5,floor+.74,z-1.35,craft.wood);
+    for(const dx of [-.58,.58])for(const dz of [-.24,.24])homeSupports.push({item:box(.08,.70,.08,x+1.5+dx,floor+.35,z-1.35+dz,craft.wood),home:i+2});
     colliders.push({minX:x+.8,maxX:x+2.2,minZ:z-1.71,maxZ:z-.99});
-    box(.85,.12,.7,x-2.15,y+.4,z-1.5,craft.wood);
-    for(const dx of [-.32,.32])box(.08,.38,.08,x-2.15+dx,y+.19,z-1.5,craft.wood);
+    box(.85,.12,.7,x-2.15,floor+.4,z-1.5,craft.wood);
+    for(const dx of [-.32,.32])homeSupports.push({item:box(.08,.38,.08,x-2.15+dx,floor+.19,z-1.5,craft.wood),home:i+2});
     colliders.push({minX:x-2.575,maxX:x-1.725,minZ:z-1.85,maxZ:z-1.15});
     if(i===0){
-      box(.58,.025,.37,x+1.5,y+.81,z-1.35,paper);
-      for(const side of [-1,1]){const seam=box(.34,.008,.015,x+1.5+side*.12,y+.83,z-1.35,ink);seam.rotation.y=side*.55;}
+      clueSupports.push({item:box(.58,.025,.37,x+1.5,floor+.8025,z-1.35,paper),support:table});
+      for(const side of [-1,1]){const seam=box(.34,.008,.015,x+1.5+side*.12,floor+.819,z-1.35,ink);seam.rotation.y=side*.55;}
       target('abandoned0','Terk ev · Mektup zarfı',[x+1.5,z-1.35],1.8);
     }else if(i===1){
       // The visible boards are on the room-facing side of the two front windows.
@@ -166,11 +167,11 @@ export function createDermanliWorld(scene: THREE.Scene) {
       target('abandoned1','Terk ev · Kapalı pencere',[x+2.125,z+2.18],1.7);
     }else if(i===2){
       const plateGeometry=new THREE.CylinderGeometry(.21,.16,.045,24);ownGeometry.push(plateGeometry);
-      const plate=new THREE.Mesh(plateGeometry,craft.enamel);plate.position.set(x+1.5,y+.82,z-1.35);objects.add(plate);
+      const plate=new THREE.Mesh(plateGeometry,craft.enamel);plate.position.set(x+1.5,floor+.8125,z-1.35);objects.add(plate);clueSupports.push({item:plate,support:table});
       target('abandoned2','Terk ev · Tabak',[x+1.5,z-1.35],1.8);
     }else{
-      const calendar=box(.48,.02,.66,x+.35,y+.105,z-.32,paper);calendar.rotation.y=.26;
-      for(let line=0;line<4;line++){const mark=box(.32,.008,.012,x+.35,y+.12,z-.53+line*.11,ink);mark.rotation.y=.26;}
+      const calendar=box(.48,.02,.66,x+.35,floor+.01,z-.32,paper);calendar.rotation.y=.26;clueSupports.push({item:calendar,support:homes[i+2].root});
+      for(let line=0;line<4;line++){const mark=box(.32,.008,.012,x+.35,floor+.024,z-.53+line*.11,ink);mark.rotation.y=.26;}
       target('abandoned3','Terk ev · Takvim',[x+.35,z-.32],1.4);
     }
   });
@@ -261,7 +262,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
   for(const group of [millAndBridge.millGroup,millAndBridge.bridgeGroup]){ownDetails(group);group.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])millMaterials.add(m);});}
   // A single-storey timber barn, with a wide, permanently open entrance and no residents.
   const [ax,az]=S.barn,ay=dermanliSurfaceHeight(ax,az),barn=new THREE.Group();barn.position.set(ax,ay,az);barn.name='Ahır';objects.add(barn);
-  block(barn,craft.masonry,7,.16,5,0,.03,0,2);
+  const barnFloor=.11;
+  const barnSupports:THREE.Object3D[]=[];
+  const barnFloorMesh=block(barn,craft.masonry,7,.16,5,0,barnFloor-.08,0,2);
   block(barn,craft.wood,7,2.9,.2,0,1.45,-2.5,1.5);
   for(const x of [-3.5,3.5])block(barn,craft.wood,.2,2.9,5,x,1.45,0,1.5);
   for(const x of [-2.35,2.35])block(barn,craft.wood,2.3,2.9,.2,x,1.45,2.5,1.5);
@@ -281,13 +284,13 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const hayTexture=new THREE.CanvasTexture(hayCanvas);hayTexture.colorSpace=THREE.SRGBColorSpace;
   const hay=new THREE.MeshStandardMaterial({map:hayTexture,roughness:1}),hayBand=mat(0x5c4b2e);ownMaterial.push(hay);
   for(const [x,z] of [[-2.35,-1.65],[-2.35,-.62],[2.45,-1.65]] as const){
-    block(barn,hay,1.1,.65,.85,x,.34,z);
-    for(const dx of [-.3,.3])block(barn,hayBand,.03,.66,.87,x+dx,.34,z);
+    barnSupports.push(block(barn,hay,1.1,.65,.85,x,barnFloor+.325,z));
+    for(const dx of [-.3,.3])block(barn,hayBand,.03,.66,.87,x+dx,barnFloor+.33,z);
     colliders.push({minX:ax+x-.55,maxX:ax+x+.55,minZ:az+z-.43,maxZ:az+z+.43});
   }
-  block(barn,craft.wood,1.25,.18,.6,1.9,.57,1.0,1.2);
-  for(const x of [1.38,2.42])block(barn,craft.wood,.12,.56,.12,x,.28,1.0);
-  block(barn,paper,.45,.035,.33,1.9,.68,1.0);
+  const barnTable=block(barn,craft.wood,1.25,.18,.6,1.9,barnFloor+.57,1.0,1.2);
+  for(const x of [1.38,2.42])barnSupports.push(block(barn,craft.wood,.12,.56,.12,x,barnFloor+.28,1.0));
+  clueSupports.push({item:block(barn,paper,.45,.035,.33,1.9,barnFloor+.6775,1.0),support:barnTable});
   colliders.push({minX:ax+1.275,maxX:ax+2.525,minZ:az+.7,maxZ:az+1.3});
   const barnWalls=translateColliders({x:ax,z:az},[
     {minX:-3.6,maxX:-3.4,minZ:-2.6,maxZ:2.6},{minX:3.4,maxX:3.6,minZ:-2.6,maxZ:2.6},
@@ -480,5 +483,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu(),true);
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,coffeehouse:coffeehouse.root,coffeeSupports,homeSupports,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,coffeehouse:coffeehouse.root,coffeeSupports,homeSupports,barnSupports,barnFloorMesh,clueSupports,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }
