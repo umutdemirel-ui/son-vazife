@@ -32,6 +32,8 @@ try {
  if(homeOutside==='home')throw Error('Gassal journal can be read through the back wall');
  const barnOutside=await page.evaluate(()=>{const [x,z]=window.__dermanliTest.barn();return window.__dermanliTest.targetFrom(x+1.9,z-3.1,Math.PI);});
  if(barnOutside==='barn')throw Error('Barn record can be read through the back wall');
+ const coffeeOutside=await page.evaluate(()=>{const [x,z]=window.__dermanliTest.coffee();return window.__dermanliTest.targetFrom(x,z-3.0,Math.PI);});
+ if(coffeeOutside==='coffee')throw Error('Coffeehouse notice can be read through the back wall');
  const abandonedOutside=await page.evaluate(()=>{const [x,z]=window.__dermanliTest.abandonedHomes()[0];return window.__dermanliTest.targetFrom(x+1.5,z-3.0,Math.PI);});
  if(abandonedOutside==='abandoned0')throw Error('Abandoned house letter can be read through the back wall');
  const missing=await page.evaluate(()=>window.__dermanliTest.scanReachability());
@@ -47,6 +49,7 @@ try {
  }
  for (const id of ['home','school','mosque','mill','well','coffee','barn','abandoned0','abandoned1','abandoned2','abandoned3','cemetery']) await action(id);
  for(const id of ['abandoned0','abandoned1','abandoned2','abandoned3'])if(!(await state()).clues.includes(id))throw Error(`Missing abandoned house clue ${id}`);
+ if(!(await state()).clues.includes('coffee'))throw Error('Coffeehouse notice was not collected');
  if(!(await state()).clues.includes('barn'))throw Error('Barn harvest record was not collected');
  if(!(await state()).clues.includes('home'))throw Error('Gassal journal was not collected inside the house');
  if((await state()).clues.includes('school'))throw Error('Locked school record was collected before solving bells');

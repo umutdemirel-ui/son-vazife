@@ -96,6 +96,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         gasilhane: () => [...S.gasilhane],
         gassalHome: () => [...S.gassalHome],
         barn: () => [...S.barn],
+        coffee: () => [...S.coffee],
         abandonedHomes: () => S.abandonedHomes.map(p=>[...p]),
         approachNight: () => {elapsed=DAY_SECONDS/2-2;previousNight=false;},
         worldTools: () => Object.fromEntries(Object.entries(world.stationMeshes).map(([id,mesh])=>[id,mesh.visible])),
