@@ -8,6 +8,7 @@ try {
  const page=await browser.newPage({viewport:{width:640,height:400}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.VILLAGE_URL||'http://localhost:3016/');await page.getByRole('button',{name:'KÖYE GİR'}).click();await page.waitForFunction(()=>!!window.__dermanliTest,null,{timeout:60000});
  await page.locator('canvas').click({position:{x:320,y:200}});await page.waitForFunction(()=>!!document.pointerLockElement);
+ await page.evaluate(()=>window.__dermanliTest.advanceToNight());
  const first=await page.evaluate(()=>window.__dermanliTest.millExteriorAudit());
  await page.waitForFunction(before=>Math.abs(window.__dermanliTest.millWheel()-before)>.05,first.wheelRotation,{timeout:30000});
  const audit=await page.evaluate(()=>window.__dermanliTest.millExteriorAudit());

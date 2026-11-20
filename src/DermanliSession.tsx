@@ -82,7 +82,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     const ritual=saved?.ritual??newRitual();
     const bell=saved?.bell??newBell(saved?0:undefined);
     let elapsed=saved?.elapsed??0, nextCue=0, hits=saved?.hits??0, nextRandomScare=(saved?.elapsed??0)+75+Math.random()*45; const threat=new DermanliThreat(); const seenEvents=new Set(saved?.events??[]);
-    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false, threatArtRequested=false, crouchToggled=false, windowShadowUntil=0, houseShadowUntil=0, schoolChalkUntil=0, fountainJetUntil=0, wellRopeUntil=0, lastBridgeMove=0; let scrub=newScrub();
+    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false, threatArtRequested=false, crouchToggled=false, windowShadowUntil=0, houseShadowUntil=0, schoolChalkUntil=0, fountainJetUntil=0, wellRopeUntil=0, fieldShadowUntil=0, lastBridgeMove=0; let scrub=newScrub();
     let targetLook={yaw,pitch};
     const setYaw=(value:number)=>{yaw=value;targetLook.yaw=value;};
     const save=()=>writeDermanliSave({version:1,ritual,x:pos.x,z:pos.z,yaw,pitch,elapsed,events:[...seenEvents],hits,bell});
@@ -468,7 +468,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       const movingKey=['KeyW','KeyA','KeyS','KeyD'].some(k=>keys.has(k));
       if(locked&&night&&!overlayBlocked.current&&movingKey&&Math.hypot(pos.x-S.bridge[0],pos.z-S.bridge[1])<7)lastBridgeMove=now;
       const bridgeStopped=lastBridgeMove>0&&!movingKey&&now-lastBridgeMove>=350&&now-lastBridgeMove<4000;
-      if(locked&&night&&!ritual.ending&&now>nextCue){const event=nextEvent(ritual.night,pos.x,pos.z,yaw,seenEvents,pitch,bridgeStopped);if(event){if(event.id==='gasil'&&ritual.night>=2)windowShadowUntil=now+4500;if(event.id==='house')houseShadowUntil=now+4500;if(event.id==='square')fountainJetUntil=now+4500;if(event.id==='well')wellRopeUntil=now+4500;if(event.id==='school')schoolChalkUntil=now+4500;seenEvents.add(`${ritual.night}:${event.id}`);caption=event.text;captionUntil=now+6500;nextCue=now+30000;if(event.sound==='water')audio.playWaterPour();else if(event.sound==='whisper')audio.playWhisper();else if(event.sound==='knock')audio.playWindowKnock();else if(event.sound==='footsteps')audio.playGhostFootsteps();else audio.playFloorboardCreak();save();}}
+      if(locked&&night&&!ritual.ending&&now>nextCue){const event=nextEvent(ritual.night,pos.x,pos.z,yaw,seenEvents,pitch,bridgeStopped);if(event){if(event.id==='gasil'&&ritual.night>=2)windowShadowUntil=now+4500;if(event.id==='house')houseShadowUntil=now+4500;if(event.id==='square')fountainJetUntil=now+4500;if(event.id==='well')wellRopeUntil=now+4500;if(event.id==='school')schoolChalkUntil=now+4500;if(event.id==='field')fieldShadowUntil=now+4500;seenEvents.add(`${ritual.night}:${event.id}`);caption=event.text;captionUntil=now+6500;nextCue=now+30000;if(event.sound==='water')audio.playWaterPour();else if(event.sound==='whisper')audio.playWhisper();else if(event.sound==='knock')audio.playWindowKnock();else if(event.sound==='footsteps')audio.playGhostFootsteps();else if(event.sound==='animal')audio.playDistantAnimal();else audio.playFloorboardCreak();save();}}
       if(locked)({yaw,pitch}=advanceLook({yaw,pitch},targetLook,dt,controls.lookSmoothing));
       let forward=0,side=0; if(locked&&!overlayBlocked.current){forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));}
       const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight'), crouch=keys.has('ControlLeft')||keys.has('ControlRight')||(controls.crouchToggle?crouchToggled:keys.has('KeyC'));
@@ -486,7 +486,15 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       for(const [id,item] of Object.entries(world.stationMeshes))item.visible=ritual.held!==id;
       world.gasil.vigilFlame.visible=ritual.candle;world.gasil.vigilLight.intensity=ritual.candle?1.8:0;
       world.updateArt(pos.x,pos.z);
-      world.wheel.rotation.x=(elapsed*.5)%(Math.PI*2);
+      // The abandoned wheel is still by day and turns in uneven spurts after dark.
+      if(locked&&night&&!ritual.ending && elapsed%9<5)world.wheel.rotation.x+=dt*.42;
+      world.fieldShadow.visible=night&&!ritual.ending&&now<fieldShadowUntil;
+      if(world.fieldShadow.visible){
+        const progress=Math.max(0,Math.min(1,1-(fieldShadowUntil-now)/4500));
+        const x=S.field[0]-3+progress*6,z=S.field[1];
+        world.fieldShadow.position.set(x,dermanliSurfaceHeight(x,z),z);
+        world.fieldShadow.rotation.y=Math.PI/2;
+      }
       for(const r of world.residents){r.visual.group.visible=memoryAvailable(ritual.night,night)&&!ritual.ending;if(r.visual.group.visible){r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
       for(const r of world.coffeeResidents){r.visual.group.visible=coffeeResidentAvailable(night)&&!ritual.ending;if(r.visual.group.visible){if(!r.seated)r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
       for(const r of world.outdoorResidents){r.visual.group.visible=outdoorResidentAvailable(night)&&!ritual.ending;if(r.visual.group.visible){r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}

@@ -11,7 +11,8 @@ try {
  await page.getByText('KÖYE GİR').click(); await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
  await page.locator('canvas').click({position:{x:500,y:350}}); await page.waitForFunction(()=>!!document.pointerLockElement);
  const wheelBefore=await page.evaluate(()=>window.__dermanliTest.millWheel());
- await page.waitForFunction(before=>Math.abs(window.__dermanliTest.millWheel()-before)>.05,wheelBefore,{timeout:15000});
+ await page.waitForTimeout(500);
+ if(Math.abs((await page.evaluate(()=>window.__dermanliTest.millWheel()))-wheelBefore)>.001)throw Error('Mill wheel should be still during the day');
  await page.keyboard.press('h'); await page.getByRole('dialog',{name:'Dermanlı haritası'}).waitFor();
  const clockBefore=await page.evaluate(()=>window.__dermanliTest.clock());
  await page.waitForTimeout(300);await page.locator('canvas').click({position:{x:10,y:10}});await page.waitForTimeout(200);

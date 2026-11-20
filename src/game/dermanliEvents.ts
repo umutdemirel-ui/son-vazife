@@ -3,15 +3,16 @@ export const DAY_SECONDS=240;
 export function isNight(seconds:number) { return Math.max(0,seconds)%DAY_SECONDS >= DAY_SECONDS/2; }
 /** Burial opens a new day, not a second funeral during the same night. */
 export function nextDawn(seconds:number) { return (Math.floor(Math.max(0,seconds)/DAY_SECONDS)+1)*DAY_SECONDS; }
-type Event = {id:string; at:Point; radius:number; minNight:number; text:string; look?:boolean; sound:'water'|'whisper'|'knock'|'creak'|'footsteps'};
+type Event = {id:string; at:Point; radius:number; minNight:number; text:string; look?:boolean; sound:'water'|'whisper'|'knock'|'creak'|'footsteps'|'animal'};
 export const EVENTS: readonly Event[] = [
  {id:'gasil',at:S.gasilhane,radius:5,minNight:1,text:'Gasilhanede kimse dokunmadığı hâlde bir an su sesi duyuluyor.',sound:'water'},
  {id:'square',at:S.square,radius:6,minNight:1,text:'Meydandaki çeşme bir an kendi kendine akıyor.',look:true,sound:'water'},
  {id:'home',at:S.gassalHome,radius:7,minNight:2,text:'Gassal evinin kapısına içeriden üç kez vuruluyor.',sound:'knock'},
  {id:'well',at:S.well,radius:5,minNight:2,text:'Kuyudan bir fısıltı yükseliyor; kuyunun ipi kendiliğinden sallanıyor.',look:true,sound:'whisper'},
  {id:'house',at:[S.abandonedHomes[0][0]-2.125,S.abandonedHomes[0][1]+2.5],radius:6,minNight:2,text:'Terk evin penceresinde bir gölge belirip kayboluyor.',look:true,sound:'creak'},
- {id:'mill',at:S.mill,radius:8,minNight:3,text:'Değirmenin içinden durup başlayan bir çark sesi geliyor.',sound:'creak'},
- {id:'barn',at:S.barn,radius:8,minNight:3,text:'Ahırdan bir an hayvan sesi duyuluyor; içerisi boş.',sound:'creak'},
+ {id:'mill',at:S.mill,radius:8,minNight:3,text:'Değirmenin çarkı karanlıkta durup yeniden dönüyor.',sound:'creak'},
+ {id:'barn',at:S.barn,radius:8,minNight:3,text:'Ahırdan uzakta bir hayvan sesi duyuluyor; içerisi boş.',sound:'animal'},
+ {id:'field',at:S.field,radius:20,minNight:3,text:'Tarladaki sıraların arasında bir gölge hızla kayıyor.',look:true,sound:'whisper'},
  {id:'school',at:[S.school[0],S.school[1]-2.83],radius:5.5,minNight:4,text:'Boş sınıfta tebeşir tahtaya dokunuyor.',look:true,sound:'knock'},
  {id:'cemetery',at:S.cemetery,radius:10,minNight:5,text:'Mezarlık dışında yeni eşelenmiş toprak görünüyor.',sound:'whisper'},
  {id:'bridge',at:S.bridge,radius:7,minNight:5,text:'Köprüde ayak sesleri sen durduktan sonra da devam ediyor.',sound:'footsteps'},
@@ -25,7 +26,7 @@ export function nextEvent(night:number,x:number,z:number,yaw:number,seen:Readonl
   // The chalk can only be seen from inside the classroom.
   if(e.id==='school' && (Math.abs(x-S.school[0])>=3.8 || Math.abs(z-S.school[1])>=2.75))continue;
   const dx=e.at[0]-x,dz=e.at[1]-z,dist=Math.hypot(dx,dz);
-  if(dist>e.radius)continue;
+  if(dist>e.radius || (e.id==='field' && dist<6))continue;
   if(e.look && (Math.abs(pitch)>.7 || (dist>.1&&(dx*-Math.sin(yaw)+dz*-Math.cos(yaw))/dist<.55)))continue;
   return e;
  }

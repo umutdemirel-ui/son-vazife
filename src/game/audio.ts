@@ -206,6 +206,25 @@ export class HorrorAudioEngine {
     }
   }
 
+  /** A distant, wavering low animal call, not a jump scare. */
+  public playDistantAnimal(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const ctx=this.ctx, t=ctx.currentTime+.05;
+    for (const [harmonic,volume] of [[1,.045],[2,.013]] as const) {
+      const voice=ctx.createOscillator(), envelope=ctx.createGain();
+      voice.type=harmonic===1?'triangle':'sine';
+      voice.frequency.setValueAtTime(132*harmonic,t);
+      voice.frequency.linearRampToValueAtTime(155*harmonic,t+.38);
+      voice.frequency.linearRampToValueAtTime(112*harmonic,t+1.15);
+      envelope.gain.setValueAtTime(.0001,t);
+      envelope.gain.linearRampToValueAtTime(volume,t+.23);
+      envelope.gain.linearRampToValueAtTime(volume*.65,t+.72);
+      envelope.gain.exponentialRampToValueAtTime(.0001,t+1.3);
+      voice.connect(envelope);envelope.connect(this.masterGain);
+      voice.start(t);voice.stop(t+1.32);
+    }
+  }
+
   public playPickup(): void {
     if (!this.ctx || !this.masterGain || this.muted) return;
     const t = this.ctx.currentTime;

@@ -69,3 +69,7 @@ Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik erte
 
 - Dört terk evin arka cephesine sekiz cam açıklığı eklendi; gerçek dünya geometrisi ve çarpışması tarayıcıda sınandı. Ev gölgesi ve çarpışmalı beş gece testi yeniden geçti.
 - Kuzdağ senaryo testi yeni menüye uyarlandı: otomatik test üç vaka, sekiz bölüm, on altı kayıt ve üç sonu geçti. Test rotayı hızlandırmak için yer yer simülasyon/konumlandırma kullanır; bu, tüm güzergâhın manuel oynanış veya gerçek cihaz kabulü değildir.
+
+### Uygulama devamı — doğrulama ertelendi
+- Taslaktaki tarla olayı için geceleri bakışla görünen, sıralar arasında hareket eden ve çarpışması olmayan ayrı bir gölge eklendi; ahır olayı için düşük sesli sentezlenmiş hayvan çağrısı eklendi. Değirmen çarkı gündüz durur, gece aralıklı döner; ilgili mevcut test beklentileri bu davranışa uyarlandı.
+- Bu son değişiklikler kullanıcının isteğiyle henüz doğrulanmadı; görsel kalite, ses ve kayıt sonrası davranışları ile diğer oyun akışları doğrulanmış sayılmaz.
