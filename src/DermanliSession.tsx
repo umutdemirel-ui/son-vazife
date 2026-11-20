@@ -134,6 +134,20 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             return ray.intersectObject(world.gasil.group,true).map(hit=>{const mesh=hit.object as THREE.Mesh,material=Array.isArray(mesh.material)?mesh.material[0]:mesh.material;return {distance:hit.distance,transparent:material.transparent,opacity:material.opacity};});
           });
         },
+        millExteriorAudit: () => {
+          const {herb,channel,stream}=world.millExterior;
+          world.terrainGround.updateWorldMatrix(true,true);stream.updateWorldMatrix(true,true);channel.updateWorldMatrix(true,true);herb.updateWorldMatrix(true,true);world.wheel.updateWorldMatrix(true,true);
+          const down=new THREE.Vector3(0,-1,0);
+          const hitAt=(object:THREE.Object3D,x:number,z:number)=>new THREE.Raycaster(new THREE.Vector3(x,10,z),down).intersectObject(object,false)[0]?.point.y;
+          const stems=herb.children.filter(o=>o instanceof THREE.Mesh && o.geometry instanceof THREE.ConeGeometry).map(o=>{
+            const p=o.getWorldPosition(new THREE.Vector3()),base=new THREE.Box3().setFromObject(o).min.y;
+            return {ground:hitAt(world.terrainGround,p.x,p.z),base};
+          });
+          const [mx,mz]=S.mill;
+          const samples=[3.9,6,8,10,12].map(dx=>({channel:hitAt(channel,mx+dx,mz+2.2),ground:hitAt(world.terrainGround,mx+dx,mz+2.2),stream:hitAt(stream,mx+dx,mz+2.2)}));
+          const wheel=new THREE.Box3().setFromObject(world.wheel),water=new THREE.Box3().setFromObject(channel);
+          return {stems,samples,wheelTouchesWater:wheel.intersectsBox(water),wheelRotation:world.wheel.rotation.x};
+        },
         entranceBellAudit: () => {
           const {bellRack,entranceColumns,wayPost}=world;
           world.terrainGround.updateWorldMatrix(true,true);

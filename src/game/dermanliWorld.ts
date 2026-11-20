@@ -196,6 +196,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const millAndBridge=createWatermillAndBridge(textures,'stone');
   const [mx,mz]=S.mill,my=dermanliSurfaceHeight(mx,mz);
   millAndBridge.millGroup.position.set(mx,my,mz);millAndBridge.doorPivot.rotation.y=-Math.PI/2;objects.add(millAndBridge.millGroup);
+  // This patch is mounted in mill-local coordinates; match the relocated ground.
+  const herb=millAndBridge.herbPatch;
+  herb.position.y=dermanliSurfaceHeight(mx+herb.position.x,mz+herb.position.z)-my;
   const millWalls=translateColliders({x:mx,z:mz},[
     {minX:-3.3,maxX:-2.85,minZ:-3.05,maxZ:3.05},{minX:-3.2,maxX:3.2,minZ:-3.1,maxZ:-2.7},
     {minX:-3.2,maxX:3.2,minZ:2.7,maxZ:3.1},{minX:2.9,maxX:3.3,minZ:-3,maxZ:-.8},
@@ -207,9 +210,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
   ]);colliders.push(...millFurniture);occluders.push(millFurniture[3]);
   target('mill','Değirmen · Defter',[mx-1.5,mz+1.1],1.6);
   const wheel=millAndBridge.wheelPivot;
-  // A narrow water channel leads from the wheel to the larger stream.
+  // A narrow water channel overlaps the stream slightly above its surface, avoiding coplanar flicker.
   const channelGeo=new THREE.PlaneGeometry(8.4,1.25);ownGeometry.push(channelGeo);
-  const channel=new THREE.Mesh(channelGeo,craft.water);channel.rotation.x=-Math.PI/2;channel.position.set(mx+8,dermanliSurfaceHeight(mx+8,mz+2.2)+.07,mz+2.2);objects.add(channel);
+  const channel=new THREE.Mesh(channelGeo,craft.water);channel.rotation.x=-Math.PI/2;channel.position.set(mx+8,dermanliSurfaceHeight(mx+8,mz+2.2)+.072,mz+2.2);objects.add(channel);
   // The physical positions provide the symbol-to-bell mapping; the sequence is
   // written separately in the gassal's journal, and varies by saved seed.
   const bellCanvas=document.createElement('canvas');bellCanvas.width=768;bellCanvas.height=256;
@@ -522,5 +525,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu(),true);
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,treeFallback,squareBenches,well,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,outdoorResidents,coffeehouse:coffeehouse.root,coffeeSupports,homeSupports,barnSupports,barnFloorMesh,clueSupports,grove:{pines,trunks,coords},field:{base:fieldBase,rows:fieldRows,stalks},cemeteryClusters,entranceColumns,wayPost,bellRack:{posts:bellPosts,rail:bellRail,bells,hangers:bellHangers},terrainGround:terrain.root.children[0],bridge:millAndBridge.bridgeGroup,bridgeRamps,schoolChalk,schoolChalkTrace,schoolChalkPiece,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());outdoorResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,treeFallback,squareBenches,well,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,outdoorResidents,coffeehouse:coffeehouse.root,coffeeSupports,homeSupports,barnSupports,barnFloorMesh,clueSupports,grove:{pines,trunks,coords},field:{base:fieldBase,rows:fieldRows,stalks},millExterior:{mill:millAndBridge.millGroup,herb,channel,stream:terrain.root.getObjectByName('dere')!},cemeteryClusters,entranceColumns,wayPost,bellRack:{posts:bellPosts,rail:bellRail,bells,hangers:bellHangers},terrainGround:terrain.root.children[0],bridge:millAndBridge.bridgeGroup,bridgeRamps,schoolChalk,schoolChalkTrace,schoolChalkPiece,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());outdoorResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }
