@@ -15,7 +15,7 @@ import { DAY_SECONDS, isNight, nextDawn, nextEvent, advanceVillageClock, village
 import { createCopperEwerAndSoap } from './game/models';
 import { DermanliThreat } from './game/dermanliThreat';
 import { newBell, bellHint, ringBell } from './game/dermanliBell';
-import {spiritAvailable,SPIRIT_LINES,memoryAvailable,RESIDENT_MEMORIES,COFFEE_RESIDENTS,coffeeResidentAvailable,OUTDOOR_RESIDENTS,outdoorResidentAvailable} from './game/dermanliCharacters';
+import {spiritAvailable,SPIRIT_LINES,memoryAvailable,RESIDENT_MEMORIES,COFFEE_RESIDENTS,coffeeResidentAvailable,OUTDOOR_RESIDENTS,outdoorResidentAvailable,villagerConversation,VILLAGER_FOLLOWUP_NOTES} from './game/dermanliCharacters';
 import {canReadClue,SCHOOL_LOCKED} from './game/dermanliClues';
 import {readControls,readMuted,storeMuted} from './game/preferences';
 import {DermanliMapPanel} from './components/DermanliMapPanel';
@@ -38,6 +38,7 @@ const notes: Record<string,string> = {
   abandoned0: 'Terk edilmiş evdeki masada boş bir mektup zarfı var.', abandoned1: 'Pencereler içeriden tahtalarla kapatılmış.',
   abandoned2: 'Burası yıllardır boş. Bir tabak masada kalmış.', abandoned3: 'Yerde eski, okunaksız bir takvim var.',
   ...SPIRIT_LINES,
+  ...VILLAGER_FOLLOWUP_NOTES,
   ...Object.fromEntries(Object.entries(COFFEE_RESIDENTS).map(([id,n])=>[`coffee_${id}`,n.line])),
   ...Object.fromEntries(Object.entries(OUTDOOR_RESIDENTS).map(([id,n])=>[`villager_${id}`,n.line])),
   ...Object.fromEntries(Object.entries(RESIDENT_MEMORIES).map(([id,m])=>[`memory_${id}`,m.line])),
@@ -253,8 +254,10 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         }
         if(t.id==='home')action=`${notes.home} Okul avlusuyla ilgili bir satır: ${bellHint(bell.seed)}`;
         if(t.id==='school'&&!canReadClue(t.id,bell.solved))action=SCHOOL_LOCKED;
-        if(notes[t.id] && canReadClue(t.id,bell.solved) && !ritual.clues.includes(t.id)) ritual.clues.push(t.id);
-        caption=action || notes[t.id] || ''; captionUntil=performance.now()+9000;
+        const conversation=villagerConversation(t.id,ritual.night);
+        const clueId=conversation?.key??t.id;
+        if(notes[clueId] && canReadClue(t.id,bell.solved) && !ritual.clues.includes(clueId)) ritual.clues.push(clueId);
+        caption=action || notes[clueId] || ''; captionUntil=performance.now()+9000;
         if(t.id.startsWith('bell_')){}else if(t.id==='candle')audio.playCandleToggle(ritual.candle);else if(t.id==='slab'&&ritual.stage===4)audio.playWaterPour();else audio.playPaperFlip();
         save(); if(ritual.ending && document.pointerLockElement===renderer.domElement)document.exitPointerLock();
       }}

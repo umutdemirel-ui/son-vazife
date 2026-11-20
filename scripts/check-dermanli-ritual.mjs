@@ -122,6 +122,21 @@ try {
    const s=await state(); if(night<5 && (s.night!==night+1||s.body!=='arrival')) throw Error(`night ${night} failed ${JSON.stringify(s)}`);
    await page.waitForFunction(n=>window.__dermanliTest.visualState().mounds===n,night,{timeout:15000});
    if(night<5 && (await page.evaluate(()=>window.__dermanliTest.visualState())).litWindows!==0)throw Error('Abandoned house light did not turn off at dawn');
+   if(night===1||night===3){
+     const phase=night===1?2:4;
+     for(const id of ['coffee_cemil','coffee_salih','coffee_ferit','villager_hatice','villager_osman','villager_ismail']){
+       await action(id);if(!(await state()).clues.includes(`${id}_day${phase}`))throw Error(`Missing day ${phase} conversation ${id}`);
+     }
+     if(night===1){
+       const before=await state();await action('coffee_cemil');if((await state()).clues.length!==before.clues.length)throw Error('Repeated dialogue duplicated notebook entry');
+       await page.reload();await page.getByText('DEVAM ET').click();await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
+       await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);
+       if(!(await state()).clues.includes('coffee_cemil_day2'))throw Error('Later conversation lost after reload');
+       await page.keyboard.press('n');await page.getByRole('heading',{name:'Halil’in Defteri'}).waitFor();
+       if(!(await page.getByText('Cemil: “Sabah oldu ama bardakları yine üç kişi için dizdim. Gelen olursa çayı soğumasın.”').isVisible()))throw Error('Later conversation absent from notebook');
+       await page.getByRole('button',{name:'Kapat'}).click();await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);
+     }
+   }
  }
  const end=await state();if(end.ending!=='peace')throw Error(`incorrect ending ${JSON.stringify(end)}`);
  const ending=page.getByRole('region',{name:'HUZUR sonu'});await ending.waitFor();

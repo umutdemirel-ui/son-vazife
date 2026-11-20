@@ -27,3 +27,16 @@ test('new villagers only appear by day at outdoor sites with distinct conversati
   assert.ok(villager.line.includes(villager.name.split(' ').at(-1)!));
  }
 });
+
+test('villager dialogue advances on later days and has stable notebook entries',async()=>{
+ const {COFFEE_RESIDENTS,OUTDOOR_RESIDENTS,VILLAGER_FOLLOWUP_NOTES,villagerConversation}=await import('../src/game/dermanliCharacters');
+ const ids=[...Object.keys(COFFEE_RESIDENTS).map(id=>`coffee_${id}`),...Object.keys(OUTDOOR_RESIDENTS).map(id=>`villager_${id}`)];
+ assert.equal(villagerConversation('home',5),null);
+ for(const id of ids){
+  assert.equal(villagerConversation(id,1),null);
+  const day2=villagerConversation(id,2)!,day3=villagerConversation(id,3)!,day4=villagerConversation(id,4)!,day5=villagerConversation(id,5)!;
+  assert.equal(day2.key,`${id}_day2`);assert.deepEqual(day2,day3);
+  assert.equal(day4.key,`${id}_day4`);assert.deepEqual(day4,day5);assert.notEqual(day2.line,day4.line);
+  assert.equal(VILLAGER_FOLLOWUP_NOTES[day2.key],day2.line);assert.equal(VILLAGER_FOLLOWUP_NOTES[day4.key],day4.line);
+ }
+});

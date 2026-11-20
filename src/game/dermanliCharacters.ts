@@ -37,3 +37,41 @@ export const OUTDOOR_RESIDENTS = {
 } as const;
 export type OutdoorResidentId = keyof typeof OUTDOOR_RESIDENTS;
 export function outdoorResidentAvailable(isDark:boolean) {return !isDark;}
+
+/** Daytime conversations change with completed burials, without storing separate counters. */
+export const VILLAGER_FOLLOWUPS: Record<string, readonly [string,string]> = {
+  coffee_cemil: [
+    'Cemil: “Sabah oldu ama bardakları yine üç kişi için dizdim. Gelen olursa çayı soğumasın.”',
+    'Cemil: “İlan hâlâ duvarda. Beklediğimiz yardım gelmedi; sen yine de isimleri okumayı bırakma.”',
+  ],
+  coffee_salih: [
+    'Salih: “Mezarlığa bir taş daha konduğunu gördüm. Adını söyleyince sanki biraz yaklaştı.”',
+    'Salih: “Geceleri herkes susuyor. Gündüz adlarını anmak bile onlara borcumuz.”',
+  ],
+  coffee_ferit: [
+    'Ferit: “Çanların üçü de yerinde. Sesleri birbirine benzer; sırayı deftere yazmışlar.”',
+    'Ferit: “Okulun kapısını unutamadım. İçeride kalanların adını bilen birine rastlarsan dinle.”',
+  ],
+  villager_hatice: [
+    'Hatice Nine: “Bir isim daha yazılmış. Okulun önünden geçerken ötekileri de hatırla.”',
+    'Hatice Nine: “Elif annesine kavuşmak isterdi. Tahtadaki yazıyı kimse silmesin.”',
+  ],
+  villager_osman: [
+    'Çiftçi Osman: “Samanın altında kalan kayıtları buldun mu? O yıl harman yarıda kalmıştı.”',
+    'Çiftçi Osman: “Tarlada çalışanların sesini hatırlıyorum. Her biri için bir isim kalsın geriye.”',
+  ],
+  villager_ismail: [
+    'İsmail: “Değirmenin defterindeki son sayfaları oku. Yardım çağrıları orada kalmış.”',
+    'İsmail: “Çark hâlâ dönüyor. Değirmenciyi de onunla birlikte anmayı unutma.”',
+  ],
+};
+export function villagerConversation(id:string,night:number) {
+  const lines=VILLAGER_FOLLOWUPS[id];
+  if(!lines||night<2)return null;
+  const phase=night>=4?4:2;
+  return {key:`${id}_day${phase}`,line:lines[phase===4?1:0]};
+}
+/** Stable IDs allow each heard conversation to survive reloads in the existing notebook. */
+export const VILLAGER_FOLLOWUP_NOTES:Record<string,string>=Object.fromEntries(
+  Object.entries(VILLAGER_FOLLOWUPS).flatMap(([id,lines])=>[[`${id}_day2`,lines[0]],[`${id}_day4`,lines[1]]]),
+);
