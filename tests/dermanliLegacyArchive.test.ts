@@ -17,3 +17,12 @@ test('reading legacy summary does not modify either game storage slot',()=>{
  assert.deepEqual(readLegacyArchive(),{act:2,completed:['Vaka I · Hacı Arif']});assert.deepEqual([...data],before);
  data.set('son_vazife_save_v2','corrupt');assert.equal(readLegacyArchive(),null);
 });
+
+test('legacy launch status protects unreadable and unavailable storage',async()=>{
+ const {legacySaveStatus}=await import('../src/game/dermanliLegacyArchive');
+ const data=new Map<string,string>(),storage={getItem:(k:string)=>data.get(k)??null,setItem:(k:string,v:string)=>data.set(k,v),removeItem:(k:string)=>data.delete(k)};
+ Object.defineProperty(globalThis,'window',{configurable:true,value:{localStorage:storage}});
+ assert.equal(legacySaveStatus(),'missing');data.set('son_vazife_save_v2','damaged');assert.equal(legacySaveStatus(),'invalid');
+ data.set('son_vazife_save_v2',JSON.stringify({version:2,act:1,playerPos:{x:0,z:0,yaw:0,pitch:0}}));assert.equal(legacySaveStatus(),'available');
+ Object.defineProperty(globalThis,'window',{configurable:true,value:{localStorage:{getItem(){throw new Error('blocked');}}}});assert.equal(legacySaveStatus(),'inaccessible');
+});

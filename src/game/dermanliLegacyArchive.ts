@@ -7,3 +7,12 @@ export function legacyArchiveFromSave(save:SaveGamePayload|null) {
  return {act:save.act,completed:names.filter(([id])=>save.autopsyCases?.[id]?.completed===true).map(([,name])=>name)};
 }
 export function readLegacyArchive(){return legacyArchiveFromSave(readAutoSave());}
+
+/** Never start a new Kuzdağ session over an existing unreadable save. */
+export function legacySaveStatus(): 'available'|'missing'|'invalid'|'inaccessible' {
+ try {
+  const raw=window.localStorage.getItem('son_vazife_save_v2');
+  if(raw===null)return 'missing';
+  return readAutoSave()?'available':'invalid';
+ } catch {return 'inaccessible';}
+}

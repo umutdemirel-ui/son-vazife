@@ -11,7 +11,8 @@ import { NightRecord } from './components/NightRecord';
 import { GameHud } from './components/GameHud';
 import { NotebookModal } from './components/NotebookModal';
 import { LoadingVillage } from './components/LoadingVillage';
-import { storeWatch, type VillageLaunch } from './game/firstWatch';
+import { type VillageLaunch } from './game/firstWatch';
+import { legacySaveStatus } from './game/dermanliLegacyArchive';
 import { createInitialAutopsyCases } from './game/autopsy';
 import { SonVazifeEngine } from './game/engine';
 import {
@@ -106,11 +107,12 @@ export default function VillageSession({
     // Leave one paint for the loading slate before constructing the village.
     const timer = window.setTimeout(() => {
       try {
+        const status = legacySaveStatus();
+        if (status !== (session.resume ? 'available' : 'missing')) throw new Error('Kuzdağ kayıt durumu değişti; mevcut kayıt korunuyor.');
         const engine = new SonVazifeEngine(mount, setHud);
         engineRef.current = engine;
         if (session.resume) engine.continueSavedGame();
         else engine.startNewGame(session.registryFiled);
-        storeWatch(null);
       } catch (error) {
         console.warn('Köy sahnesi başlatılamadı:', error);
         engineRef.current?.dispose();

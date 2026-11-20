@@ -62,3 +62,7 @@ Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik erte
 7. **Son doğrulama:**
    - [ ] Her büyük değişiklikte lint, test, build, çarpışmalı beş gece, ilgili görsel kontrol ve gerekiyorsa üç son/menü testlerini çalıştır.
    - [ ] Tüm bölgelerin ve farklı cihazların kontrolü tamamlanmadan oyunu bitmiş veya production'a hazır ilan etme; final doğrulamasından sonra kullanıcının istediği production deployunu yap.
+
+### Kuzdağ'a ayrı erişim
+- Ana menüden önceki Kuzdağ oyunu ayrı bir hikâye olarak açılır; mevcut geçerli v2 kaydı sürdürülür, kayıt yoksa yeni hikâye başlatılır. Okunamayan/erişilemeyen kayıt üzerine yazılmaz; oturum kurulurken kayıt durumu tekrar kontrol edilir. Dermanlı ve ilk nöbet kayıtları bu geçişte değiştirilmez.
+- Tarayıcı testi yeni oturumun açılışını, hasarlı kayıt korumasını ve devam seçeneğini sınar; eski hikâyenin tüm vakalarını ve sonlarını bu test baştan sona doğrulamaz. İki köyün hikâyeleri veya ilerlemesi birleştirilmiş değildir.

@@ -1100,10 +1100,7 @@ export class SonVazifeEngine {
 
   public continueSavedGame(): void {
     const save = readAutoSave();
-    if (!save) {
-      this.startNewGame();
-      return;
-    }
+    if (!save) throw new Error('Kuzdağ kaydı okunamadı; üzerine yazılmadı.');
     this.audio.init();
     this.resetStoryState();
 
