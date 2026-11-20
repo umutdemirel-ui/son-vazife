@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { createCoffeehouse,COFFEEHOUSE_WALLS,COFFEEHOUSE_OPEN_DOOR,COFFEEHOUSE_POSTS,COFFEEHOUSE_FLOOR_HEIGHT } from './coffeehouse';
 import { createDermanliTerrain, dermanliSurfaceHeight } from './dermanliTerrain';
 import { createBridgeApproaches } from './dermanliBridge';
-import {PINE_SPRITE_HEIGHT,pineGroundInset} from './dermanliGrove';
+import {PINE_SPRITE_HEIGHT,pineGroundInset,OAK_SPRITE_HEIGHT,OAK_GROUND_INSET} from './dermanliGrove';
 import {FIELD_FURROW_HEIGHT,stalkCenterHeight} from './dermanliField';
 import { DERMANLI_PATHS, DERMANLI_SITES as S, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
@@ -335,21 +335,23 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const noticeGeometry=new THREE.PlaneGeometry(.78,.78);ownGeometry.push(noticeGeometry);
   const notice=new THREE.Mesh(noticeGeometry,noticeMaterial);notice.position.set(kx,ky+1.65,kz-2.38);objects.add(notice);
   target('coffee','Kahvehane · Eski ilan',[kx,kz-2.38],1.8);
-  const fountain=craft.fountain(false);fountain.position.set(S.square[0],dermanliSurfaceHeight(...S.square),S.square[1]);objects.add(fountain);ownDetails(fountain);
+  const squareY=dermanliSurfaceHeight(...S.square);
+  const fountain=craft.fountain(false);fountain.position.set(S.square[0],squareY,S.square[1]);objects.add(fountain);ownDetails(fountain);
   colliders.push({minX:S.square[0]-1.25,maxX:S.square[0]+1.25,minZ:S.square[1]-.75,maxZ:S.square[1]+.95});
   const fountainWaterGeo=new THREE.PlaneGeometry(1.74,.7);ownGeometry.push(fountainWaterGeo);
-  const fountainWater=new THREE.Mesh(fountainWaterGeo,craft.water);fountainWater.rotation.x=-Math.PI/2;fountainWater.position.set(S.square[0],.436,S.square[1]+.18);fountainWater.visible=false;objects.add(fountainWater);
-  for(const [x,z,angle] of [[-3.4,15.1,0],[3.3,9.8,Math.PI]] as const){const bench=createVillageBench(craft);bench.position.set(x,dermanliSurfaceHeight(x,z),z);bench.rotation.y=angle;objects.add(bench);ownDetails(bench);colliders.push({minX:x-.9,maxX:x+.9,minZ:z-.3,maxZ:z+.3});}
+  const fountainWater=new THREE.Mesh(fountainWaterGeo,craft.water);fountainWater.rotation.x=-Math.PI/2;fountainWater.position.set(S.square[0],squareY+.436,S.square[1]+.18);fountainWater.visible=false;objects.add(fountainWater);
+  const squareBenches:THREE.Group[]=[];
+  for(const [x,z,angle] of [[-3.4,15.1,0],[3.3,9.8,Math.PI]] as const){const bench=createVillageBench(craft);bench.position.set(x,dermanliSurfaceHeight(x,z),z);bench.rotation.y=angle;objects.add(bench);ownDetails(bench);squareBenches.push(bench);colliders.push({minX:x-.9,maxX:x+.9,minZ:z-.3,maxZ:z+.3});}
   // An old broad tree marks the square without blocking the north-south road.
   const squareTreeX=-5.2,squareTreeZ=7.4,squareTreeY=dermanliSurfaceHeight(squareTreeX,squareTreeZ);
-  const oakPlane=new THREE.PlaneGeometry(12.2,8.6).translate(0,4.3,0),oakCross=oakPlane.clone().rotateY(Math.PI/2);
+  const oakPlane=new THREE.PlaneGeometry(12.2,OAK_SPRITE_HEIGHT).translate(0,OAK_SPRITE_HEIGHT/2,0),oakCross=oakPlane.clone().rotateY(Math.PI/2);
   const oakGeometry=mergeGeometries([oakPlane,oakCross])!;oakPlane.dispose();oakCross.dispose();ownGeometry.push(oakGeometry);
   const oakMaterial=new THREE.MeshLambertMaterial({color:0xc2c0a9,side:THREE.DoubleSide,alphaTest:.35});ownMaterial.push(oakMaterial);
   const treeFallback=new THREE.Group();treeFallback.position.set(squareTreeX,squareTreeY,squareTreeZ);objects.add(treeFallback);
   const trunkGeo=new THREE.CylinderGeometry(.32,.52,4,9),crownGeo=new THREE.SphereGeometry(2.8,12,8);ownGeometry.push(trunkGeo,crownGeo);
   const trunk=new THREE.Mesh(trunkGeo,wood),crown=new THREE.Mesh(crownGeo,foliage);trunk.position.y=2;crown.position.y=5;crown.scale.set(1.15,.72,1);treeFallback.add(trunk,crown);
   const oakMap=new THREE.TextureLoader().load(surfaceUrl('autumn-oak',true),()=>{squareTree.visible=true;treeFallback.visible=false;});oakMap.colorSpace=THREE.SRGBColorSpace;oakMaterial.map=oakMap;
-  const squareTree=new THREE.Mesh(oakGeometry,oakMaterial);squareTree.position.set(squareTreeX,squareTreeY-.05,squareTreeZ);squareTree.visible=false;objects.add(squareTree);
+  const squareTree=new THREE.Mesh(oakGeometry,oakMaterial);squareTree.position.set(squareTreeX,squareTreeY-OAK_GROUND_INSET,squareTreeZ);squareTree.visible=false;objects.add(squareTree);
   colliders.push({minX:squareTreeX-.4,maxX:squareTreeX+.4,minZ:squareTreeZ-.4,maxZ:squareTreeZ+.4});
   // The west-path well has a hollow rim, dark opening, timber frame and rope.
   const [wx,wz]=S.well,wy=dermanliSurfaceHeight(wx,wz),well=new THREE.Group();well.position.set(wx,wy,wz);objects.add(well);
@@ -511,5 +513,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu(),true);
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,outdoorResidents,coffeehouse:coffeehouse.root,coffeeSupports,homeSupports,barnSupports,barnFloorMesh,clueSupports,grove:{pines,trunks,coords},field:{base:fieldBase,rows:fieldRows,stalks},cemeteryClusters,terrainGround:terrain.root.children[0],bridge:millAndBridge.bridgeGroup,bridgeRamps,schoolChalk,schoolChalkTrace,schoolChalkPiece,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());outdoorResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,treeFallback,squareBenches,well,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,outdoorResidents,coffeehouse:coffeehouse.root,coffeeSupports,homeSupports,barnSupports,barnFloorMesh,clueSupports,grove:{pines,trunks,coords},field:{base:fieldBase,rows:fieldRows,stalks},cemeteryClusters,terrainGround:terrain.root.children[0],bridge:millAndBridge.bridgeGroup,bridgeRamps,schoolChalk,schoolChalkTrace,schoolChalkPiece,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());outdoorResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

@@ -6,7 +6,7 @@ import { dermanliSurfaceHeight } from './game/dermanliTerrain';
 import { dermanliWalkingHeight } from './game/dermanliBridge';
 import {applyLookDelta,advanceLook} from './game/dermanliLook';
 import {MOSQUE_GRAVES} from './game/cemetery';
-import {PINE_SPRITE_HEIGHT} from './game/dermanliGrove';
+import {PINE_SPRITE_HEIGHT,OAK_SPRITE_HEIGHT} from './game/dermanliGrove';
 import { pushOutsideBox } from './game/collision';
 import {moveDermanliPlayer} from './game/dermanliMovement';
 import {wallBetween} from './game/nightPatrol';
@@ -133,6 +133,25 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             const ray=new THREE.Raycaster(new THREE.Vector3(x+dx+.13,y+2.31,z+5.2),new THREE.Vector3(0,0,-1),0,1.45);
             return ray.intersectObject(world.gasil.group,true).map(hit=>{const mesh=hit.object as THREE.Mesh,material=Array.isArray(mesh.material)?mesh.material[0]:mesh.material;return {distance:hit.distance,transparent:material.transparent,opacity:material.opacity};});
           });
+        },
+        squareWellAudit: () => {
+          const {squareTree,treeFallback,squareBenches,well,fountain,fountainWater}=world;
+          const image=(squareTree.material instanceof THREE.MeshLambertMaterial?squareTree.material.map?.image:undefined) as HTMLImageElement|undefined;
+          if(!squareTree.visible||!image)return null;
+          const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;
+          const ctx=canvas.getContext('2d');if(!ctx)return null;ctx.drawImage(image,0,0);
+          const pixels=ctx.getImageData(0,0,canvas.width,canvas.height).data;let last=-1;
+          for(let y=canvas.height-1;y>=0&&last<0;y--)for(let x=0;x<canvas.width;x++)if(pixels[(y*canvas.width+x)*4+3]>89){last=y;break;}
+          world.terrainGround.updateWorldMatrix(true,true);
+          const groundAt=(x:number,z:number)=>new THREE.Raycaster(new THREE.Vector3(x,100,z),new THREE.Vector3(0,-1,0)).intersectObject(world.terrainGround,false)[0]?.point.y;
+          const hasCollider=(x:number,z:number)=>world.colliders.some(c=>x>c.minX&&x<c.maxX&&z>c.minZ&&z<c.maxZ);
+          const positions=[...squareBenches,well,fountain].map(o=>{
+            const p=o.getWorldPosition(new THREE.Vector3()),ground=groundAt(p.x,p.z);
+            return {x:p.x,z:p.z,ground,base:new THREE.Box3().setFromObject(o).min.y,collider:hasCollider(p.x,p.z)};
+          });
+          const p=squareTree.getWorldPosition(new THREE.Vector3()),ground=groundAt(p.x,p.z);
+          const visibleBase=p.y+OAK_SPRITE_HEIGHT*(canvas.height-1-last+.5)/canvas.height;
+          return {positions,treeGround:ground,treeGap:ground===undefined?null:visibleBase-ground,treeCollider:hasCollider(p.x,p.z),fallbackBase:new THREE.Box3().setFromObject(treeFallback).min.y,waterRelative:fountainWater.position.y-fountain.position.y};
         },
         fieldAudit: () => {
           const {base,rows,stalks}=world.field,matrix=new THREE.Matrix4(),vertex=new THREE.Vector3(),positions=stalks.geometry.getAttribute('position');
