@@ -134,6 +134,25 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             return ray.intersectObject(world.gasil.group,true).map(hit=>{const mesh=hit.object as THREE.Mesh,material=Array.isArray(mesh.material)?mesh.material[0]:mesh.material;return {distance:hit.distance,transparent:material.transparent,opacity:material.opacity};});
           });
         },
+        fieldAudit: () => {
+          const {base,rows,stalks}=world.field,matrix=new THREE.Matrix4(),vertex=new THREE.Vector3(),positions=stalks.geometry.getAttribute('position');
+          base.updateWorldMatrix(true,true);rows.forEach(row=>row.updateWorldMatrix(true,true));stalks.updateWorldMatrix(true,false);
+          let minGap=Infinity,maxGap=-Infinity,missing=0;
+          for(let i=0;i<stalks.count;i++){
+            stalks.getMatrixAt(i,matrix);matrix.premultiply(stalks.matrixWorld);
+            let lowest=Infinity;for(let j=0;j<positions.count;j++){vertex.fromBufferAttribute(positions,j).applyMatrix4(matrix);lowest=Math.min(lowest,vertex.y);}
+            const center=new THREE.Vector3().setFromMatrixPosition(matrix);
+            const ray=new THREE.Raycaster(new THREE.Vector3(center.x,center.y+1,center.z),new THREE.Vector3(0,-1,0),0,3);
+            const hit=ray.intersectObjects(rows,false)[0];if(!hit){missing++;continue;}
+            const gap=lowest-hit.point.y;minGap=Math.min(minGap,gap);maxGap=Math.max(maxGap,gap);
+          }
+          const rowGaps=rows.map(row=>{
+            const pos=row.getWorldPosition(new THREE.Vector3()),bounds=new THREE.Box3().setFromObject(row);
+            const ray=new THREE.Raycaster(new THREE.Vector3(pos.x,bounds.min.y+.01,pos.z),new THREE.Vector3(0,-1,0),0,1);
+            const hit=ray.intersectObject(base,false)[0];return hit?bounds.min.y-hit.point.y:null;
+          });
+          return {count:stalks.count,rowCount:rows.length,minGap,maxGap,missing,rowGaps};
+        },
         groveCemeteryAudit: () => {
           const {pines,trunks,coords}=world.grove;
           const image=(pines.material instanceof THREE.MeshLambertMaterial?pines.material.map?.image:undefined) as HTMLImageElement|undefined;

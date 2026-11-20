@@ -13,6 +13,7 @@ Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden pro
 - [x] Kahvehane, gassal evi, okul, terk evler ve ahırdaki düzeltilen mobilyaların desteklerini sahnede test et.
 - [x] Taş köprüye rampalar ekle; yüzey yüksekliğini ve oyuncunun rampada yürüyüşünü sına.
 - [x] 260 çam ağacının arazi temasını ve çarpışmasını, 30 mezar taşının yerleşimini, beş toprak yığınını ve mezarlık girişini sahnede tara. Çam dokusunun şeffaf alt kenarından kaynaklanan küçük boşluğu düzelt; yamaç ve mezarlık görüntülerini kontrol et.
+- [x] Tarladaki 13 toprak sırası ve 260 sapın desteklerini gerçek sahnede tara; sapları eğimlerini koruyarak sıraların üzerine oturt ve tarla görüntüsünü kontrol et.
 - [x] İki gece ruhunun ve iki animasyonlu korku modelinin tabanlarını düzelt; takipçiyi gerçek render döngüsünde sına.
 - [x] Üç dış mekân köylüsü ekle; altı gündüz köylüsüne farklı giysi ayrıntıları ve ilerlemeye bağlı, kaydedilen konuşmalar ver.
 - [x] Terk evdeki pencere gölgesini tetiklenme, görünme ve kayıt sonrası tekrar etmeme açısından sına.
@@ -25,7 +26,7 @@ Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden pro
    - [ ] Masaüstü yazılımsal tarayıcı dışında gerçek cihazlarda iç/dış görünüm ve yıkama istasyonlarını doğrula; bulguları düzelt.
    - [ ] Kullanıcı değerlendirmesini al; tasarım onaylanana kadar nihai kabul etme ve değişikliklerden sonra yıkama/son testlerini tekrarla.
 2. **Haritanın zemin ve çarpışma taraması:**
-   - [ ] Ağaç ve mezarlık taraması tamamlandı; kalan açık arazi eşyalarını gerçek araziye göre tara ve doğrulanan hataları konum ve görsel testleriyle düzelt.
+   - [ ] Ağaç, mezarlık ve tarla taraması tamamlandı; kalan açık arazi eşyalarını gerçek araziye göre tara ve doğrulanan hataları konum ve görsel testleriyle düzelt.
    - [ ] Diğer yapıların dış detayları ve karakterlerini destek yüzeylerine göre tara. Taşınan veya kasıtlı yüzen öğeleri yanlışlıkla sabitleme.
 3. **NPC'ler:**
    - [ ] Yeniden kullanılan temel modellerin yerine özgün karakter görünümü tasarla; yedek model, animasyon ve kaynak temizliğini doğrula.
