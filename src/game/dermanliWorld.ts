@@ -9,7 +9,7 @@ import { buildHome, homeCollider, type HomeSpec } from './homes';
 import { NightArt, watcherFigure } from './nightArt';
 import {ResidentVisual} from './residentVisual';
 import {createModelLoader} from './modelLoader';
-import {RESIDENT_MEMORIES, type MemoryId} from './dermanliCharacters';
+import {RESIDENT_MEMORIES, COFFEE_RESIDENTS, type MemoryId, type CoffeeResidentId} from './dermanliCharacters';
 import { funeralFigure } from './funerary';
 import {createHorrorFigures,disposeHorrorFigures} from './horrorFigures';
 import {surfaceUrl} from './quality';
@@ -346,6 +346,14 @@ export function createDermanliWorld(scene: THREE.Scene) {
     target(`memory_${id}`,`${RESIDENT_MEMORIES[id].name} · Anı`,[x,z],2);
     return {id,visual,x,z};
   });
+  // The coffeehouse is the explicit exception to empty homes: three daytime villagers.
+  const coffeeResidents=(Object.keys(COFFEE_RESIDENTS) as CoffeeResidentId[]).map(id=>{
+    const def=COFFEE_RESIDENTS[id],x=kx+def.x,z=kz+def.z;
+    const visual=new ResidentVisual(def.model,residentLoader,undefined,true,{seated:def.seated,props:false});
+    visual.group.name=`coffee-${id}`;visual.group.position.set(x,ky,z);visual.group.rotation.y=def.seated?Math.PI:0;
+    visual.group.visible=false;objects.add(visual.group);target(`coffee_${id}`,`${def.name} ile konuş`,[x,z],1.65);
+    return {id,visual,x,z,seated:def.seated};
+  });
   // Hacı Süleyman is a separate final tableau, never an NPC in a house.
   const master=new THREE.Group();master.position.set(gx-1.9,0,gz+.9);master.rotation.y=Math.PI/2;
   const robeGeo=new THREE.CylinderGeometry(.3,.43,1.3,12),headGeo=new THREE.SphereGeometry(.2,12,10),armGeo=new THREE.CapsuleGeometry(.07,.55,4,8);
@@ -449,5 +457,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu());
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

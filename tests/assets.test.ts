@@ -151,3 +151,18 @@ test('porch witnesses stand on the boards; the lane still follows the terrain', 
   }
   assert.equal(exteriorFloorAt(0, 14), groundHeightAt(0, 14));
 });
+
+test('coffeehouse seated figures stay on their bench, including offline fallback',()=>{
+ let complete!: (asset: ResidentModel) => void;
+ const loader:ResidentLoader={load(_url,done){complete=done;}};
+ const visual=new ResidentVisual('bekci',loader,undefined,true,{seated:true,props:false});
+ const fallback=visual.group.getObjectByName('seated-fallback')!;
+ visual.update(.05,false,1,5);assert.equal(fallback.position.y,0);
+ let lights=0;visual.group.traverse(o=>{if(o instanceof THREE.PointLight)lights++;});assert.equal(lights,0);
+ const scene=new THREE.Group(),hips=new THREE.Group();hips.name='Hips';hips.position.y=.93;scene.add(hips);
+ for(const side of ['L','R']){const thigh=new THREE.Group(),shin=new THREE.Group(),hand=new THREE.Group();thigh.name=`Thigh${side}`;shin.name=`Shin${side}`;hand.name=`Hand${side}`;hips.add(thigh,hand);thigh.add(shin);}
+ complete({scene,animations:[new THREE.AnimationClip('Idle',1,[]),new THREE.AnimationClip('Walk',1,[])]});
+ assert.ok(Math.abs(hips.position.y-.51)<1e-8);
+ for(const side of ['L','R']){assert.equal(scene.getObjectByName(`Thigh${side}`)!.rotation.x,-Math.PI/2);assert.equal(scene.getObjectByName(`Shin${side}`)!.rotation.x,Math.PI/2);}
+ visual.update(.1,false,1,7);assert.ok(Math.abs(hips.position.y-.51)<1e-8);visual.dispose();
+});

@@ -20,6 +20,8 @@ try {
  const initialSpirits=await page.evaluate(()=>window.__dermanliTest.spirits());
  if(initialSpirits.elif||initialSpirits.riza)throw Error('Late-night spirits appeared during the first day');
  await page.waitForFunction(()=>window.__dermanliTest.residentModels().every(r=>r.loaded),{timeout:60000});
+ await page.waitForFunction(()=>window.__dermanliTest.coffeeResidents().length===3&&window.__dermanliTest.coffeeResidents().every(r=>r.loaded&&r.visible),null,{timeout:60000});
+ if((await page.evaluate(()=>window.__dermanliTest.coffeeResidents())).filter(r=>r.seated).length!==2)throw Error('Coffeehouse seating missing');
  await page.waitForFunction(()=>{const art=window.__dermanliTest.squareArt();return art.fountain&&art.tree;},null,{timeout:60000});
  const loaded=await page.evaluate(()=>window.__dermanliTest.verifyThreatArt());
  if(!loaded.pursuer||!loaded.scare)throw Error(`Original threat models failed to load: ${JSON.stringify(loaded)}`);
@@ -47,8 +49,9 @@ try {
     await page.waitForFunction(before=>{const s=window.__dermanliTest.state();return s.stage!==before.stage||s.soaped!==before.soaped;},before,{timeout:12000});await page.keyboard.up('f');}
   else await page.keyboard.press('e');
  }
- for (const id of ['home','school','mosque','mill','well','coffee','barn','abandoned0','abandoned1','abandoned2','abandoned3','cemetery']) await action(id);
+ for (const id of ['home','school','mosque','mill','well','coffee','coffee_cemil','coffee_salih','coffee_ferit','barn','abandoned0','abandoned1','abandoned2','abandoned3','cemetery']) await action(id);
  for(const id of ['abandoned0','abandoned1','abandoned2','abandoned3'])if(!(await state()).clues.includes(id))throw Error(`Missing abandoned house clue ${id}`);
+ for(const id of ['coffee_cemil','coffee_salih','coffee_ferit'])if(!(await state()).clues.includes(id))throw Error(`Missing coffeehouse conversation ${id}`);
  if(!(await state()).clues.includes('coffee'))throw Error('Coffeehouse notice was not collected');
  if(!(await state()).clues.includes('barn'))throw Error('Barn harvest record was not collected');
  if(!(await state()).clues.includes('home'))throw Error('Gassal journal was not collected inside the house');
@@ -60,6 +63,7 @@ try {
  if(!(await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell.solved)))throw Error('Bell puzzle not solved');
  await action('school');if(!(await state()).clues.includes('school'))throw Error('School record did not unlock after bells');
  await page.evaluate(()=>window.__dermanliTest.advanceToNight());
+ await page.waitForFunction(()=>window.__dermanliTest.coffeeResidents().every(r=>!r.visible),null,{timeout:15000});
  await action('arrival');
  await page.reload();await page.getByText('DEVAM ET').click();await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
  await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);

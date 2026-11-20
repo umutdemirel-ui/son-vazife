@@ -66,6 +66,22 @@ function waitingFigure(id: NpcId) {
   return g;
 }
 
+/** A seated offline fallback has its hips on the same bench as the skinned model. */
+function waitingSeatedFigure(id: NpcId) {
+  const g=new THREE.Group(),cloth=finish(wardrobe[id].coat),dark=finish(0x383832),skin=finish(0xb99c81);g.name='seated-fallback';
+  const torso=mesh(g,new THREE.CylinderGeometry(.21,.23,.67,12),cloth,0,.93,0);torso.scale.z=.74;
+  mesh(g,new THREE.SphereGeometry(.12,12,9),skin,0,1.41,0).scale.y=1.22;
+  mesh(g,new THREE.SphereGeometry(.126,12,9),dark,0,1.47,-.01).scale.set(1,.6,1);
+  for(const side of [-1,1]){
+    const thigh=mesh(g,new THREE.CapsuleGeometry(.085,.30,3,9),dark,side*.105,.48,.20);thigh.rotation.x=Math.PI/2;
+    mesh(g,new THREE.CapsuleGeometry(.075,.24,3,9),dark,side*.105,.27,.40);
+    const shoe=mesh(g,new THREE.SphereGeometry(.09,9,7),dark,side*.105,.07,.44);shoe.scale.set(.9,.6,1.4);
+    const arm=mesh(g,new THREE.CapsuleGeometry(.068,.4,3,9),cloth,side*.23,.95,0);arm.rotation.z=side*.1;
+    mesh(g,new THREE.SphereGeometry(.055,9,6),skin,side*.25,.68,.02);
+  }
+  bakeStaticChildrenByMaterial(g);return g;
+}
+
 /** Origins are the centres of the palms; light pooling replaces the light with an anchor here. */
 function belongings(id: NpcId) {
   const right = new THREE.Group(),
@@ -177,17 +193,20 @@ export class ResidentVisual {
   private walk?: THREE.AnimationAction;
   private animTime = 0;
   private disposed = false;
+  private seated = false;
 
   constructor(
     id: NpcId,
     loader: ResidentLoader,
     onReady?: (root: THREE.Object3D) => void,
     compact = false,
+    options: { seated?: boolean; props?: boolean } = {},
   ) {
-    this.eyeHeight = wardrobe[id].height * 0.92;
+    this.seated=!!options.seated;
+    this.eyeHeight = wardrobe[id].height * (this.seated ? .72 : .92);
     this.group.name = `resident-${id}`;
-    this.fallback = waitingFigure(id);
-    const { left, right } = belongings(id);
+    this.fallback = options.seated ? waitingSeatedFigure(id) : waitingFigure(id);
+    const { left, right } = options.props === false ? {left:new THREE.Group(),right:new THREE.Group()} : belongings(id);
     const grip = wardrobe[id].grip;
     left.position.set(0.245, grip, 0);
     right.position.set(-0.245, grip, 0);
@@ -239,9 +258,15 @@ export class ResidentVisual {
         release(this.fallback!);
         this.fallback = null;
         onReady?.(scene);
-        this.mixer = new THREE.AnimationMixer(scene);
-        this.idle = this.mixer.clipAction(idle).play();
-        this.walk = this.mixer.clipAction(walk).setEffectiveWeight(0).play();
+        if(options.seated){
+          // Rigid rig bones are transformed in place, with the pelvis lowered to the bench.
+          const hips=scene.getObjectByName('Hips');if(hips)hips.position.y-=.42;
+          for(const side of ['L','R']){const thigh=scene.getObjectByName(`Thigh${side}`),shin=scene.getObjectByName(`Shin${side}`);if(thigh)thigh.rotation.x=-Math.PI/2;if(shin)shin.rotation.x=Math.PI/2;}
+        }else{
+          this.mixer = new THREE.AnimationMixer(scene);
+          this.idle = this.mixer.clipAction(idle).play();
+          this.walk = this.mixer.clipAction(walk).setEffectiveWeight(0).play();
+        }
       },
       undefined,
       () => {
@@ -252,6 +277,7 @@ export class ResidentVisual {
 
   update(dt: number, moving: boolean, distance: number, time: number) {
     if (this.fallback) {
+      if(this.seated)return;
       this.fallback.position.y = moving
         ? 0.023 * Math.abs(Math.sin(time * 6))
         : 0.003 * Math.sin(time * 2);
