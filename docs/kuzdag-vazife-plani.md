@@ -12,8 +12,9 @@ Kullanıcının yeni yönü: Dermanlı köyü tamamen kaldırılacak; beğenilen
 
 ## Son kontroller
 - Derleme, TypeScript kontrolü ve 66 birim testi geçti.
-- Otomatik tarayıcı senaryoları Kuzdağ açılışı ve kayıt korumasını; üç vaka, sekiz bölüm ve üç sonu; beş vazifenin sahne hedefleri ve klavye ile tamamlanmasını kontrol etti. Vazife senaryosu sahneye ışınlanma kullanır; yürüyüş ve görsel kaliteyi doğrulamaz.
+- Otomatik tarayıcı senaryoları Kuzdağ açılışı ve kayıt korumasını; üç vaka, sekiz bölüm ve üç sonu; beş vazifenin sahne hedefleri ve klavye ile tamamlanmasını kontrol etti. Vazife senaryosu etkileşimlerde ışınlanma kullanır. Buna ek olarak, çarpışma alanında tüm görev hedefleri arası bağlantı örneklendi ve cenazeyi taşıyarak açık gasilhane kapısından iki yönlü yürüyüş denendi.
+- Cenaze taşınırken koşma engellendi ve hız eski cenaze nakliyle eşitlendi. Bir yıkama sahnesi otomatik görüntüyle kontrol edildi; bu, tam görsel değerlendirme yerine geçmez.
 
 ## Kalanlar
-- Vazifelerin doğal yürüyüşle erişimini, görsel akışı ve kullanıcı arayüzünü son kez incele; yıkama görsellerini beğenilen sürümle karşılaştır.
+- Baştan sona doğal oyun yürüyüşü, farklı cihazlar ve tam görsel değerlendirme henüz yapılmadı; kullanıcı cihaz/tasarım değerlendirmesini şimdilik erteledi.
 - Son kontroller ve oyun tamamlanmadan production deploy yapma.

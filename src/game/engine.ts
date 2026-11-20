@@ -3639,10 +3639,12 @@ export class SonVazifeEngine {
     }
 
     const wantsMove = Math.hypot(moveX, moveZ) > 0.05;
+    const dutyBody = this.activeDuty()?.body;
+    const carryingBody = this.bodyTransport === 'carried' || dutyBody === 'carrying' || dutyBody === 'burialCarry';
     const wantsSprint =
       Boolean(this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.virtualSprint) &&
       wantsMove &&
-      this.bodyTransport !== 'carried' &&
+      !carryingBody &&
       !crouching &&
       !this.isZooming;
 
@@ -3661,7 +3663,7 @@ export class SonVazifeEngine {
       this.isSprinting = false;
     }
 
-    const targetSpeed = this.bodyTransport === 'carried' ? 1.8 : crouching ? 2.2 : this.isSprinting ? 5.2 : 3.7;
+    const targetSpeed = carryingBody ? 1.8 : crouching ? 2.2 : this.isSprinting ? 5.2 : 3.7;
     const insideGasil = this.isInsideGasilhane(this.playerPos);
     const insideMosque = this.playerPos.x > -13.9 && this.playerPos.x < -7.1 && this.playerPos.z > -2 && this.playerPos.z < 2.6;
     const insideAbandoned = this.isInsideAbandoned(this.playerPos);
