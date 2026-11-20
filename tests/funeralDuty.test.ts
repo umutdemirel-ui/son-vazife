@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {interactRitual,leaveUnwatched,newRitual,workProblem} from '../src/game/funeralDuty';
+import {interactRitual,leaveUnwatched,newRitual,workProblem,ritualObjective} from '../src/game/funeralDuty';
 const act=(s:ReturnType<typeof newRitual>,id:string,night=true)=>interactRitual(s,id,night,true);
 test('washing requires a lit candle and deliberate work',()=>{const s=newRitual();act(s,'arrival');act(s,'slab');assert.match(interactRitual(s,'slab',true,true),/mumunu yak/);assert.equal(s.stage,0);act(s,'candle');assert.match(interactRitual(s,'slab'),/basılı tut/);assert.equal(s.stage,0);act(s,'slab');assert.equal(s.stage,1);});
 test('manual work checks candle, required equipment and dirty water before starting',()=>{
@@ -37,4 +37,9 @@ test('saved duty state rejects invalid stages without discarding a valid existin
  assert.equal(isFuneralDuty({...s,body:'slab',stage:0,soaped:true}),false);
  assert.equal(isFuneralDuty({...s,held:'bucket'}),false);
  assert.equal(isFuneralDuty({...s,body:'done'}),false);
+});
+
+test('dirty water objective directs the player to put down the ewer first',()=>{
+ const s=newRitual();s.body='slab';s.stage=4;s.candle=true;s.dirty=true;s.held='ewer';
+ assert.match(ritualObjective(s),/malzemeyi yerine bırak/);s.held='empty';assert.match(ritualObjective(s),/kovayla/);s.held='bucket';assert.match(ritualObjective(s),/gidere dök/);
 });

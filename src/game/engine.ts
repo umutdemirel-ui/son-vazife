@@ -2356,6 +2356,8 @@ export class SonVazifeEngine {
 
     if (!this.getInteractLabel(id)) return;
     if(id==='transport_bed'&&!this.funeralDuty&&this.act>=6&&this.bodyTransport==='delivered'){
+      if(this.heldWashTool!=='empty'){this.showCaption('Vazifeye başlamadan önce elindeki malzemeyi yerine bırak.',4);return;}
+      this.putAwayCandle();
       this.funeralDuty=newRitual();this.syncVisualMeshes();this.triggerAutoSave(false);
       this.showCaption(ritualObjective(this.funeralDuty,isEvening(this.survivalSeconds)),6);this.pushHudState(true);return;
     }

@@ -16,7 +16,7 @@ export function ritualObjective(s: RitualState, night = true): string {
   if(s.body==='burialCarry') return 'Cenazeyi mezarlığa götür.';
   if(s.body==='done') return 'Vazife tamamlandı.';
   if(!s.candle) return 'Sabır mumunu yak; ardından hazırlığa başla.';
-  if(s.dirty) return s.held==='bucket' ? 'Kirli suyu içerideki gidere dök.' : 'Kirli suyu kovayla alıp gidere taşı.';
+  if(s.dirty) return s.held==='bucket' ? 'Kirli suyu içerideki gidere dök.' : s.held!=='empty' ? 'Önce elindeki malzemeyi yerine bırak; ardından kirli suyu gidere taşı.' : 'Kirli suyu kovayla alıp gidere taşı.';
   return ['Boş ellerle yüzü ve elleri temizle.',s.soaped?'Sabunu bırak, iki elle sağ tarafı yıka.':'Sabunu al, sağ tarafa sür.',s.soaped?'Sabunu bırak, iki elle sol tarafı yıka.':'Sabunu al, sol tarafa sür.','İbriği al ve temiz suyla durula.','Kâfuru al ve uygula.','Kefeni al ve sar.','Cenazeyi mezarlığa taşımak için al.'][s.stage] ?? '';
 }
 /** Explain why the current manual operation cannot start without changing state. */
