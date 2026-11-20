@@ -48,7 +48,7 @@ Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik erte
    - [ ] Ağaç, mezarlık, tarla, köy girişi, okul çan düzeneği, değirmen yanındaki bitki ve kanal ile belirtilen meydan/kuyu öğeleri tarandı; kalan açık arazi eşyalarını gerçek araziye göre tara ve doğrulanan hataları konum ve görsel testleriyle düzelt.
    - [ ] Diğer yapıların dış detaylarını ve henüz taranmamış karakter/alternatif modelleri destek yüzeylerine göre tara; yedi dış karakterin yüklü ve yedek görünümleri kontrol edildi. Taşınan veya kasıtlı yüzen öğeleri yanlışlıkla sabitleme.
 3. **NPC'ler:**
-   - [ ] Yeniden kullanılan temel modellerin yerine özgün karakter görünümü tasarla; yedek model, animasyon ve kaynak temizliğini doğrula.
+   - [ ] Altı gündüz köylüsü için bağımsız prosedürel beden, yüz, kıyafet ve animasyon eklendi; görsel kaliteyi, oturma/zemin uyumunu ve kaynak temizliğini doğrula. Kuzdağ anıları özgün eski modellerini koruyor.
    - [ ] Eski karakterlerin adları karşılaştırıldı; yerlerini ve davranışlarını eski oyunla karşılaştır; gündüz/gece erişilebilirliği, diyalog ve kayıtları test et.
 4. **Korku olayları:**
    - [ ] Kalan olayları tek tek tetik, yön/görünürlük, ses, tekrar ve kayıt açısından denetle; anlatılan görsel olayların gerçekten görünmesini sağla.
@@ -76,3 +76,5 @@ Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik erte
 
 - Köy girişine uzak ayak sesleri, cami çevresine sürüklenme sesi ve gassal evi kapı olayı sırasında ışık bozulması eklendi. Beşinci gecedeki toprak olayı, görülecek dış mezar yığınına bakınca tetiklenir ve kayıtlı olay olarak kalır.
 - Altı gündüz karakterine mesleklerine uygun sepet, çuval, çay bardağı veya baston eklendi; eldeki nesneler yedek ve yüklenen modellerin el bağlantılarına takılır. Temel karakter modelleri hâlâ yeniden kullanılıyor; tamamen özgün modeller olarak değerlendirilmemeli. Bu uygulamalar da henüz doğrulanmadı.
+
+- Altı gündüz köylüsü artık eski dört GLB yerine her karakter için ayrı oranlar, yüz, kıyafet ve elde taşınan eşyalar kullanan prosedürel figürlerle oluşturuluyor. Kahvehanedeki iki kişi oturuyor; diğerleri dış mekânda. Eski köy anılarının kendi GLB ve yedekleri değişmedi. Test yardımcıları yeni figürleri tanıyacak şekilde güncellendi; bu değişiklik kullanıcı isteğiyle henüz çalıştırılarak doğrulanmadı.

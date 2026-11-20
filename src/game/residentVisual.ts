@@ -234,7 +234,7 @@ function dressResident(root:THREE.Object3D, outfit:ResidentOutfit, seated:boolea
 }
 
 /** Purpose-made everyday objects distinguish Dermanlı villagers from the old cast. */
-function villageBelongings(outfit:ResidentOutfit) {
+export function villageBelongings(outfit:ResidentOutfit) {
   const left=new THREE.Group(),right=new THREE.Group();
   const wood=finish(0x73563b),metal=finish(0x786b56,.35),cloth=finish(0xaaa18a),tea=finish(0x71351c,.1,.35);
   if(outfit==='farm-vest') {

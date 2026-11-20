@@ -13,6 +13,7 @@ import { createMosqueAndGasilhane, createKaraBasma, createSisGozcusu, createCopp
 import { buildHome, homeCollider, HOME_FLOOR_HEIGHT, type HomeSpec } from './homes';
 import { NightArt, watcherFigure } from './nightArt';
 import {ResidentVisual} from './residentVisual';
+import {DermanliVillagerVisual} from './dermanliVillagerVisual';
 import {createModelLoader} from './modelLoader';
 import {RESIDENT_MEMORIES, COFFEE_RESIDENTS, OUTDOOR_RESIDENTS, type MemoryId, type CoffeeResidentId, type OutdoorResidentId} from './dermanliCharacters';
 import { funeralFigure } from './funerary';
@@ -408,7 +409,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   // The coffeehouse is the explicit exception to empty homes: three daytime villagers.
   const coffeeResidents=(Object.keys(COFFEE_RESIDENTS) as CoffeeResidentId[]).map(id=>{
     const def=COFFEE_RESIDENTS[id],x=kx+def.x,z=kz+def.z;
-    const visual=new ResidentVisual(def.model,residentLoader,undefined,true,{seated:def.seated,props:false,outfit:def.outfit});
+    const visual=new DermanliVillagerVisual(id);
     visual.group.name=`coffee-${id}`;visual.group.position.set(x,coffeeFloor,z);visual.group.rotation.y=def.seated?Math.PI:0;
     visual.group.visible=false;objects.add(visual.group);target(`coffee_${id}`,`${def.name} ile konuş`,[x,z],1.65);
     return {id,visual,x,z,seated:def.seated};
@@ -416,7 +417,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   // Daytime villagers stand outdoors, clear of the homes and the main entrance routes.
   const outdoorResidents=(Object.keys(OUTDOOR_RESIDENTS) as OutdoorResidentId[]).map(id=>{
     const def=OUTDOOR_RESIDENTS[id],site=S[def.site],x=site[0]+def.dx,z=site[1]+def.dz;
-    const visual=new ResidentVisual(def.model,residentLoader,undefined,true,{props:false,outfit:def.outfit});
+    const visual=new DermanliVillagerVisual(id);
     visual.group.name=`villager-${id}`;visual.group.position.set(x,dermanliSurfaceHeight(x,z),z);
     visual.group.visible=false;objects.add(visual.group);target(`villager_${id}`,`${def.name} ile konuş`,[x,z],1.9);
     return {id,visual,x,z};

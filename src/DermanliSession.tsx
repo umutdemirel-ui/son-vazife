@@ -195,9 +195,11 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             const mesh:THREE.SkinnedMesh[]=[];r.visual.group.traverse(o=>{if(o instanceof THREE.SkinnedMesh)mesh.push(o);});
             const bounds=new THREE.Box3();for(const m of mesh)bounds.union(new THREE.Box3().setFromObject(m,true));
             const fallback=r.visual.group.getObjectByName('standing-fallback');
+            const original=r.visual.group.getObjectByName('original-villager-figure');
+            const originalBase=original?new THREE.Box3().setFromObject(original,true).min.y:null;
             const ground=new THREE.Raycaster(new THREE.Vector3(r.x,100,r.z),new THREE.Vector3(0,-1,0)).intersectObject(world.terrainGround,false)[0]?.point.y;
             const resolved={x:r.x,z:r.z};for(const c of world.colliders)pushOutsideBox(resolved,c,.3);
-            return {id:r.id,x:r.x,z:r.z,visible:r.visual.group.visible,loaded:mesh.length>0,ground,root:r.visual.group.position.y,base:mesh.length?bounds.min.y:null,fallbackBase:fallback?new THREE.Box3().setFromObject(fallback,true).min.y:null,clearance:Math.hypot(resolved.x-r.x,resolved.z-r.z)};
+            return {id:r.id,x:r.x,z:r.z,visible:r.visual.group.visible,original:!!original,loaded:mesh.length>0,ground,root:r.visual.group.position.y,base:originalBase??(mesh.length?bounds.min.y:null),fallbackBase:fallback?new THREE.Box3().setFromObject(fallback,true).min.y:null,clearance:Math.hypot(resolved.x-r.x,resolved.z-r.z)};
           });
         },
         millExteriorAudit: () => {
@@ -308,7 +310,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         },
         squareArt: () => ({fountain:!!world.fountain.getObjectByName('hayrat'),tree:world.squareTree.visible}),
         visualState: () => ({mounds:world.graveMounds.filter(m=>m.visible).length,litWindows:world.emptyHomeWindows.filter(w=>w.visible).length,fountain:world.fountainWater.visible}),
-        coffeeResidents: () => world.coffeeResidents.map(r=>({id:r.id,visible:r.visual.group.visible,seated:r.seated,loaded:!!r.visual.group.getObjectByName('HandL'),dressed:!!r.visual.group.getObjectByName(`outfit-${COFFEE_RESIDENTS[r.id].outfit}`)})),
+        coffeeResidents: () => world.coffeeResidents.map(r=>({id:r.id,visible:r.visual.group.visible,seated:r.seated,original:!!r.visual.group.getObjectByName('original-villager-figure'),dressed:r.visual.group.getObjectByName('original-villager-figure')?.userData.outfit===COFFEE_RESIDENTS[r.id].outfit})),
         coffeeSupport: () => {
           world.coffeehouse.updateWorldMatrix(true,true);
           return world.coffeeSupports.map(item=>{
@@ -332,7 +334,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
           };
           return {barn:world.barnSupports.map(item=>check(item,world.barnFloorMesh)),clues:world.clueSupports.map(({item,support})=>check(item,support))};
         },
-        outdoorResidents: () => world.outdoorResidents.map(r=>{const p={x:r.x,z:r.z};for(const wall of world.colliders)pushOutsideBox(p,wall,.3);return {id:r.id,visible:r.visual.group.visible,loaded:!!r.visual.group.getObjectByName('HandL'),dressed:!!r.visual.group.getObjectByName(`outfit-${OUTDOOR_RESIDENTS[r.id].outfit}`),x:r.x,z:r.z,clearance:Math.hypot(p.x-r.x,p.z-r.z)};}),
+        outdoorResidents: () => world.outdoorResidents.map(r=>{const p={x:r.x,z:r.z};for(const wall of world.colliders)pushOutsideBox(p,wall,.3);return {id:r.id,visible:r.visual.group.visible,original:!!r.visual.group.getObjectByName('original-villager-figure'),dressed:r.visual.group.getObjectByName('original-villager-figure')?.userData.outfit===OUTDOOR_RESIDENTS[r.id].outfit,x:r.x,z:r.z,clearance:Math.hypot(p.x-r.x,p.z-r.z)};}),
         bridgeEvent: () => ({seen:seenEvents.has(`${ritual.night}:bridge`),lastMove:lastBridgeMove}),
         wellEvent: () => ({swing:world.wellRope.rotation.z,seen:seenEvents.has(`${ritual.night}:well`),remaining:Math.max(0,wellRopeUntil-performance.now())}),
         squareWaterEvent: () => ({visible:world.fountainJet.visible,seen:seenEvents.has(`${ritual.night}:square`),remaining:Math.max(0,fountainJetUntil-performance.now())}),
