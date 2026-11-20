@@ -12,7 +12,7 @@ export const EVENTS: readonly Event[] = [
  {id:'house',at:[S.abandonedHomes[0][0]-2.125,S.abandonedHomes[0][1]+2.5],radius:6,minNight:2,text:'Terk evin penceresinde bir gölge belirip kayboluyor.',look:true,sound:'creak'},
  {id:'mill',at:S.mill,radius:8,minNight:3,text:'Değirmenin içinden durup başlayan bir çark sesi geliyor.',sound:'creak'},
  {id:'barn',at:S.barn,radius:8,minNight:3,text:'Ahırdan bir an hayvan sesi duyuluyor; içerisi boş.',sound:'creak'},
- {id:'school',at:S.school,radius:8,minNight:4,text:'Boş sınıfta tebeşir tahtaya dokunuyor.',look:true,sound:'knock'},
+ {id:'school',at:[S.school[0],S.school[1]-2.83],radius:5.5,minNight:4,text:'Boş sınıfta tebeşir tahtaya dokunuyor.',look:true,sound:'knock'},
  {id:'cemetery',at:S.cemetery,radius:10,minNight:5,text:'Mezarlık dışında yeni eşelenmiş toprak görünüyor.',sound:'whisper'},
  {id:'bridge',at:S.bridge,radius:7,minNight:5,text:'Köprüde ayak sesleri sen durduktan sonra da devam ediyor.',sound:'creak'},
 ];
@@ -21,6 +21,8 @@ export function nextEvent(night:number,x:number,z:number,yaw:number,seen:Readonl
   if(night<e.minNight||seen.has(`${night}:${e.id}`))continue;
   // The figure is behind the front window; do not announce it from the back of the house.
   if(e.id==='house' && z<=S.abandonedHomes[0][1]+2.7)continue;
+  // The chalk can only be seen from inside the classroom.
+  if(e.id==='school' && (Math.abs(x-S.school[0])>=3.8 || Math.abs(z-S.school[1])>=2.75))continue;
   const dx=e.at[0]-x,dz=e.at[1]-z,dist=Math.hypot(dx,dz);
   if(dist>e.radius)continue;
   if(e.look&&dist>.1&&(dx*-Math.sin(yaw)+dz*-Math.cos(yaw))/dist<.55)continue;

@@ -78,7 +78,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     const ritual=saved?.ritual??newRitual();
     const bell=saved?.bell??newBell(saved?0:undefined);
     let elapsed=saved?.elapsed??0, nextCue=0, hits=saved?.hits??0, nextRandomScare=(saved?.elapsed??0)+75+Math.random()*45; const threat=new DermanliThreat(); const seenEvents=new Set(saved?.events??[]);
-    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false, threatArtRequested=false, crouchToggled=false, windowShadowUntil=0, houseShadowUntil=0; let scrub=newScrub();
+    const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false, threatArtRequested=false, crouchToggled=false, windowShadowUntil=0, houseShadowUntil=0, schoolChalkUntil=0; let scrub=newScrub();
     let targetLook={yaw,pitch};
     const setYaw=(value:number)=>{yaw=value;targetLook.yaw=value;};
     const save=()=>writeDermanliSave({version:1,ritual,x:pos.x,z:pos.z,yaw,pitch,elapsed,events:[...seenEvents],hits,bell});
@@ -158,6 +158,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
           return {barn:world.barnSupports.map(item=>check(item,world.barnFloorMesh)),clues:world.clueSupports.map(({item,support})=>check(item,support))};
         },
         outdoorResidents: () => world.outdoorResidents.map(r=>{const p={x:r.x,z:r.z};for(const wall of world.colliders)pushOutsideBox(p,wall,.3);return {id:r.id,visible:r.visual.group.visible,loaded:!!r.visual.group.getObjectByName('HandL'),dressed:!!r.visual.group.getObjectByName(`outfit-${OUTDOOR_RESIDENTS[r.id].outfit}`),x:r.x,z:r.z,clearance:Math.hypot(p.x-r.x,p.z-r.z)};}),
+        schoolChalk: () => ({visible:world.schoolChalk.visible,seen:seenEvents.has(`${ritual.night}:school`),progress:world.schoolChalkTrace.scale.x}),
         houseShadow: () => ({visible:world.figures[0].visible,seen:seenEvents.has(`${ritual.night}:house`),remaining:Math.max(0,houseShadowUntil-performance.now())}),
         spirits: () => ({elif:world.elif.visible,riza:world.riza.visible}),
         residentModels: () => world.residents.map(r=>({id:r.id,loaded:!!r.visual.group.getObjectByName('HandL')})),
@@ -286,7 +287,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       sun.intensity=night?.46:1.6;
       (scene.background as THREE.Color).set(night?0x1c2930:0x465255);
       if(scene.fog instanceof THREE.FogExp2){scene.fog.color.copy(scene.background as THREE.Color);scene.fog.density=night?.023+ritual.night*.001:.018;}
-      if(locked&&night&&!ritual.ending&&now>nextCue){const event=nextEvent(ritual.night,pos.x,pos.z,yaw,seenEvents);if(event){if(event.id==='gasil'&&ritual.night>=2)windowShadowUntil=now+4500;if(event.id==='house')houseShadowUntil=now+4500;seenEvents.add(`${ritual.night}:${event.id}`);caption=event.text;captionUntil=now+6500;nextCue=now+30000;if(event.sound==='water')audio.playWaterPour();else if(event.sound==='whisper')audio.playWhisper();else if(event.sound==='knock')audio.playWindowKnock();else audio.playFloorboardCreak();save();}}
+      if(locked&&night&&!ritual.ending&&now>nextCue){const event=nextEvent(ritual.night,pos.x,pos.z,yaw,seenEvents);if(event){if(event.id==='gasil'&&ritual.night>=2)windowShadowUntil=now+4500;if(event.id==='house')houseShadowUntil=now+4500;if(event.id==='school')schoolChalkUntil=now+4500;seenEvents.add(`${ritual.night}:${event.id}`);caption=event.text;captionUntil=now+6500;nextCue=now+30000;if(event.sound==='water')audio.playWaterPour();else if(event.sound==='whisper')audio.playWhisper();else if(event.sound==='knock')audio.playWindowKnock();else audio.playFloorboardCreak();save();}}
       if(locked)({yaw,pitch}=advanceLook({yaw,pitch},targetLook,dt,controls.lookSmoothing));
       let forward=0,side=0; if(locked&&!overlayBlocked.current){forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));}
       const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight'), crouch=keys.has('ControlLeft')||keys.has('ControlRight')||(controls.crouchToggle?crouchToggled:keys.has('KeyC'));
@@ -318,6 +319,12 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       world.fountainWater.visible=visuals.fountainFlowing;
       world.gasil.windowShadowFigure.visible=night&&now<windowShadowUntil&&!ritual.ending;
       world.figures[0].visible=night&&now<houseShadowUntil&&!ritual.ending;
+      world.schoolChalk.visible=night&&now<schoolChalkUntil&&!ritual.ending;
+      if(world.schoolChalk.visible){
+        const progress=Math.min(1,Math.max(.001,(4500-(schoolChalkUntil-now))/3000));
+        world.schoolChalkTrace.scale.x=progress;world.schoolChalkTrace.position.x=-1+progress;
+        world.schoolChalkPiece.position.x=-1+2*progress;
+      }
       world.slabBody.visible=ritual.body==='slab'&&ritual.stage<6;world.slabBody.rotation.z=ritual.risen?-Math.PI/2:0;
       world.apparition.visible=now<scareUntil; if(world.apparition.visible){const sx=pos.x-Math.sin(yaw)*1.8,sz=pos.z-Math.cos(yaw)*1.8;world.apparition.position.set(sx,dermanliWalkingHeight(sx,sz),sz);world.apparition.rotation.y=yaw;}
       world.gasil.pestemalMesh.visible=ritual.body==='slab'&&ritual.stage<6;world.gasil.kefenWrapGroup.visible=ritual.body==='slab'&&ritual.stage===6;

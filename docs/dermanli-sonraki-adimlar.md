@@ -1,13 +1,41 @@
-# Dermanlı: sıradaki çalışmalar
+# Dermanlı: tamamlanan işler ve sıradaki adımlar
 
-Bu liste devam eden işlerdir; tamamlanmış sayılmaz. Oyun bitmeden production dağıtımı yapılmayacak.
+Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden production dağıtımı yapılmayacak. Evlerin içine NPC yerleştirilmeyecek; kullanıcının özellikle istediği kahvehane bunun istisnası.
 
-1. **Gasilhane:** İçeride malzemeler için destekli tezgâhlar, dışarıda üstü örtülü giriş ve ayaklı sedye ilk adım olarak eklendi. Güney cephesindeki iki sahte pencere gerçek camlı açıklıklara dönüştürüldü, havlular pencereleri örtmeyecek şekilde taşındı ve zemin/arka duvar dokuları metre ölçeğine göre düzenlendi. Yıkama etkileşimleri ve beş gecelik akış korunuyor. Tasarımın kalan ayrıntıları ve bütün istasyonların farklı cihazlarda görsel kontrolü hâlâ gerekli.
-2. **Havada kalan varlıklar:** Elif ve Rıza’nın ayakkabıları ile animasyonlu takipçi ve sis gözcüsünün ayakları zemin seviyesine düzeltildi; gerçek render döngüsünde takipçi kontrol edildi. Kahvehane sıraları, masaları, bardakları ve oturan müşterileri yükseltilerek döşemeye oturtuldu; mobilya destekleri sahnede ışın testiyle doğrulandı. Gassal evinde yatak ve masa, okulda sıra ve dolap, terk evlerde masa ve sandıklar, ahırda saman ve kayıt masası döşemeye göre düzeltildi; eşya ve ipuçlarının destekleri sahnede sınandı. Taş köprüye iki rampa eklendi; oyuncu ve korku figürleri köprü yüzeyinin yüksekliğini kullanıyor. Haritanın tamamında ağaç, bina, diğer karakter ve eşya tabanlarını gerçek arazi veya üstünde durdukları yüzeye göre incele. Ekran görüntüsü ve konum/çarpışma testleriyle düzelt; taşınan veya kasten hareket eden şeyleri yanlışlıkla yere sabitleme.
-3. **NPC'ler:** Eski karakterleri koru ve çeşitliliği artır. Kahvehanede kahveci ve iki oturan müşteriye ek olarak okul, ahır ve değirmen yakınında üç gündüz köylüsü eklendi; konuşmalar deftere kaydediliyor. Altı gündüz köylüsünün konuşmaları tamamlanan vazifelerle iki aşamada değişiyor ve her duyulan konuşma kaydediliyor. Altı köylüye mevcut iskeletlere bağlı önlük, yelek, şapka ve atkı gibi farklı giysi ayrıntıları eklendi; yükleme başarısızlığındaki yedek modeller de giyimli. Temel modeller hâlâ yeniden kullanılıyor; tamamen özgün karakterler, daha kapsamlı diyaloglar ve etkileşimler hâlâ gerekiyor. NPC'ler kullanıcının özellikle istediği kahvehane dışında evlerin içine yerleştirilmeyecek.
-4. **Korku karakterleri:** Terk evin penceresinde anlatılan gölge artık ikinci geceden itibaren gerçekten beliriyor; yalnız ön penceresine bakıldığında tetikleniyor ve kayıt sonrası tekrarlanmıyor. Mevcut takip ve sahne tetiklerini, gerçek oyun sırasında görünürlük, modellerin yüklenmesi, araziye oturması, davranış ve oynanış üzerindeki etkileriyle baştan sona denetle; gerekli eksik karakter ve olayları ekle. Yalnızca model dosyasının varlığını yeterli sayma.
-5. **Bütünlük:** Her büyük değişiklikten sonra rotaları, beş geceyi, kayıtları, tüm sonları ve menüyü tarayıcıda test et; sonucu görsel olarak da incele.
+## Tamamlanan ve doğrulanan alt işler
 
-6. **Yapılar ve dokular:** Kahvehane bağımsız bir yapı olarak yeniden kuruldu; değirmen çarkı gündüz ve gece dönüyor, değirmenin duvar UV’leri yeniden ölçeklendi. Gassal evi, okul ve terk evlerin zemin kat pencereleri gerçek açıklık ve cam olarak yenilendi; daha önceki içteki sahte pencere yüzeyleri kaldırıldı. Evlerin diğer cephelerini, değirmenin geri kalan ayrıntılarını ve bütün yapıların dokularını tek tek görsel olarak gözden geçirip düzeltmeye devam et.
+- [x] Kahvehane binasını yeniden kur; kahveci ve iki oturan müşteri ekle; rotaları ve mobilya desteklerini sına.
+- [x] Değirmen çarkını gündüz/gece döndür ve duvar dokularını ölçekle.
+- [x] Gassal evi, okul, terk evler ve gasilhanenin belirtilen cephelerinde gerçek camlı pencere açıklıkları oluştur.
+- [x] Gasilhanede malzeme tezgâhlarını, dış sedyeyi ve örtülü girişi yerleştir; yıkama ve beş geceyi sına.
+- [x] Kahvehane, gassal evi, okul, terk evler ve ahırdaki düzeltilen mobilyaların desteklerini sahnede test et.
+- [x] Taş köprüye rampalar ekle; yüzey yüksekliğini ve oyuncunun rampada yürüyüşünü sına.
+- [x] İki gece ruhunun ve iki animasyonlu korku modelinin tabanlarını düzelt; takipçiyi gerçek render döngüsünde sına.
+- [x] Üç dış mekân köylüsü ekle; altı gündüz köylüsüne farklı giysi ayrıntıları ve ilerlemeye bağlı, kaydedilen konuşmalar ver.
+- [x] Terk evdeki pencere gölgesini tetiklenme, görünme ve kayıt sonrası tekrar etmeme açısından sına.
+- [x] Dördüncü gecedeki okul tebeşiri olayını gerçek tahtada animasyonla göster; yalnız içeriden bakıldığında tetiklenmesini ve kayıt sonrası tekrar etmemesini sına.
+- [x] Fare yumuşatma ayarını menüden Dermanlı sahnesine bağla; menü, ters Y ve kayıt davranışını tarayıcıda sına.
 
-7. **Eski oyun ve menü bütünlüğü:** Menüdeki fare yumuşatma tercihi geri açıldı ve eski oyundaki gibi Dermanlı sahnesine bağlandı; hassasiyet, ters Y, ses ve kayıt işlemleri tarayıcıda sınandı. Eski menü ve karakterlerin yeni akışta eksiksizliğini yeniden doğrula; Kuzdağ hikâyesi, vakalar, zaman ve kayıt sistemlerinin yeni sahneye nasıl taşınacağını ayrıca değerlendirip uygula. Kullanıcının yalnızca ölü yıkamayı beğendiği göz önünde bulundurularak diğer içerikleri eski oyunun kalitesine göre gözden geçirmeye devam et.
+## Kalan işler — sırayla, ölçülebilir alt görevler
+
+1. **Gasilhane:**
+   - [ ] İç ve dış cepheleri, yıkama istasyonlarını, kamera ve çarpışmaları düşük/yüksek grafik ayarlarında ayrı ayrı gözden geçir; tespitleri düzelt ve görsel kanıt al.
+   - [ ] Beş gecelik yıkama ve üç son testini yeniden çalıştır. Kullanıcı değerlendirmesinden önce tasarımı nihai kabul etme.
+2. **Haritanın zemin ve çarpışma taraması:**
+   - [ ] Ağaçlar, mezarlık ve açık arazi eşyalarını gerçek araziye göre tara; doğrulanan hataları konum ve görsel testleriyle düzelt.
+   - [ ] Diğer yapıların dış detayları ve karakterlerini destek yüzeylerine göre tara. Taşınan veya kasıtlı yüzen öğeleri yanlışlıkla sabitleme.
+3. **NPC'ler:**
+   - [ ] Yeniden kullanılan temel modellerin yerine özgün karakter görünümü tasarla; yedek model, animasyon ve kaynak temizliğini doğrula.
+   - [ ] Eski karakterlerin kimliklerini ve yerlerini eski oyunla karşılaştır; gündüz/gece erişilebilirliği, diyalog ve kayıtları test et.
+4. **Korku olayları:**
+   - [ ] Kalan olayları tek tek tetik, yön/görünürlük, ses, tekrar ve kayıt açısından denetle; anlatılan görsel olayların gerçekten görünmesini sağla.
+   - [ ] Eksik korku karakterlerini belirleyip ekle; çarpışma ve yıkama akışını bozmadıklarını sına.
+5. **Yapılar ve dokular:**
+   - [ ] Gassal evi, okul ve terk evlerin diğer cephelerini ayrı ayrı inceleyip düzelt.
+   - [ ] Değirmenin kalan ayrıntıları ve diğer yapı cephelerini gözden geçir; doku, açıklık ve erişim testleri ekle.
+6. **Eski oyun bütünlüğü:**
+   - [ ] Eski menü ve karakterlerin eksik davranışlarını karşılaştırıp gider.
+   - [ ] Kuzdağ hikâyesi, vakalar, zaman ve kayıt sistemleri ile Dermanlı akışının uyumunu incele; korunacak yıkama sistemiyle çakışmadan aktarım planını uygula. Eski kayıtları izinsiz silme veya yeni kayıtla karıştırma.
+7. **Son doğrulama:**
+   - [ ] Her büyük değişiklikte lint, test, build, çarpışmalı beş gece, ilgili görsel kontrol ve gerekiyorsa üç son/menü testlerini çalıştır.
+   - [ ] Tüm bölgelerin ve farklı cihazların kontrolü tamamlanmadan oyunu bitmiş veya production'a hazır ilan etme.
