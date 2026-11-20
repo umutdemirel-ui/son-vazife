@@ -1,4 +1,3 @@
-import { DERMANLI_RECORDS } from './dermanli';
 import { FIELD_CLUES, NIGHT_CLUES, type NightId } from './nightWatch';
 import {
   GlossaryCategory,
@@ -387,7 +386,6 @@ export const INITIAL_CLUES: ClueDocument[] = [
     body: 'Kenan üçüncü yolcunun taş mahzene götürüldüğünü söyledi. Anahtar Mezarcı İdris’te.',
     discovered: false,
   },
-  ...DERMANLI_RECORDS.map(({ id, title, subtitle, body }) => ({ id, title, subtitle, body, discovered: false })),
   ...FIELD_CLUES,
   ...NIGHT_CLUES,
 ];

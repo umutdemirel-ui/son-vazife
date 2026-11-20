@@ -45,8 +45,7 @@ try {
   });
   await page.goto(process.env.VILLAGE_URL || 'http://localhost:3000', { waitUntil: 'networkidle' });
   const btn = (name) => page.getByRole('button', { name, exact: typeof name === 'string' });
-  await btn('Kuzdağ · Önceki oyun').click();
-  await btn('Kuzdağ hikâyesine başla').click();
+  await btn('KÖYE GİR').click();
   await btn('Duraklat').waitFor();
   const helpers = async () => {
     await page.waitForFunction(() => window.fixture?.assetsReady);
@@ -89,8 +88,7 @@ try {
   await helpers();
   const reload = async () => {
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await btn('Kuzdağ · Önceki oyun').click();
-    await btn('Kuzdağ kaydına devam et').click();
+    await btn('DEVAM ET').click();
     await btn('Duraklat').waitFor();
     await helpers();
   };
@@ -124,7 +122,12 @@ try {
   };
   const use = async (...args) => {
     await aim(...args);
-    await page.keyboard.press('e');
+    const manual=await page.evaluate(()=>window.fixture.manualWashTarget());
+    if(!manual){await page.keyboard.press('e');return;}
+    await page.keyboard.down('f');
+    if(manual.stage<3){for(const key of ['a','d','a','d'])await page.keyboard.press(key);}
+    else await page.evaluate(()=>{for(let i=0;i<30;i++){fixture.elapsedTime+=.05;fixture.updateSimulation(.05);}});
+    await page.keyboard.up('f');
   };
   const val = (k) => page.evaluate((k) => window.fixture[k], k);
   const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('son_vazife_save_v2')));
@@ -206,6 +209,7 @@ try {
   await form('case_arif');
   const soap = ['wash_soap', -12.0, 4.75], ewer = ['wash_ewer', -12.0, 7.3];
   await use(...slab); // prepare
+  await use('vigil_candle', -12.04, 4.77);
   await use(...slab); // bare hands
   await use(...slab); // without soap cannot progress
   assert.equal(await val('washStage'), 1);
@@ -419,8 +423,7 @@ try {
   assert.equal(await val('screen'), 'playing');
   // The final choice and existing violation-based endings survive a page reload.
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await btn('Kuzdağ · Önceki oyun').click();
-  await btn('Kuzdağ kaydına devam et').click();
+  await btn('DEVAM ET').click();
   await page.waitForFunction(() => window.fixture?.assetsReady);
   assert.equal(await val('screen'), 'playing');
   await escape();

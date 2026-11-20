@@ -12,7 +12,7 @@ import { GameHud } from './components/GameHud';
 import { NotebookModal } from './components/NotebookModal';
 import { LoadingVillage } from './components/LoadingVillage';
 import { type VillageLaunch } from './game/firstWatch';
-import { legacySaveStatus } from './game/dermanliLegacyArchive';
+import { autoSaveStatus } from './game/saveSystem';
 import { createInitialAutopsyCases } from './game/autopsy';
 import { SonVazifeEngine } from './game/engine';
 import {
@@ -107,7 +107,7 @@ export default function VillageSession({
     // Leave one paint for the loading slate before constructing the village.
     const timer = window.setTimeout(() => {
       try {
-        const status = legacySaveStatus();
+        const status = autoSaveStatus();
         if (status !== (session.resume ? 'available' : 'missing')) throw new Error('Kuzdağ kayıt durumu değişti; mevcut kayıt korunuyor.');
         const engine = new SonVazifeEngine(mount, setHud);
         engineRef.current = engine;

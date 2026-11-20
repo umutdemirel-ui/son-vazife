@@ -175,3 +175,12 @@ export function clearAutoSave(): void {
     // ignore
   }
 }
+
+/** Check existence separately from parsing, so a damaged save is never overwritten. */
+export function autoSaveStatus(): 'available'|'missing'|'invalid'|'inaccessible' {
+  try {
+    const raw=window.localStorage.getItem(SAVE_STORAGE_KEY);
+    if(raw===null)return 'missing';
+    return readAutoSave()?'available':'invalid';
+  } catch {return 'inaccessible';}
+}

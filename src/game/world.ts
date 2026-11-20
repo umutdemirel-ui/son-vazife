@@ -1,4 +1,3 @@
-import { DERMANLI_RECORDS } from './dermanli';
 import { buildHome, type Home } from './homes';
 import { CEMETERY, CEMETERY_GRAVES } from './cemetery';
 import { receivingBay, STRETCHERS } from './funerary';
@@ -695,16 +694,6 @@ export function buildVillageWorld(
       label: () => getLabel(id),
     });
   };
-
-  // Visible papers and separate hit proxies keep the records discoverable and save-safe.
-  for (const record of DERMANLI_RECORDS) {
-    const geo = new THREE.BoxGeometry(0.29, 0.018, 0.2);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xb9ad92, roughness: 1 });
-    const paper = new THREE.Mesh(geo, mat);
-    paper.position.set(record.x, groundHeightAt(record.x, record.z) + record.y, record.z);
-    scene.add(paper); disposables.push(geo, mat);
-    registerTarget(record.id, paper.position, [0.35, 0.18, 0.28], 2.5);
-  }
 
   homes.forEach((home, i) => {
     registerTarget(`home_door_${i}`, new THREE.Vector3(0.72, 1.05, 0), [1.4, 2.1, 0.3], 2.7, home.door);

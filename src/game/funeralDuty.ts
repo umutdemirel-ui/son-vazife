@@ -7,7 +7,7 @@ export interface RitualState {
   stage: number; soaped: boolean; held: Held; dirty: boolean; violations: number;
   clues: string[]; ending: Ending | null;
 }
-export const NAMES = ['Yaşlı çoban','Genç anne','Değirmenci','Küçük Elif','Muhtar Rıza'] as const;
+export const NAMES = ['İlk cenaze','İkinci cenaze','Üçüncü cenaze','Dördüncü cenaze','Beşinci cenaze'] as const;
 export function newRitual(): RitualState { return {night:1,body:'arrival',candle:false,risen:false,stage:0,soaped:false,held:'empty',dirty:false,violations:0,clues:[],ending:null}; }
 export function ritualObjective(s: RitualState, night = true): string {
   if(s.ending) return 'Son vazife sona erdi.';
@@ -74,11 +74,10 @@ export function interactRitual(s:RitualState, id:string, night = true, work = fa
     return ritualObjective(s);
   }
   if(id==='cemetery'&&s.body==='burialCarry'){
-    if(s.night===5){s.body='done';s.ending=s.violations===0&&['home','school','mill','well','cemetery'].every(c=>s.clues.includes(c))?'peace':'dark';return s.ending==='peace'?'Son isim tamamlandı. Hacı Süleyman’ın sesi duyuluyor; sisin ardında sabah var.':'Özensizliğin ve bilinmeyen isimlerin ağırlığı köyde kaldı.';}
+    if(s.night===5){s.body='done';return 'Beşinci cenaze defnedildi. Son vazife tamamlandı.';}
     s.night++;s.body='arrival';s.candle=false;s.risen=false;s.stage=0;s.soaped=false;s.held='empty';s.dirty=false;
     return `Vazife tamamlandı. Yeni gün başladı; ${s.night}. geceyi beklerken köyü keşfet.`;
   }
-  if(id==='forest'){s.ending='escape';return 'Orman yolu yeniden köy kapısına çıkıyor. Yol bir döngüye dönüştü.';}
   return '';
 }
 export function leaveUnwatched(s:RitualState): boolean {

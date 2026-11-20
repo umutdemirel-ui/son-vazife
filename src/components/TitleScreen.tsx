@@ -2,9 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, BookOpen, CloudFog, Crosshair, Focus, Headphones, MapPin, Maximize, Minimize, Mountain, Play, RotateCcw, UserRound, VolumeX } from 'lucide-react';
 import { ARCHIVE } from '../archive';
 import { HorrorAudioEngine } from '../game/audio';
-import {legacySaveStatus} from '../game/dermanliLegacyArchive';
 import {MenuDialog} from './MenuDialog';
-import {readAutoSave} from '../game/saveSystem';
+import {autoSaveStatus,readAutoSave} from '../game/saveSystem';
 import { readControls, readMuted, storeControls, storeMuted } from '../game/preferences';
 import type { ControlSettings } from '../game/types';
 import { ArchivePrint } from './ArchivePrint';
@@ -13,7 +12,7 @@ import { ArchivePanel, ControlsPanel, SettingsPanel } from './MenuPanels';
 type Panel = 'archive' | 'controls' | 'settings' | 'saveWarning' | null;
 export function TitleScreen({onLaunch}:{onLaunch:(resume:boolean)=>void}) {
   const [panel,setPanel]=useState<Panel>(null),[photo,setPhoto]=useState(0),[controls,setControls]=useState(readControls),[muted,setMuted]=useState(readMuted),[fullscreen,setFullscreen]=useState(Boolean(document.fullscreenElement)),[notice,setNotice]=useState('');
-  const [save]=useState(readAutoSave),[legacyStatus]=useState(legacySaveStatus);
+  const [save]=useState(readAutoSave),[saveStatus]=useState(autoSaveStatus);
   const audio=useRef<HorrorAudioEngine|null>(null);
   function wakeAudio(){if(!audio.current)audio.current=new HorrorAudioEngine();audio.current.setMuted(muted||document.hidden);audio.current.init();}
   useEffect(()=>{const sync=()=>setFullscreen(Boolean(document.fullscreenElement));document.addEventListener('fullscreenchange',sync);return()=>{document.removeEventListener('fullscreenchange',sync);audio.current?.dispose();audio.current=null;};},[]);
@@ -23,7 +22,7 @@ export function TitleScreen({onLaunch}:{onLaunch:(resume:boolean)=>void}) {
   function update(patch:Partial<ControlSettings>){const next={...controls,...patch};setControls(next);storeControls(next);}
   function openPanel(next:Panel){audio.current?.playPaperFlip();setPanel(next);}
   function photoBy(by:number){audio.current?.playPaperFlip();setPhoto(i=>(i+by+ARCHIVE.length)%ARCHIVE.length);}
-  function launch(){if(legacyStatus==='available')onLaunch(true);else if(legacyStatus==='missing')onLaunch(false);else openPanel('saveWarning');}
+  function launch(){if(saveStatus==='available')onLaunch(true);else if(saveStatus==='missing')onLaunch(false);else openPanel('saveWarning');}
   async function toggleFullscreen(){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{setNotice('Tarayıcın bu görünümde tam ekrana izin vermiyor.');}}
   useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||panel)return;if(e.code==='KeyM'){wakeAudio();toggleMute();return;}if(e.target instanceof HTMLElement&&e.target.closest('button,input,select,textarea,a,[contenteditable="true"]'))return;if(e.code==='Enter'||e.code==='Space'){e.preventDefault();wakeAudio();launch();}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);});
   return <div className="sv-shell" onPointerDownCapture={wakeAudio} onKeyDownCapture={wakeAudio}>
@@ -38,6 +37,6 @@ export function TitleScreen({onLaunch}:{onLaunch:(resume:boolean)=>void}) {
     {panel==='archive'&&<ArchivePanel index={photo} onSelect={i=>{audio.current?.playPaperFlip();setPhoto(i);}} onClose={()=>setPanel(null)}/>}
     {panel==='settings'&&<SettingsPanel controls={controls} update={update} muted={muted} toggleMute={toggleMute} onClose={()=>setPanel(null)}/>}
     {panel==='controls'&&<ControlsPanel onClose={()=>setPanel(null)}/>}
-    {panel==='saveWarning'&&<MenuDialog title="Kuzdağ kaydı" kicker="KAYIT / KORUMA" onClose={()=>setPanel(null)}><p className="panel-intro">{legacyStatus==='invalid'?'Kuzdağ kaydı okunamıyor. Üzerine yazmamak için oyun başlatılmadı.':'Kayıt alanına erişilemiyor; mevcut kayıt korunamadığı için oyun başlatılmadı.'}</p></MenuDialog>}
+    {panel==='saveWarning'&&<MenuDialog title="Kuzdağ kaydı" kicker="KAYIT / KORUMA" onClose={()=>setPanel(null)}><p className="panel-intro">{saveStatus==='invalid'?'Kuzdağ kaydı okunamıyor. Üzerine yazmamak için oyun başlatılmadı.':'Kayıt alanına erişilemiyor; mevcut kayıt korunamadığı için oyun başlatılmadı.'}</p></MenuDialog>}
   </div>;
 }

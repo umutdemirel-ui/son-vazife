@@ -1,8 +1,7 @@
-import { DERMANLI_RECORDS, nearbyStoryEvent } from './dermanli';
 import { armSwing, createWorkHands } from './handRig';
 import { createHorrorFigures, disposeHorrorFigures } from './horrorFigures';
 import { requiredWashTool, washInstruction, type WashPerson, type WashTool } from './washing';
-import {newScrub,scrubStroke,SCRUB_STROKES,type ScrubProgress} from './dermanliWashing';
+import {newScrub,scrubStroke,SCRUB_STROKES,type ScrubProgress} from './scrubbing';
 import { atmosphereTargets } from './atmosphere';
 import { insideHome } from './homes';
 import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition, migrateMuhtarPosition } from './homeMigration';
@@ -412,7 +411,6 @@ export class SonVazifeEngine {
   private caughtCount = 0;
   private survivalSeconds = 0;
   private storyEventsSeen = new Set<string>();
-  private nextStoryEventTime = 0;
   private survivalSaveClock = 0;
   private endingReason = '';
 
@@ -790,7 +788,6 @@ export class SonVazifeEngine {
     this.caughtCount = 0;
     this.survivalSeconds = 0;
     this.storyEventsSeen.clear();
-    this.nextStoryEventTime = 0;
     this.survivalSaveClock = 0;
     this.endingReason = '';
     this.isNotebookOpen = false;
@@ -2127,8 +2124,6 @@ export class SonVazifeEngine {
       if (quiet && !this.hasEntry(id)) return quiet;
       return `[E] ${this.hasEntry(id) ? 'Kaydı yeniden oku' : PAGES[id].prompt}`;
     }
-    const storyRecord = DERMANLI_RECORDS.find(record => record.id === id);
-    if (storyRecord) return `[E] ${storyRecord.title} · Oku`;
     if (Object.hasOwn(FIELD_NOTES, id))
       return `[E] ${FIELD_NOTES[id as keyof typeof FIELD_NOTES].title} · İncele`;
     if (id === 'wash_soap' || id === 'wash_ewer') {
@@ -2340,12 +2335,6 @@ export class SonVazifeEngine {
       else this.audio.playPaperFlip();
       this.pushHudState(true);
       return;
-    }
-    if (DERMANLI_RECORDS.some(record => record.id === id)) {
-      const clue = this.clues.find(c => c.id === id);
-      if (!clue) return;
-      clue.discovered = true; this.audio.playPaperFlip();
-      this.showCaption(clue.body, 9); this.triggerAutoSave(true); return;
     }
     if (Object.hasOwn(FIELD_NOTES, id)) {
       const c = this.clues.find((c) => c.id === id)!;
@@ -3058,6 +3047,7 @@ export class SonVazifeEngine {
       const target=this.manualWashTarget();
       if(target){
         const applied=this.soapAppliedFor===target.who;
+        if(!this.vigilLit){this.showCaption('Yıkamaya başlamadan sabır mumunu yak.',4);return;}
         if(this.heldWashTool!==requiredWashTool(target.stage,applied) || (this.soapAppliedFor && !applied))this.showCaption(washInstruction(target.stage,applied),4);
         else if(!['KeyW','KeyA','KeyS','KeyD'].some(k=>this.keys[k]))this.manualWash={id:target.id,stage:target.stage,progress:newScrub(),seconds:0};
       } else this.toggleCandle();
@@ -3415,15 +3405,6 @@ export class SonVazifeEngine {
       const oldDay = survivalDay(this.survivalSeconds);
       this.survivalSeconds += dt;
       this.survivalSaveClock += dt;
-      if (this.elapsedTime >= this.nextStoryEventTime && !this.activeAutopsyCaseId && !this.captionText) {
-        const cue = nearbyStoryEvent(this.survivalSeconds, this.playerPos.x, this.playerPos.z, this.storyEventsSeen);
-        if (cue) {
-          this.storyEventsSeen.add(cue.key);
-          this.nextStoryEventTime = this.elapsedTime + 30;
-          this.showCaption(cue.event.text, 5);
-          this.triggerAutoSave(false);
-        }
-      }
       if (survivalDay(this.survivalSeconds) !== oldDay) {
         this.showCaption(`${survivalDay(this.survivalSeconds)}. gün: Sis hâlâ dağılmadı. Hayatta kal.`, 5);
       }
