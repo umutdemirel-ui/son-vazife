@@ -19,20 +19,20 @@ export function memoryAvailable(nightNumber:number,isDark:boolean) {return isDar
 
 /** Three more villagers appear in the coffeehouse by day; they vanish with nightfall. */
 export const COFFEE_RESIDENTS = {
-  cemil: {name:'Kahveci Cemil',line:'Cemil: “Çay taze, otur biraz. İlanı muhtar astırdı; yardım geleceğini söylemişlerdi.”',model:'kenan',x:2.55,z:-2.0,seated:false},
-  salih: {name:'Salih',line:'Salih: “Bu köyde herkes birbirini tanırdı. Şimdi bir ismi anınca bile içim ürperiyor.”',model:'bekci',x:-2,z:.45,seated:true},
-  ferit: {name:'Ferit',line:'Ferit: “Akşam olunca çan sesini dinle. Bazen okulun önünde biri var sanırsın.”',model:'idris',x:2,z:.45,seated:true},
+  cemil: {name:'Kahveci Cemil',line:'Cemil: “Çay taze, otur biraz. İlanı muhtar astırdı; yardım geleceğini söylemişlerdi.”',model:'kenan',outfit:'coffee-apron',x:2.55,z:-2.0,seated:false},
+  salih: {name:'Salih',line:'Salih: “Bu köyde herkes birbirini tanırdı. Şimdi bir ismi anınca bile içim ürperiyor.”',model:'bekci',outfit:'flat-cap',x:-2,z:.45,seated:true},
+  ferit: {name:'Ferit',line:'Ferit: “Akşam olunca çan sesini dinle. Bazen okulun önünde biri var sanırsın.”',model:'idris',outfit:'wool-scarf',x:2,z:.45,seated:true},
 } as const;
 export type CoffeeResidentId = keyof typeof COFFEE_RESIDENTS;
 export function coffeeResidentAvailable(isDark:boolean) {return !isDark;}
 
 /** Daytime villagers are outdoors, away from doorways; their models are reused for now. */
 export const OUTDOOR_RESIDENTS = {
-  hatice: {name:'Hatice Nine',model:'serife',site:'school',dx:5,dz:6,
+  hatice: {name:'Hatice Nine',model:'serife',outfit:'headscarf',site:'school',dx:5,dz:6,
     line:'Hatice Nine: “Çocukların sesini duyar gibi oluyorum. Okul kapısının önündeki çanlara iyi bak, evladım.”'},
-  osman: {name:'Çiftçi Osman',model:'idris',site:'barn',dx:-5,dz:2,
+  osman: {name:'Çiftçi Osman',model:'idris',outfit:'farm-vest',site:'barn',dx:-5,dz:2,
     line:'Çiftçi Osman: “Hasat zamanı herkes ahıra uğrardı. Defterde son senenin hesabı hâlâ durur.”'},
-  ismail: {name:'İsmail',model:'kenan',site:'mill',dx:-5,dz:4,
+  ismail: {name:'İsmail',model:'kenan',outfit:'mill-apron',site:'mill',dx:-5,dz:4,
     line:'İsmail: “Değirmenci yardım bekledi, sonra çarkın sesi bile duyulmaz oldu. Defterini içeride bırakmıştı.”'},
 } as const;
 export type OutdoorResidentId = keyof typeof OUTDOOR_RESIDENTS;

@@ -22,8 +22,8 @@ try {
  const initialSpirits=await page.evaluate(()=>window.__dermanliTest.spirits());
  if(initialSpirits.elif||initialSpirits.riza)throw Error('Late-night spirits appeared during the first day');
  await page.waitForFunction(()=>window.__dermanliTest.residentModels().every(r=>r.loaded),{timeout:60000});
- await page.waitForFunction(()=>window.__dermanliTest.coffeeResidents().length===3&&window.__dermanliTest.coffeeResidents().every(r=>r.loaded&&r.visible),null,{timeout:60000});
- await page.waitForFunction(()=>window.__dermanliTest.outdoorResidents().length===3&&window.__dermanliTest.outdoorResidents().every(r=>r.loaded&&r.visible),null,{timeout:60000});
+ await page.waitForFunction(()=>window.__dermanliTest.coffeeResidents().length===3&&window.__dermanliTest.coffeeResidents().every(r=>r.loaded&&r.visible&&r.dressed),null,{timeout:60000});
+ await page.waitForFunction(()=>window.__dermanliTest.outdoorResidents().length===3&&window.__dermanliTest.outdoorResidents().every(r=>r.loaded&&r.visible&&r.dressed),null,{timeout:60000});
  const outdoorResidents=await page.evaluate(()=>window.__dermanliTest.outdoorResidents());
  if(outdoorResidents.some(r=>r.clearance>.01))throw Error(`Villager intersects scenery: ${JSON.stringify(outdoorResidents)}`);
  if((await page.evaluate(()=>window.__dermanliTest.coffeeResidents())).filter(r=>r.seated).length!==2)throw Error('Coffeehouse seating missing');

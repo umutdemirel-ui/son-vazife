@@ -129,7 +129,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         },
         squareArt: () => ({fountain:!!world.fountain.getObjectByName('hayrat'),tree:world.squareTree.visible}),
         visualState: () => ({mounds:world.graveMounds.filter(m=>m.visible).length,litWindows:world.emptyHomeWindows.filter(w=>w.visible).length,fountain:world.fountainWater.visible}),
-        coffeeResidents: () => world.coffeeResidents.map(r=>({id:r.id,visible:r.visual.group.visible,seated:r.seated,loaded:!!r.visual.group.getObjectByName('HandL')})),
+        coffeeResidents: () => world.coffeeResidents.map(r=>({id:r.id,visible:r.visual.group.visible,seated:r.seated,loaded:!!r.visual.group.getObjectByName('HandL'),dressed:!!r.visual.group.getObjectByName(`outfit-${COFFEE_RESIDENTS[r.id].outfit}`)})),
         coffeeSupport: () => {
           world.coffeehouse.updateWorldMatrix(true,true);
           return world.coffeeSupports.map(item=>{
@@ -153,7 +153,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
           };
           return {barn:world.barnSupports.map(item=>check(item,world.barnFloorMesh)),clues:world.clueSupports.map(({item,support})=>check(item,support))};
         },
-        outdoorResidents: () => world.outdoorResidents.map(r=>{const p={x:r.x,z:r.z};for(const wall of world.colliders)pushOutsideBox(p,wall,.3);return {id:r.id,visible:r.visual.group.visible,loaded:!!r.visual.group.getObjectByName('HandL'),x:r.x,z:r.z,clearance:Math.hypot(p.x-r.x,p.z-r.z)};}),
+        outdoorResidents: () => world.outdoorResidents.map(r=>{const p={x:r.x,z:r.z};for(const wall of world.colliders)pushOutsideBox(p,wall,.3);return {id:r.id,visible:r.visual.group.visible,loaded:!!r.visual.group.getObjectByName('HandL'),dressed:!!r.visual.group.getObjectByName(`outfit-${OUTDOOR_RESIDENTS[r.id].outfit}`),x:r.x,z:r.z,clearance:Math.hypot(p.x-r.x,p.z-r.z)};}),
         houseShadow: () => ({visible:world.figures[0].visible,seen:seenEvents.has(`${ritual.night}:house`),remaining:Math.max(0,houseShadowUntil-performance.now())}),
         spirits: () => ({elif:world.elif.visible,riza:world.riza.visible}),
         residentModels: () => world.residents.map(r=>({id:r.id,loaded:!!r.visual.group.getObjectByName('HandL')})),

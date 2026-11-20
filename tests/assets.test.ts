@@ -166,3 +166,23 @@ test('coffeehouse seated figures stay on their bench, including offline fallback
  for(const side of ['L','R']){assert.equal(scene.getObjectByName(`Thigh${side}`)!.rotation.x,-Math.PI/2);assert.equal(scene.getObjectByName(`Shin${side}`)!.rotation.x,Math.PI/2);}
  visual.update(.1,false,1,7);assert.ok(Math.abs(hips.position.y-.51)<1e-8);visual.dispose();
 });
+
+test('individual villager clothing is attached to fallback and animation bones and released safely',()=>{
+ const outfits=['coffee-apron','flat-cap','wool-scarf','headscarf','farm-vest','mill-apron'] as const;
+ for(const outfit of outfits){
+  let done!: (asset:ResidentModel)=>void;
+  const loader:ResidentLoader={load(_url,success){done=success;}};
+  const visual=new ResidentVisual('kenan',loader,undefined,true,{props:false,outfit});
+  assert.ok(visual.group.getObjectByName(`outfit-${outfit}`),`${outfit} missing from fallback`);
+  const scene=new THREE.Group(),spine=new THREE.Group(),head=new THREE.Group(),left=new THREE.Group(),right=new THREE.Group();
+  spine.name='Spine';head.name='Head';left.name='HandL';right.name='HandR';scene.add(spine);spine.add(head,left,right);
+  const original=new THREE.Mesh(new THREE.BoxGeometry(),new THREE.MeshStandardMaterial({color:0xffffff}));scene.add(original);
+  done({scene,animations:[new THREE.AnimationClip('Idle',1,[]),new THREE.AnimationClip('Walk',1,[])]});
+  const expected=outfit==='flat-cap'||outfit==='headscarf'?head:spine;
+  assert.equal(visual.group.getObjectByName(`outfit-${outfit}`)?.parent,expected);
+  assert.equal((original.material as THREE.MeshStandardMaterial).color.getHex(),0xffffff,'skin texture material must remain unchanged');
+  let released=0;const garment=expected.getObjectByName(`outfit-${outfit}`)!;
+  garment.traverse(o=>{if(o instanceof THREE.Mesh)o.geometry.addEventListener('dispose',()=>released++);});
+  visual.update(.05,false,1,1);visual.dispose();assert.ok(released>0,`${outfit} resources were not disposed`);
+ }
+});

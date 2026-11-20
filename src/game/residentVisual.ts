@@ -184,6 +184,55 @@ function release(root: THREE.Object3D) {
   });
 }
 
+
+export type ResidentOutfit = 'coffee-apron' | 'flat-cap' | 'wool-scarf' | 'headscarf' | 'farm-vest' | 'mill-apron';
+
+/** Small individual garments sit on the rig, so idle animation and seated poses still work. */
+function dressResident(root:THREE.Object3D, outfit:ResidentOutfit, seated:boolean, rigged:boolean) {
+  const spine=rigged?root.getObjectByName('Spine'):root;
+  const head=rigged?root.getObjectByName('Head'):root;
+  const cloth=(color:number)=>finish(color);
+  if((outfit==='coffee-apron'||outfit==='mill-apron'||outfit==='farm-vest')&&spine){
+    const material=cloth(outfit==='coffee-apron'?0xb3aa92:outfit==='mill-apron'?0x747364:0x615043);
+    const garment=new THREE.Group();garment.name=`outfit-${outfit}`;
+    // Rig offsets are relative to Spine; the fallback uses full figure coordinates.
+    garment.position.set(0,rigged ? .02 : (seated ? .88 : 1.05),.19);
+    material.side=THREE.DoubleSide;
+    const panel=(points:readonly (readonly [number,number])[])=>{
+      const shape=new THREE.Shape();shape.moveTo(...points[0]);for(const point of points.slice(1))shape.lineTo(...point);shape.closePath();
+      const part=new THREE.Mesh(new THREE.ShapeGeometry(shape),material);part.castShadow=true;garment.add(part);
+    };
+    if(outfit==='farm-vest'){
+      // Separate tapered lapels leave the original textured shirt visible.
+      for(const side of [-1,1])panel([[side*.03,-.22],[side*.18,-.22],[side*.18,.13],[side*.14,.23],[side*.09,.23],[side*.03,.08]]);
+      for(const y of [-.14,-.03,.08])mesh(garment,new THREE.SphereGeometry(.012,6,6),finish(0xb5a58a),0,y,.01);
+    } else {
+      panel([[-.19,-.30],[.19,-.30],[.17,.12],[.12,.25],[-.12,.25],[-.17,.12]]);
+      for(const side of [-1,1])mesh(garment,new THREE.BoxGeometry(.035,.17,.025),material,side*.105,.30,-.01);
+      mesh(garment,new THREE.BoxGeometry(.20,.10,.012),cloth(outfit==='coffee-apron'?0x99907e:0x5e5e52),0,-.12,.012);
+    }
+    spine.add(garment);
+  }
+  if(outfit==='wool-scarf'&&spine){
+    const garment=new THREE.Group();garment.name='outfit-wool-scarf';garment.position.set(0,rigged ? .37 : (seated ? 1.25 : 1.42),0);
+    const material=cloth(0x785549);
+    mesh(garment,new THREE.CylinderGeometry(.16,.16,.09,12),material,0,0,0);
+    mesh(garment,new THREE.BoxGeometry(.11,.32,.04),material,.09,-.18,.155);spine.add(garment);
+  }
+  if((outfit==='flat-cap'||outfit==='headscarf')&&head){
+    const garment=new THREE.Group();garment.name=`outfit-${outfit}`;garment.position.set(0,rigged ? .30 : (seated ? 1.60 : 1.80),0);
+    const material=cloth(outfit==='flat-cap'?0x494b40:0x726d77);
+    if(outfit==='flat-cap'){
+      const cap=mesh(garment,new THREE.SphereGeometry(.155,12,8),material,0,0,0);cap.scale.set(1,.42,.91);
+      mesh(garment,new THREE.CylinderGeometry(.16,.16,.025,12),material,0,-.035,.035);
+    }else{
+      const scarf=mesh(garment,new THREE.SphereGeometry(.145,12,10),material,0,-.10,-.10);scarf.scale.set(.96,1.05,.48);
+      mesh(garment,new THREE.BoxGeometry(.14,.22,.035),material,0,-.27,-.13);
+    }
+    head.add(garment);
+  }
+}
+
 export class ResidentVisual {
   readonly group = new THREE.Group();
   readonly eyeHeight: number;
@@ -200,12 +249,13 @@ export class ResidentVisual {
     loader: ResidentLoader,
     onReady?: (root: THREE.Object3D) => void,
     compact = false,
-    options: { seated?: boolean; props?: boolean } = {},
+    options: { seated?: boolean; props?: boolean; outfit?: ResidentOutfit } = {},
   ) {
     this.seated=!!options.seated;
     this.eyeHeight = wardrobe[id].height * (this.seated ? .72 : .92);
     this.group.name = `resident-${id}`;
     this.fallback = options.seated ? waitingSeatedFigure(id) : waitingFigure(id);
+    if(options.outfit)dressResident(this.fallback,options.outfit,this.seated,false);
     const { left, right } = options.props === false ? {left:new THREE.Group(),right:new THREE.Group()} : belongings(id);
     const grip = wardrobe[id].grip;
     left.position.set(0.245, grip, 0);
@@ -253,6 +303,7 @@ export class ResidentVisual {
         scene.traverse((o) => {
           if (o instanceof THREE.Mesh) o.castShadow = o.receiveShadow = true;
         });
+        if(options.outfit)dressResident(scene,options.outfit,this.seated,true);
         this.group.add(scene);
         this.fallback!.removeFromParent();
         release(this.fallback!);
