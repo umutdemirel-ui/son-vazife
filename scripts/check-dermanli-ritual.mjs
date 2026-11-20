@@ -59,6 +59,13 @@ try {
     await page.waitForFunction(before=>{const s=window.__dermanliTest.state();return s.stage!==before.stage||s.soaped!==before.soaped;},before,{timeout:12000});await page.keyboard.up('f');}
   else await page.keyboard.press('e');
  }
+ if(!await page.evaluate(()=>window.__dermanliTest.goToTarget('bridge')))throw Error('Bridge viewpoint unavailable');
+ await page.waitForFunction(()=>{const v=window.__dermanliTest.bridgeWalk();return v.surface!==null&&Math.abs(v.foot-v.surface)<.01;},null,{timeout:15000});
+ await page.evaluate(()=>{window.__bridgeSamples=[];window.__bridgeTimer=setInterval(()=>window.__bridgeSamples.push(window.__dermanliTest.bridgeWalk()),40);});
+ await page.keyboard.down('s');await page.waitForFunction(()=>window.__bridgeSamples.some(v=>v.surface!==null&&v.surface>.04&&v.surface<.35),null,{timeout:45000});await page.keyboard.up('s');
+ const bridgeSamples=await page.evaluate(()=>{clearInterval(window.__bridgeTimer);return window.__bridgeSamples;});
+ const onRamp=bridgeSamples.filter(v=>v.surface!==null&&v.surface>.04&&v.surface<.35);
+ if(!onRamp.length||onRamp.some(v=>Math.abs(v.foot-v.surface)>.025))throw Error(`Bridge ramp walking mismatch: ${JSON.stringify(onRamp)}`);
  for (const id of ['home','school','mosque','mill','well','coffee','coffee_cemil','coffee_salih','coffee_ferit','barn','abandoned0','abandoned1','abandoned2','abandoned3','cemetery']) await action(id);
  for(const id of ['abandoned0','abandoned1','abandoned2','abandoned3'])if(!(await state()).clues.includes(id))throw Error(`Missing abandoned house clue ${id}`);
  for(const id of ['coffee_cemil','coffee_salih','coffee_ferit'])if(!(await state()).clues.includes(id))throw Error(`Missing coffeehouse conversation ${id}`);

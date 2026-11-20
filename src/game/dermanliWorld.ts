@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createCoffeehouse,COFFEEHOUSE_WALLS,COFFEEHOUSE_OPEN_DOOR,COFFEEHOUSE_POSTS,COFFEEHOUSE_FLOOR_HEIGHT } from './coffeehouse';
 import { createDermanliTerrain, dermanliSurfaceHeight } from './dermanliTerrain';
+import { createBridgeApproaches } from './dermanliBridge';
 import { DERMANLI_PATHS, DERMANLI_SITES as S, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
 import { VillageCraft, block, pitchedRoof } from './villageCraft';
@@ -354,6 +355,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   // Reuse the previous textured fountain asset when available; the solid fallback stays until then.
   const workshop=new WorkshopAssets();void workshop.load('minimum',(id)=>{if(id==='hayrat')craft.install(workshop,'hayrat');});
   const [bx,bz]=S.bridge;millAndBridge.bridgeGroup.position.set(bx,dermanliSurfaceHeight(bx,bz),bz);objects.add(millAndBridge.bridgeGroup);
+  const bridgeRamps=createBridgeApproaches(craft.masonry);bridgeRamps.position.set(bx,dermanliSurfaceHeight(bx,bz),bz);objects.add(bridgeRamps);ownDetails(bridgeRamps);
   for(const side of [-1,1])colliders.push({minX:bx-3.4,maxX:bx+3.4,minZ:bz+side*1.5-.08,maxZ:bz+side*1.5+.08});
   // These are outdoor memories, not residents inside houses.
   const spiritMaterial=new THREE.MeshStandardMaterial({color:0xbfc6c1,roughness:.9,transparent:true,opacity:.52,depthWrite:false});ownMaterial.push(spiritMaterial);
@@ -483,5 +485,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu(),true);
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,coffeehouse:coffeehouse.root,coffeeSupports,homeSupports,barnSupports,barnFloorMesh,clueSupports,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,coffeehouse:coffeehouse.root,coffeeSupports,homeSupports,barnSupports,barnFloorMesh,clueSupports,bridge:millAndBridge.bridgeGroup,bridgeRamps,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

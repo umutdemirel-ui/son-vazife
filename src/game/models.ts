@@ -1665,7 +1665,8 @@ export function createWatermillAndBridge(textures: VillageTextures, bridgeFinish
 
   [-3.25, 3.25].forEach((ax) => {
     const abutment = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.9, 3.5), stoneMat);
-    abutment.position.set(ax, -0.05, 0);
+    // Keep the stone abutment below the deck and its approach slopes.
+    abutment.position.set(ax, bridgeFinish === 'stone' ? -0.17 : -0.05, 0);
     bridgeGroup.add(abutment);
   });
 
