@@ -218,12 +218,20 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const bellTexture=new THREE.CanvasTexture(bellCanvas);bellTexture.colorSpace=THREE.SRGBColorSpace;
   const bellMaterial=new THREE.MeshStandardMaterial({map:bellTexture,roughness:1});ownMaterial.push(bellMaterial);
   // A freestanding rack beside the building keeps the doorway and its collider clear.
-  const bellX=S.school[0]-6.4,bellZ=S.school[1]+3;
-  box(3.5,.65,.12,bellX,2.1,bellZ-.25,bellMaterial);
-  for(const x of [-1.6,1.6])box(.12,2.2,.12,bellX+x,1.1,bellZ-.25,wood);
+  const bellX=S.school[0]-6.4,bellZ=S.school[1]+3,bellY=dermanliSurfaceHeight(bellX,bellZ);
+  box(3.5,.65,.12,bellX,bellY+2.1,bellZ-.25,bellMaterial);
+  const bellPosts:THREE.Mesh[]=[];
+  for(const x of [-1.6,1.6]){
+    bellPosts.push(box(.12,2.2,.12,bellX+x,bellY+1.1,bellZ-.25,wood));
+    colliders.push({minX:bellX+x-.06,maxX:bellX+x+.06,minZ:bellZ-.31,maxZ:bellZ-.19});
+  }
+  // A timber rail and short hangers connect each bell to the rack instead of leaving it floating.
+  const bellRail=box(3.32,.1,.34,bellX,bellY+1.775,bellZ-.1,wood);
+  const bells:THREE.Mesh[]=[],bellHangers:THREE.Mesh[]=[];
   for(let i=0;i<3;i++){
     const x=bellX-1.1+i*1.1,z=bellZ;
-    const g=new THREE.CylinderGeometry(.16,.28,.4,12);ownGeometry.push(g);const bell=new THREE.Mesh(g,craft.metal);bell.position.set(x,1.45,z);objects.add(bell);
+    const g=new THREE.CylinderGeometry(.16,.28,.4,12);ownGeometry.push(g);const bell=new THREE.Mesh(g,craft.metal);bell.position.set(x,bellY+1.45,z);objects.add(bell);bells.push(bell);
+    bellHangers.push(box(.045,.075,.045,x,bellY+1.6875,z,craft.metal));
     target(`bell_${i}`,`Okul çanı · ${BELL_SYMBOLS[i]}`,[x,z],.95);
   }
   const boardCanvas=document.createElement('canvas');boardCanvas.width=512;boardCanvas.height=256;
@@ -460,8 +468,9 @@ export function createDermanliWorld(scene: THREE.Scene) {
   });
   const [ex,ez]=S.entrance,gateZ=ez-4,ey=dermanliSurfaceHeight(ex,gateZ);
   // An open stone-and-timber gate, legible from the starting position and escape ending.
+  const entranceColumns:THREE.Object3D[]=[];
   for(const dx of [-2.9,2.9]){
-    const column=block(objects,craft.masonry,.9,2.9,.9,ex+dx,ey+1.45,gateZ,1.8);ownGeometry.push(column.geometry);
+    const column=block(objects,craft.masonry,.9,2.9,.9,ex+dx,ey+1.45,gateZ,1.8);ownGeometry.push(column.geometry);entranceColumns.push(column);
     box(1.02,.16,1.02,ex+dx,ey+2.96,gateZ,craft.limestone);
     box(1.02,.16,1.02,ex+dx,ey+.08,gateZ,craft.limestone);
     colliders.push({minX:ex+dx-.45,maxX:ex+dx+.45,minZ:gateZ-.45,maxZ:gateZ+.45});
@@ -476,7 +485,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const gateLabel=new THREE.Mesh(gateLabelGeometry,gateMaterial);gateLabel.position.set(ex,ey+2.8,gateZ+.315);objects.add(gateLabel);
   // Direction board sits off the roadway and avoids confusing Dermanlı with Kuzdağ.
   const signX=ex-5.2,signZ=gateZ-.5,signY=dermanliSurfaceHeight(signX,signZ);
-  box(.14,2.25,.14,signX,signY+1.125,signZ,craft.wood);
+  const wayPost=box(.14,2.25,.14,signX,signY+1.125,signZ,craft.wood);
   const wayCanvas=document.createElement('canvas');wayCanvas.width=768;wayCanvas.height=256;
   const wayContext=wayCanvas.getContext('2d');if(wayContext){wayContext.fillStyle='#554333';wayContext.fillRect(0,0,768,256);wayContext.fillStyle='#e2d2b2';wayContext.font='bold 53px serif';wayContext.fillText('MEYDAN  ↑',54,96);wayContext.fillText('GASİLHANE  ↗',54,200);}
   const wayTexture=new THREE.CanvasTexture(wayCanvas);wayTexture.colorSpace=THREE.SRGBColorSpace;
@@ -513,5 +522,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu(),true);
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,treeFallback,squareBenches,well,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,outdoorResidents,coffeehouse:coffeehouse.root,coffeeSupports,homeSupports,barnSupports,barnFloorMesh,clueSupports,grove:{pines,trunks,coords},field:{base:fieldBase,rows:fieldRows,stalks},cemeteryClusters,terrainGround:terrain.root.children[0],bridge:millAndBridge.bridgeGroup,bridgeRamps,schoolChalk,schoolChalkTrace,schoolChalkPiece,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());outdoorResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,treeFallback,squareBenches,well,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,outdoorResidents,coffeehouse:coffeehouse.root,coffeeSupports,homeSupports,barnSupports,barnFloorMesh,clueSupports,grove:{pines,trunks,coords},field:{base:fieldBase,rows:fieldRows,stalks},cemeteryClusters,entranceColumns,wayPost,bellRack:{posts:bellPosts,rail:bellRail,bells,hangers:bellHangers},terrainGround:terrain.root.children[0],bridge:millAndBridge.bridgeGroup,bridgeRamps,schoolChalk,schoolChalkTrace,schoolChalkPiece,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());outdoorResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

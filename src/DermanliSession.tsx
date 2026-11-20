@@ -134,6 +134,27 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             return ray.intersectObject(world.gasil.group,true).map(hit=>{const mesh=hit.object as THREE.Mesh,material=Array.isArray(mesh.material)?mesh.material[0]:mesh.material;return {distance:hit.distance,transparent:material.transparent,opacity:material.opacity};});
           });
         },
+        entranceBellAudit: () => {
+          const {bellRack,entranceColumns,wayPost}=world;
+          world.terrainGround.updateWorldMatrix(true,true);
+          const groundAt=(x:number,z:number)=>new THREE.Raycaster(new THREE.Vector3(x,100,z),new THREE.Vector3(0,-1,0)).intersectObject(world.terrainGround,false)[0]?.point.y;
+          const bounds=(o:THREE.Object3D)=>new THREE.Box3().setFromObject(o);
+          const supports=[...entranceColumns,wayPost,...bellRack.posts].map(o=>{
+            const p=o.getWorldPosition(new THREE.Vector3());return {ground:groundAt(p.x,p.z),base:bounds(o).min.y,
+              collider:world.colliders.some(c=>!c.frame&&p.x>c.minX&&p.x<c.maxX&&p.z>c.minZ&&p.z<c.maxZ)};
+          });
+          const rail=bounds(bellRack.rail);
+          const hangers=bellRack.hangers.map((o,i)=>{
+            const h=bounds(o),b=bounds(bellRack.bells[i]);
+            const target=world.targets.find(t=>t.id===`bell_${i}`)!;
+            const approach={x:target.x,z:target.z+.8},after={...approach};for(const c of world.colliders)pushOutsideBox(after,c,.32);
+            return {bottomGap:h.min.y-b.max.y,railGap:rail.min.y-h.max.y,connected:rail.intersectsBox(h),approachShift:Math.hypot(after.x-approach.x,after.z-approach.z),radius:target.radius};
+          });
+          const [x,z]=S.entrance;const gateSamples=Array.from({length:7},(_,i)=>{
+            const start={x,z:z-5.5+i*.5},after={...start};for(const c of world.colliders)pushOutsideBox(after,c,.32);return Math.hypot(after.x-start.x,after.z-start.z);
+          });
+          return {supports,hangers,gateSamples};
+        },
         squareWellAudit: () => {
           const {squareTree,treeFallback,squareBenches,well,fountain,fountainWater}=world;
           const image=(squareTree.material instanceof THREE.MeshLambertMaterial?squareTree.material.map?.image:undefined) as HTMLImageElement|undefined;
