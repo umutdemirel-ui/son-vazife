@@ -397,12 +397,38 @@ export function createDermanliWorld(scene: THREE.Scene) {
     const mound=new THREE.Mesh(moundGeometry,moundMaterial);const x=cx-16,z=cz-8+i*4;
     mound.position.set(x,dermanliSurfaceHeight(x,z)+.06,z);mound.scale.set(1.25,.3,.7);mound.visible=false;objects.add(mound);return mound;
   });
-  for(const x of [-2.4,2.4]) {box(.8,2.8,.8,S.entrance[0]+x,1.4,S.entrance[1],stone);colliders.push({minX:S.entrance[0]+x-.4,maxX:S.entrance[0]+x+.4,minZ:S.entrance[1]-.4,maxZ:S.entrance[1]+.4});}
+  const [ex,ez]=S.entrance,gateZ=ez-4,ey=dermanliSurfaceHeight(ex,gateZ);
+  // An open stone-and-timber gate, legible from the starting position and escape ending.
+  for(const dx of [-2.9,2.9]){
+    const column=block(objects,craft.masonry,.9,2.9,.9,ex+dx,ey+1.45,gateZ,1.8);ownGeometry.push(column.geometry);
+    box(1.02,.16,1.02,ex+dx,ey+2.96,gateZ,craft.limestone);
+    box(1.02,.16,1.02,ex+dx,ey+.08,gateZ,craft.limestone);
+    colliders.push({minX:ex+dx-.45,maxX:ex+dx+.45,minZ:gateZ-.45,maxZ:gateZ+.45});
+  }
+  const gateBeam=block(objects,craft.wood,6.2,.32,.42,ex,ey+3.12,gateZ,1.5);ownGeometry.push(gateBeam.geometry);
+  box(4.7,.58,.12,ex,ey+2.8,gateZ+.25,craft.wood);
+  const gateCanvas=document.createElement('canvas');gateCanvas.width=1024;gateCanvas.height=160;
+  const gateContext=gateCanvas.getContext('2d');if(gateContext){gateContext.fillStyle='#483b2e';gateContext.fillRect(0,0,1024,160);gateContext.strokeStyle='#b5a589';gateContext.lineWidth=5;gateContext.strokeRect(12,12,1000,136);gateContext.fillStyle='#e4d7bc';gateContext.textAlign='center';gateContext.font='bold 87px serif';gateContext.fillText('DERMANLI KÖYÜ',512,110);}
+  const gateTexture=new THREE.CanvasTexture(gateCanvas);gateTexture.colorSpace=THREE.SRGBColorSpace;
+  const gateMaterial=new THREE.MeshStandardMaterial({map:gateTexture,roughness:1});ownMaterial.push(gateMaterial);
+  const gateLabelGeometry=new THREE.PlaneGeometry(4.5,.5);ownGeometry.push(gateLabelGeometry);
+  const gateLabel=new THREE.Mesh(gateLabelGeometry,gateMaterial);gateLabel.position.set(ex,ey+2.8,gateZ+.315);objects.add(gateLabel);
+  // Direction board sits off the roadway and avoids confusing Dermanlı with Kuzdağ.
+  const signX=ex-5.2,signZ=gateZ-.5,signY=dermanliSurfaceHeight(signX,signZ);
+  box(.14,2.25,.14,signX,signY+1.125,signZ,craft.wood);
+  const wayCanvas=document.createElement('canvas');wayCanvas.width=768;wayCanvas.height=256;
+  const wayContext=wayCanvas.getContext('2d');if(wayContext){wayContext.fillStyle='#554333';wayContext.fillRect(0,0,768,256);wayContext.fillStyle='#e2d2b2';wayContext.font='bold 53px serif';wayContext.fillText('MEYDAN  ↑',54,96);wayContext.fillText('GASİLHANE  ↗',54,200);}
+  const wayTexture=new THREE.CanvasTexture(wayCanvas);wayTexture.colorSpace=THREE.SRGBColorSpace;
+  const wayMaterial=new THREE.MeshStandardMaterial({map:wayTexture,roughness:1});ownMaterial.push(wayMaterial);
+  box(2.0,.72,.1,signX,signY+1.85,signZ+.08,craft.wood);
+  const wayGeometry=new THREE.PlaneGeometry(1.92,.64);ownGeometry.push(wayGeometry);
+  const wayLabel=new THREE.Mesh(wayGeometry,wayMaterial);wayLabel.position.set(signX,signY+1.85,signZ+.14);objects.add(wayLabel);
+  colliders.push({minX:signX-.07,maxX:signX+.07,minZ:signZ-.07,maxZ:signZ+.07});
   target('bridge','Taş köprü',S.bridge,3);
   // Grove with deterministic placement; preserve clearances for every path and building.
   const treeG = new THREE.ConeGeometry(1.55,5,7), trunkG = new THREE.CylinderGeometry(.23,.36,2,7); ownGeometry.push(treeG,trunkG);
   let seed=7; const random=()=>{seed=(seed*16807)%2147483647; return (seed-1)/2147483646;};
-  const sites: Point[] = [coffeeSite,S.gasilhane,S.school,S.mill,S.cemetery,S.square,S.gassalHome,S.office,S.well,S.barn,S.field,S.bridge,...S.abandonedHomes];
+  const sites: Point[] = [S.entrance,coffeeSite,S.gasilhane,S.school,S.mill,S.cemetery,S.square,S.gassalHome,S.office,S.well,S.barn,S.field,S.bridge,...S.abandonedHomes];
   const coords: Point[]=[];
   for(let i=0;i<1300 && coords.length<260;i++) {
     const x=(random()-.5)*170,z=(random()-.5)*220;
@@ -423,5 +449,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu());
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }
