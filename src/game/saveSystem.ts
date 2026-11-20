@@ -23,6 +23,8 @@ export interface SaveGamePayload {
   mosqueDoorOpen?: boolean;
   finalCall?: 'report' | 'farewell';
   bodyTransport?: 'slab' | 'carried' | 'delivered';
+  /** Absent in earlier saves: their first body is already on the slab. */
+  initialBody?: 'bed' | 'carried' | 'slab';
   bodyRisen?: boolean;
   additionalWashes?: { mahmut: number; yolcu: number };
   windowActive?: boolean;
@@ -107,6 +109,7 @@ export function readAutoSave(): SaveGamePayload | null {
       Math.abs(parsed.playerPos.x) > 1000 ||
       Math.abs(parsed.playerPos.z) > 1000 ||
       (parsed.bodyTransport !== undefined && !['slab', 'carried', 'delivered'].includes(parsed.bodyTransport)) ||
+      (parsed.initialBody !== undefined && !['bed', 'carried', 'slab'].includes(parsed.initialBody)) ||
       (parsed.bodyRisen !== undefined && typeof parsed.bodyRisen !== 'boolean') ||
       (parsed.additionalWashes !== undefined && (!isRecord(parsed.additionalWashes) ||
         !['mahmut', 'yolcu'].every(id => Number.isInteger(parsed.additionalWashes?.[id as 'mahmut' | 'yolcu']) && parsed.additionalWashes![id as 'mahmut' | 'yolcu'] >= 0 && parsed.additionalWashes![id as 'mahmut' | 'yolcu'] <= 4))) ||

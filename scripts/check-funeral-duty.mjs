@@ -12,7 +12,7 @@ try {
  await page.waitForFunction(()=>window.fixture?.assetsReady,{timeout:120000});
  const result=await page.evaluate(async(capture)=>{
   const e=window.fixture,{groundHeightAt}=await import('/src/game/terrain.ts');
-  e.act=6;e.bodyTransport='delivered';e.survivalSeconds=310;e.gasilDoorOpen=true;e.karaCatchCooldown=1e6;e.nextScareTime=Infinity;
+  e.act=6;e.initialBody='slab';e.bodyTransport='delivered';e.survivalSeconds=310;e.gasilDoorOpen=true;e.karaCatchCooldown=1e6;e.nextScareTime=Infinity;
   for(const actor of Object.values(e.world.npcs))actor.pauseTimer=999;
   e.syncVisualMeshes();
   const anchors={};let visual;

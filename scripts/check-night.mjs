@@ -92,6 +92,15 @@ try {
     await btn('Duraklat').waitFor();
     await helpers();
   };
+  // Saves created before the arrival feature keep the old on-slab position.
+  const newSave=await page.evaluate(()=>localStorage.getItem('son_vazife_save_v2'));
+  await page.evaluate(raw=>{const old=JSON.parse(raw);delete old.initialBody;localStorage.setItem('son_vazife_save_v2',JSON.stringify(old));},newSave);
+  await reload();
+  assert.equal(await page.evaluate(()=>fixture.initialBody),'slab');
+  await page.evaluate(raw=>localStorage.setItem('son_vazife_save_v2',raw),newSave);
+  await reload();
+  assert.equal(await page.evaluate(()=>fixture.initialBody),'bed');
+  assert.equal(await page.evaluate(()=>fixture.world.gasil.kefenWrapGroup.parent===fixture.world.transportBed && fixture.world.gasil.kefenWrapGroup.visible),true);
   // Check the whole survey with the real colliders, not just teleports to destinations.
   const obstructed = await page.evaluate(async () => {
     const { MAIN_LANES, CORE_LANES, OUTER_LANES } = await import('/src/game/valley.ts'),
@@ -171,8 +180,17 @@ try {
     ['item_kefen', -4.55, -0.32],
   ])
     await use(...t);
+  assert.equal(await val('initialBody'), 'bed');
+  assert.equal(await page.evaluate(() => fixture.world.autopsyBodies.case_arif.group.visible), false);
+  await use('transport_bed', -5.9, 3.7);
+  assert.equal(await val('initialBody'), 'carried');
+  assert.equal(await page.evaluate(() => fixture.world.gasil.kefenWrapGroup.parent === fixture.camera), true);
+  await reload(); assert.equal(await val('initialBody'), 'carried');
   await doorway('gasil_door', -5.35, 6, 'x', -1);
   const slab = ['tenesir_slab', -8.27, 6];
+  await use(...slab);
+  assert.equal(await val('initialBody'), 'slab');
+  assert.equal(await page.evaluate(() => fixture.world.autopsyBodies.case_arif.group.visible), true);
   await use(...slab);
   await btn('Adli inceleme tezgâhını aç').click();
   assert.equal(await val('activeAutopsyCaseId'), 'case_arif');

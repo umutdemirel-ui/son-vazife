@@ -21,6 +21,7 @@ test('malformed saved positions and survival values are rejected', () => {
   for (const change of [
     { playerPos: { x: 'oops', z: 0, yaw: 0, pitch: 0 } },
     { caughtCount: 3 },
+    { initialBody: 'unknown' },
     { survivalSeconds: -1 },
     { cluesDiscovered: {} },
     { npcFlags: { bekci: {} } },
@@ -31,7 +32,11 @@ test('malformed saved positions and survival values are rejected', () => {
     assert.equal(readAutoSave(), null);
   }
   value = JSON.stringify(base);
-  assert.ok(readAutoSave());
+  assert.ok(readAutoSave()); // Old saves remain valid without initialBody.
+  for (const initialBody of ['bed','carried','slab']) {
+    value = JSON.stringify({...base, initialBody});
+    assert.equal(readAutoSave()?.initialBody, initialBody);
+  }
 });
 
 test('evening follows the active day clock, repeating at the next dawn', async () => {

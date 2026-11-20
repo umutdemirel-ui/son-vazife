@@ -353,6 +353,7 @@ export class SonVazifeEngine {
   private stepDryDone = false;
   private stepShroudDone = false;
   private bodyTransport: 'slab' | 'carried' | 'delivered' = 'slab';
+  private initialBody: 'bed' | 'carried' | 'slab' = 'bed';
   private bodyRisen = false;
 
   // Autopsy Workbench State
@@ -762,6 +763,7 @@ export class SonVazifeEngine {
     this.stepDryDone = false;
     this.stepShroudDone = false;
     this.bodyTransport = 'slab';
+    this.initialBody = 'bed';
     this.bodyRisen = false;
 
     this.registryCaseId = null;
@@ -957,8 +959,9 @@ export class SonVazifeEngine {
   private placeTransportBody() {
     const body = this.world.gasil.kefenWrapGroup;
     const duty=this.activeDuty();
-    const carried=duty ? duty.body==='carrying'||duty.body==='burialCarry' : this.bodyTransport==='carried';
-    const atBed=duty ? duty.body==='arrival' : this.bodyTransport==='delivered';
+    const initial = !duty && this.initialBody !== 'slab';
+    const carried=duty ? duty.body==='carrying'||duty.body==='burialCarry' : initial ? this.initialBody==='carried' : this.bodyTransport==='carried';
+    const atBed=duty ? duty.body==='arrival' : initial ? this.initialBody==='bed' : this.bodyTransport==='delivered';
     const parent = carried ? this.camera : atBed ? this.world.transportBed : this.world.gasil.deceasedGroup;
     if (body.parent !== parent) parent.add(body);
     body.rotation.set(0, 0, 0);
@@ -993,6 +996,7 @@ export class SonVazifeEngine {
     this.world.gasil.kefenWrapGroup.visible = !inspectArif && this.stepShroudDone;
     this.placeTransportBody();
     const duty=this.activeDuty();
+    if(!duty && this.initialBody!=='slab')this.world.gasil.kefenWrapGroup.visible=!inspectArif;
     if(duty){
       this.world.gasil.pestemalMesh.visible=!inspectArif&&duty.body==='slab'&&duty.stage<6;
       this.world.gasil.kefenWrapGroup.visible=!inspectArif&&(duty.body==='carrying'||duty.body==='burialCarry'||(duty.body==='arrival'&&isEvening(this.survivalSeconds))||(duty.body==='slab'&&duty.stage===6));
@@ -1035,7 +1039,7 @@ export class SonVazifeEngine {
       // The table at the old scene is empty after transfer. Explicit forensic review is a reconstruction.
       body.group.visible =
         isInspecting || (cid==='case_arif' && !!duty && duty.body==='slab' && duty.stage<6) ||
-        !(cid === 'case_arif' ? this.stepShroudDone : cid === 'case_mahmut' ? movedMahmut : movedYolcu);
+        !(cid === 'case_arif' ? this.stepShroudDone || this.initialBody!=='slab' : cid === 'case_mahmut' ? movedMahmut : movedYolcu);
       for (const marker of Object.values(body.anomalyMarkers)) marker.visible = isInspecting;
       body.incisionGroup.visible = isInspecting && st.zones.chest.incised;
       body.neckIncision.visible = isInspecting && st.zones.neck.incised;
@@ -1109,8 +1113,8 @@ export class SonVazifeEngine {
     this.screen = 'playing';
     this.showCaption(
       registryFiled
-        ? 'İki tarih, tek isim. Teslim fişi defterinde [Tab]. Meydandaki Bekçi Hasan ile konuş.'
-        : 'Kuzdağ Köyü… Gasilhanenin anahtarını Bekçi Hasan bırakmış. Önce onu bul.',
+        ? 'İki tarih, tek isim. Teslim fişi defterinde [Tab]. Önce sedyedeki cenazeyi gasilhaneye taşı.'
+        : 'Kuzdağ Köyü… Cenaze gasilhane önündeki sedyede bekliyor. Onu içeri taşı.',
       6.2,
     );
     this.triggerAutoSave(false);
@@ -1225,6 +1229,7 @@ export class SonVazifeEngine {
       this.stepShroudDone = Boolean(save.ritual.shroud);
     }
     this.bodyTransport = save.bodyTransport ?? (this.stepShroudDone ? 'delivered' : 'slab');
+    this.initialBody = save.initialBody ?? 'slab';
     this.bodyRisen = Boolean(save.bodyRisen) && !this.vigilLit && !this.stepShroudDone;
     this.windowAnomalyResolved = save.windowResolved ?? (this.shutterClosed && this.stepWashDone);
     this.windowAnomalyActive =
@@ -1309,6 +1314,7 @@ export class SonVazifeEngine {
       closedOutposts: OUTPOST_IDS.filter(id => !this.world.outpostDoors[id].open),
       finalCall: this.finalCall,
       bodyTransport: this.bodyTransport,
+      initialBody: this.initialBody,
       bodyRisen: this.bodyRisen,
       puzzleSeed: this.puzzleSeed,
       windowActive: this.windowAnomalyActive,
@@ -1443,7 +1449,7 @@ export class SonVazifeEngine {
   public toggleCandle(): void {
     if (this.screen !== 'playing' || this.activeAutopsyCaseId || this.registryCaseId || this.nightPage)
       return;
-    if (!this.candleLit && (this.heldWashTool !== 'empty' || (this.activeDuty()?.held ?? 'empty') !== 'empty' || this.washAnim > 0)) {
+    if (!this.candleLit && (this.heldWashTool !== 'empty' || (this.activeDuty()?.held ?? 'empty') !== 'empty' || this.initialBody === 'carried' || this.bodyTransport === 'carried' || ['carrying','burialCarry'].includes(this.activeDuty()?.body ?? '') || this.washAnim > 0)) {
       this.showCaption('Önce elindeki malzemeyi yerine bırak; yıkama iki el gerektirir.', 3); return;
     }
     if (!this.inventory.find((i) => i.id === 'defter')?.collected && this.act === 1) {
@@ -2176,7 +2182,11 @@ export class SonVazifeEngine {
     if(id==='duty_camphor'||id==='duty_shroud'||id==='duty_burial')return null;
     if(id==='transport_bed'&&!this.funeralDuty&&this.act>=6&&this.bodyTransport==='delivered')return '[E] Gassallık vazifesine başla';
     if (id === 'mosque_door') return `[E] Cami kapısını ${this.mosqueDoorOpen ? 'kapat' : 'aç'}`;
-    if (id === 'transport_bed') return this.bodyTransport === 'carried' ? '[E] Cenazeyi nakil sedyesine yerleştir' : null;
+    if (id === 'transport_bed') {
+      if(this.initialBody==='bed')return '[E] Cenazeyi sedyeden al';
+      if(this.initialBody==='carried')return '[E] Cenazeyi sedyeye geri bırak';
+      return this.bodyTransport === 'carried' ? '[E] Cenazeyi nakil sedyesine yerleştir' : null;
+    }
     if (id.startsWith('outpost_door_')) {
       const name = id.slice('outpost_door_'.length) as Outpost;
       const door = this.world.outpostDoors[name];
@@ -2265,6 +2275,8 @@ export class SonVazifeEngine {
         }
         return '[E] İsimsiz Yolcunun Dosyasını Aç';
       case 'tenesir_slab': {
+        if(this.initialBody==='bed')return null;
+        if(this.initialBody==='carried')return '[E] Cenazeyi teneşire yerleştir';
         if (!this.autopsyCases.case_arif.completed) {
           return '[E] Hacı Arif Efendi’nin Teslim Dosyasını Aç';
         }
@@ -2369,6 +2381,17 @@ export class SonVazifeEngine {
       this.triggerAutoSave(false);
       this.pushHudState(true);
       return;
+    }
+    if(id==='transport_bed' && this.initialBody!=='slab'){
+      if(this.heldWashTool!=='empty'){this.showCaption('Önce elindeki malzemeyi yerine bırak.',4);return;}
+      this.putAwayCandle();this.initialBody=this.initialBody==='bed'?'carried':'bed';
+      this.showCaption(this.initialBody==='carried'?'Cenazeyi gasilhaneye götür ve teneşire yerleştir.':'Cenaze sedyeye geri bırakıldı.',5);
+      this.audio.playPickup();this.syncVisualMeshes();this.triggerAutoSave(false);this.pushHudState(true);return;
+    }
+    if(id==='tenesir_slab' && this.initialBody==='carried'){
+      this.initialBody='slab';this.audio.playPickup();this.syncVisualMeshes();
+      this.showCaption('Cenaze teneşire yerleştirildi. Teslim dosyasını inceleyebilirsin.',5);
+      this.triggerAutoSave(false);this.pushHudState(true);return;
     }
     if (id === 'transport_bed' && this.bodyTransport === 'carried') {
       this.bodyTransport = 'delivered';
@@ -3640,7 +3663,7 @@ export class SonVazifeEngine {
 
     const wantsMove = Math.hypot(moveX, moveZ) > 0.05;
     const dutyBody = this.activeDuty()?.body;
-    const carryingBody = this.bodyTransport === 'carried' || dutyBody === 'carrying' || dutyBody === 'burialCarry';
+    const carryingBody = this.initialBody === 'carried' || this.bodyTransport === 'carried' || dutyBody === 'carrying' || dutyBody === 'burialCarry';
     const wantsSprint =
       Boolean(this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.virtualSprint) &&
       wantsMove &&
@@ -3824,7 +3847,7 @@ export class SonVazifeEngine {
       this.washingHand.traverse(o => { if (o.name === 'parmak') o.rotation.x = 0.15 + Math.sin(phase * 9) * 0.12; });
     } else {
       const currentDuty=this.activeDuty();
-      const restrained = this.heldWashTool !== 'empty' || this.bodyTransport === 'carried' || !!currentDuty&&(currentDuty.held!=='empty'||currentDuty.body==='carrying'||currentDuty.body==='burialCarry');
+      const restrained = this.heldWashTool !== 'empty' || this.initialBody === 'carried' || this.bodyTransport === 'carried' || !!currentDuty&&(currentDuty.held!=='empty'||currentDuty.body==='carrying'||currentDuty.body==='burialCarry');
       const motion = armSwing(this.headBobPhase, blocked ? 0 : horizSpeed, this.isSprinting, restrained);
       this.washingHand.position.set(0, -0.3 + motion.bounce * 0.015, -0.65);
       this.washingHand.rotation.set(0, 0, 0);
@@ -4322,6 +4345,8 @@ export class SonVazifeEngine {
       return { actTitle: NIGHT_TITLES[PAGES[next].act], objective, location };
     }
     if (this.act === 1) {
+      if(this.initialBody==='bed') return {actTitle:'BÖLÜM I · İLK VAZİFE',objective:'Gasilhane önündeki sedyeden cenazeyi al.',location};
+      if(this.initialBody==='carried') return {actTitle:'BÖLÜM I · İLK VAZİFE',objective:'Cenazeyi gasilhaneye taşı ve teneşire yerleştir.',location};
       const collectedCount = ['defter', 'kefen', 'sabun', 'ibrik'].filter(
         (id) => this.inventory.find((i) => i.id === id)?.collected,
       ).length;
