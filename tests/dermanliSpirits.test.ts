@@ -11,6 +11,7 @@ test('distinct figures have complete silhouettes and age-appropriate scale',()=>
  assert.ok(child.getObjectByName('braid'));assert.ok(child.getObjectByName('dress'));assert.ok(adult.getObjectByName('hat'));assert.ok(adult.getObjectByName('moustache'));
  const height=(figure:THREE.Object3D)=>new THREE.Box3().setFromObject(figure).getSize(new THREE.Vector3()).y;
  assert.ok(height(child)<height(adult)*.8);
+ for(const figure of [child,adult])assert.ok(Math.abs(new THREE.Box3().setFromObject(figure).min.y)<1e-6,'shoes touch ground');
  let disposed=0;const head=child.getObjectByName('head') as THREE.Mesh;head.geometry.addEventListener('dispose',()=>disposed++);
  disposeDermanliSpirits([child,adult]);assert.equal(disposed,1);
 });

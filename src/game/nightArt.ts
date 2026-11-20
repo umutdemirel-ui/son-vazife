@@ -114,10 +114,14 @@ export class NightArt {
 
 /** Articulated sleeves, boots and hood use actual shoulder/ankle pivots; the physics root
  * stays on the ground. The silhouette in the window is an independent instance. */
-export function watcherFigure(art: NightArt, id: 'karabasma' | 'sis-gozcusu', fallback: THREE.Object3D) {
+export function watcherFigure(art: NightArt, id: 'karabasma' | 'sis-gozcusu', fallback: THREE.Object3D, groundFeet = false) {
   const pivots = new Map<string, THREE.Group>();
+  const boots: THREE.Mesh[]=[];
+  let visual:THREE.Group|undefined;
+  const inverse=new THREE.Matrix4(),relative=new THREE.Matrix4(),vertex=new THREE.Vector3();
   const kara = id === 'karabasma';
   const root = art.mount(id, fallback, [], (g) => {
+    visual=g;
     for (const [name, x, y] of [
       ['hood', 0, kara ? 1.76 : 1.72],
       ['sleeveL', 0.22, 1.66],
@@ -128,6 +132,7 @@ export function watcherFigure(art: NightArt, id: 'karabasma' | 'sis-gozcusu', fa
     ] as const) {
       const part = g.getObjectByName(name);
       if (!part) continue;
+      if(name.startsWith('boot') && part instanceof THREE.Mesh)boots.push(part);
       const joint = new THREE.Group();
       joint.position.set(x, y, 0);
       part.position.sub(joint.position);
@@ -153,6 +158,16 @@ export function watcherFigure(art: NightArt, id: 'karabasma' | 'sis-gozcusu', fa
             (name.startsWith('boot') ? (following ? -0.48 : -0.24) : (following ? 0.25 : 0.13)) * a * side -
             (following && name.startsWith('sleeve') ? 0.55 : 0);
         }
+      }
+      if(groundFeet && visual && boots.length){
+        // Rotated bounding boxes overestimate the sole; use the actual boot vertices.
+        visual.updateWorldMatrix(true,true);inverse.copy(visual.matrixWorld).invert();let lowest=Infinity;
+        for(const boot of boots){
+          relative.multiplyMatrices(inverse,boot.matrixWorld);
+          const positions=boot.geometry.getAttribute('position');
+          for(let i=0;i<positions.count;i++){vertex.fromBufferAttribute(positions,i).applyMatrix4(relative);lowest=Math.min(lowest,vertex.y);}
+        }
+        if(Number.isFinite(lowest))visual.position.y=-lowest;
       }
     },
   };

@@ -117,6 +117,13 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         spirits: () => ({elif:world.elif.visible,riza:world.riza.visible}),
         residentModels: () => world.residents.map(r=>({id:r.id,loaded:!!r.visual.group.getObjectByName('HandL')})),
         verifyThreatArt: async () => {await world.loadThreatArt();return {pursuer:!!world.pursuer.root.getObjectByName('Dokulu model'),scare:!!world.scare.root.getObjectByName('Dokulu model')};},
+        primeThreat: () => {threat.x=pos.x+7;threat.z=pos.z;threat.active=true;},
+        threatState: () => {
+          const root=world.pursuer.root,visual=root.getObjectByName('Dokulu model'),vertex=new THREE.Vector3();let bottom=Infinity;
+          root.updateWorldMatrix(true,true);
+          for(const name of ['bootL','bootR']){const mesh=visual?.getObjectByName(name);if(mesh instanceof THREE.Mesh){const positions=mesh.geometry.getAttribute('position');for(let i=0;i<positions.count;i++){vertex.fromBufferAttribute(positions,i).applyMatrix4(mesh.matrixWorld);bottom=Math.min(bottom,vertex.y);}}}
+          return {active:threat.active,visible:root.visible,loaded:!!visual,x:threat.x,z:threat.z,gap:Number.isFinite(bottom)?bottom-dermanliSurfaceHeight(root.position.x,root.position.z):null};
+        },
         advanceToNight: () => {if(!isNight(elapsed))elapsed=Math.floor(elapsed/DAY_SECONDS)*DAY_SECONDS+DAY_SECONDS/2;},
         scanReachability: () => {
           const {minX,maxX,minZ,maxZ}=B,w=maxX-minX+1,h=maxZ-minZ+1;
@@ -241,8 +248,8 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       const safe=Math.hypot(pos.x-S.gasilhane[0],pos.z-S.gasilhane[1])<7 || Math.hypot(pos.x-S.gassalHome[0],pos.z-S.gassalHome[1])<5;
       const result=locked?threat.tick(dt,night&&ritual.night>=2&&!ritual.ending,safe,{...pos,yaw},world.colliders):'none';
       const pursuer=world.pursuer.root;pursuer.visible=threat.active;
-      if(!threatArtRequested&&(threat.active||now<scareUntil)){threatArtRequested=true;void world.loadThreatArt();}
-      world.pursuer.pose(elapsed,threat.active);world.scare.pose(elapsed,false);
+      if(!threatArtRequested&&(night||threat.active||now<scareUntil)){threatArtRequested=true;void world.loadThreatArt();}
+      if(threat.active)world.pursuer.pose(elapsed,true);if(now<scareUntil)world.scare.pose(elapsed,false);
       if(threat.active){pursuer.position.set(threat.x,dermanliSurfaceHeight(threat.x,threat.z),threat.z);pursuer.rotation.y=Math.atan2(pos.x-threat.x,pos.z-threat.z);}
       if(result==='hit'){hits=Math.min(3,hits+1);scareUntil=now+1200;audio.playViolationSting();caption='Bir gölge sana çarptı. Uzaklaş!';captionUntil=now+5000;if(hits===3){ritual.ending='dark';caption='Halil gücünü kaybetti; köyün sessizliği onu içine aldı.';if(document.pointerLockElement===renderer.domElement)document.exitPointerLock();}save();}
       if(locked&&night&&!safe&&!ritual.ending&&elapsed>=nextRandomScare){scareUntil=now+850;audio.playWhisper(.7);nextRandomScare=elapsed+75+Math.random()*60;}
@@ -253,7 +260,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       for(const r of world.residents){r.visual.group.visible=memoryAvailable(ritual.night,night)&&!ritual.ending;if(r.visual.group.visible){r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
       for(const r of world.coffeeResidents){r.visual.group.visible=coffeeResidentAvailable(night)&&!ritual.ending;if(r.visual.group.visible){if(!r.seated)r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
       world.elif.visible=!ritual.ending&&spiritAvailable('elif',ritual.night,night);world.riza.visible=!ritual.ending&&spiritAvailable('riza',ritual.night,night);
-      for(const spirit of [world.elif,world.riza])if(spirit.visible){spirit.position.y=dermanliSurfaceHeight(spirit.position.x,spirit.position.z)+.025+.015*Math.sin(elapsed*1.3);spirit.rotation.y=Math.atan2(pos.x-spirit.position.x,pos.z-spirit.position.z);}
+      for(const spirit of [world.elif,world.riza])if(spirit.visible){spirit.position.y=dermanliSurfaceHeight(spirit.position.x,spirit.position.z);spirit.rotation.y=Math.atan2(pos.x-spirit.position.x,pos.z-spirit.position.z);}
       world.homeLight.intensity=night ? 4.5+Math.sin(elapsed*11)*.12 : 1.5;
       const visuals=villageNightVisuals(ritual.night,night,ritual.body==='done');
       world.graveMounds.forEach((m,i)=>{m.visible=i<visuals.completed;});

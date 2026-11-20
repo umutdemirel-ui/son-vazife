@@ -24,7 +24,7 @@ export function createDermanliSpirit(id: Spirit) {
   }
   for(const side of [-1,1]){
     const leg=add('leg',new THREE.CapsuleGeometry(.075,.49,4,8),dark,side*.105,.37,0);if(isChild)leg.scale.set(.8,.78,.8);
-    const shoe=add('shoe',new THREE.SphereGeometry(.09,10,7),dark,side*.105,.075,.045);shoe.scale.set(.9,.6,1.4);
+    const shoe=add('shoe',new THREE.SphereGeometry(.09,10,7),dark,side*.105,.054,.045);shoe.scale.set(.9,.6,1.4);
     const arm=add(side<0?'left-arm':'right-arm',new THREE.CapsuleGeometry(.07,.46,4,8),clothes,side*.27,1.12,0);arm.rotation.z=side*.1;
     add('hand',new THREE.SphereGeometry(.065,10,8),skin,side*.30,.79,0).scale.set(.8,1.2,.8);
   }
