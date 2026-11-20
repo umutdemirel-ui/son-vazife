@@ -23,6 +23,9 @@ try {
  if(initialSpirits.elif||initialSpirits.riza)throw Error('Late-night spirits appeared during the first day');
  await page.waitForFunction(()=>window.__dermanliTest.residentModels().every(r=>r.loaded),{timeout:60000});
  await page.waitForFunction(()=>window.__dermanliTest.coffeeResidents().length===3&&window.__dermanliTest.coffeeResidents().every(r=>r.loaded&&r.visible),null,{timeout:60000});
+ await page.waitForFunction(()=>window.__dermanliTest.outdoorResidents().length===3&&window.__dermanliTest.outdoorResidents().every(r=>r.loaded&&r.visible),null,{timeout:60000});
+ const outdoorResidents=await page.evaluate(()=>window.__dermanliTest.outdoorResidents());
+ if(outdoorResidents.some(r=>r.clearance>.01))throw Error(`Villager intersects scenery: ${JSON.stringify(outdoorResidents)}`);
  if((await page.evaluate(()=>window.__dermanliTest.coffeeResidents())).filter(r=>r.seated).length!==2)throw Error('Coffeehouse seating missing');
  const homeSupport=await page.evaluate(()=>window.__dermanliTest.homeSupport());
  if(homeSupport.length!==54||homeSupport.some(gap=>gap===null||Math.abs(gap)>.02))throw Error(`Home or school furniture is not on its floor: ${JSON.stringify(homeSupport)}`);
@@ -66,9 +69,10 @@ try {
  const bridgeSamples=await page.evaluate(()=>{clearInterval(window.__bridgeTimer);return window.__bridgeSamples;});
  const onRamp=bridgeSamples.filter(v=>v.surface!==null&&v.surface>.04&&v.surface<.35);
  if(!onRamp.length||onRamp.some(v=>Math.abs(v.foot-v.surface)>.025))throw Error(`Bridge ramp walking mismatch: ${JSON.stringify(onRamp)}`);
- for (const id of ['home','school','mosque','mill','well','coffee','coffee_cemil','coffee_salih','coffee_ferit','barn','abandoned0','abandoned1','abandoned2','abandoned3','cemetery']) await action(id);
+ for (const id of ['home','school','mosque','mill','well','coffee','coffee_cemil','coffee_salih','coffee_ferit','villager_hatice','villager_osman','villager_ismail','barn','abandoned0','abandoned1','abandoned2','abandoned3','cemetery']) await action(id);
  for(const id of ['abandoned0','abandoned1','abandoned2','abandoned3'])if(!(await state()).clues.includes(id))throw Error(`Missing abandoned house clue ${id}`);
  for(const id of ['coffee_cemil','coffee_salih','coffee_ferit'])if(!(await state()).clues.includes(id))throw Error(`Missing coffeehouse conversation ${id}`);
+ for(const id of ['villager_hatice','villager_osman','villager_ismail'])if(!(await state()).clues.includes(id))throw Error(`Missing village conversation ${id}`);
  if(!(await state()).clues.includes('coffee'))throw Error('Coffeehouse notice was not collected');
  if(!(await state()).clues.includes('barn'))throw Error('Barn harvest record was not collected');
  if(!(await state()).clues.includes('home'))throw Error('Gassal journal was not collected inside the house');
@@ -80,12 +84,13 @@ try {
  if(!(await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell.solved)))throw Error('Bell puzzle not solved');
  await action('school');if(!(await state()).clues.includes('school'))throw Error('School record did not unlock after bells');
  await page.evaluate(()=>window.__dermanliTest.advanceToNight());
- await page.waitForFunction(()=>window.__dermanliTest.coffeeResidents().every(r=>!r.visible),null,{timeout:15000});
+ await page.waitForFunction(()=>window.__dermanliTest.coffeeResidents().every(r=>!r.visible)&&window.__dermanliTest.outdoorResidents().every(r=>!r.visible),null,{timeout:15000});
  const nightWheel=await page.evaluate(()=>window.__dermanliTest.millWheel());
  await page.waitForFunction(before=>Math.abs(window.__dermanliTest.millWheel()-before)>.05,nightWheel,{timeout:15000});
  await action('arrival');
  await page.reload();await page.getByText('DEVAM ET').click();await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
  await page.locator('canvas').click({position:{x:500,y:350}});await page.waitForFunction(()=>!!document.pointerLockElement);
+ for(const id of ['villager_hatice','villager_osman','villager_ismail'])if(!(await state()).clues.includes(id))throw Error(`Village conversation ${id} did not survive reload`);
  if((await state()).body!=='carrying')throw Error('Carry state was not restored');
  if(!(await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_dermanli_v1')).bell.solved)))throw Error('Bell progress was not restored');
  for (let night=1;night<=5;night++) {

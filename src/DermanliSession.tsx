@@ -15,7 +15,7 @@ import { DAY_SECONDS, isNight, nextDawn, nextEvent, advanceVillageClock, village
 import { createCopperEwerAndSoap } from './game/models';
 import { DermanliThreat } from './game/dermanliThreat';
 import { newBell, bellHint, ringBell } from './game/dermanliBell';
-import {spiritAvailable,SPIRIT_LINES,memoryAvailable,RESIDENT_MEMORIES,COFFEE_RESIDENTS,coffeeResidentAvailable} from './game/dermanliCharacters';
+import {spiritAvailable,SPIRIT_LINES,memoryAvailable,RESIDENT_MEMORIES,COFFEE_RESIDENTS,coffeeResidentAvailable,OUTDOOR_RESIDENTS,outdoorResidentAvailable} from './game/dermanliCharacters';
 import {canReadClue,SCHOOL_LOCKED} from './game/dermanliClues';
 import {readControls,readMuted,storeMuted} from './game/preferences';
 import {DermanliMapPanel} from './components/DermanliMapPanel';
@@ -39,6 +39,7 @@ const notes: Record<string,string> = {
   abandoned2: 'Burası yıllardır boş. Bir tabak masada kalmış.', abandoned3: 'Yerde eski, okunaksız bir takvim var.',
   ...SPIRIT_LINES,
   ...Object.fromEntries(Object.entries(COFFEE_RESIDENTS).map(([id,n])=>[`coffee_${id}`,n.line])),
+  ...Object.fromEntries(Object.entries(OUTDOOR_RESIDENTS).map(([id,n])=>[`villager_${id}`,n.line])),
   ...Object.fromEntries(Object.entries(RESIDENT_MEMORIES).map(([id,m])=>[`memory_${id}`,m.line])),
   gasil: 'Gasilhanenin içi soğuk. Teneşir ve malzemeler yerlerinde; burası son vazifenin merkezi.',
 };
@@ -83,7 +84,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     const onMove=(e:MouseEvent)=>{if(!locked)return; yaw-=e.movementX*.0022*controls.mouseSensitivity; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*.0022*controls.mouseSensitivity*(controls.invertY?-1:1)));};
     const onLock=()=>{last=performance.now();locked=document.pointerLockElement===renderer.domElement; if(!locked){keys.clear();workHeld=false;workProgress=0;}};
     const targetAt=(x:number,z:number,angle:number)=>world.targets.map(t=>{const dx=t.x-x,dz=t.z-z,dist=Math.hypot(dx,dz);return {...t,dist,dot:dist<.1?1:(dx*-Math.sin(angle)+dz*-Math.cos(angle))/dist};})
-      .filter(t=>t.dist<t.radius && t.dot>.45 && (t.id!=='discard'||ritual.held==='bucket') && (t.id!=='drain'||(ritual.held==='bucket'&&ritual.dirty)) && (t.id!=='forest'||ritual.body!=='burialCarry') && ((t.id!=='elif'&&t.id!=='riza')||spiritAvailable(t.id,ritual.night,isNight(elapsed))) && (!t.id.startsWith('memory_')||memoryAvailable(ritual.night,isNight(elapsed))) && (!t.id.startsWith('coffee_')||coffeeResidentAvailable(isNight(elapsed))))
+      .filter(t=>t.dist<t.radius && t.dot>.45 && (t.id!=='discard'||ritual.held==='bucket') && (t.id!=='drain'||(ritual.held==='bucket'&&ritual.dirty)) && (t.id!=='forest'||ritual.body!=='burialCarry') && ((t.id!=='elif'&&t.id!=='riza')||spiritAvailable(t.id,ritual.night,isNight(elapsed))) && (!t.id.startsWith('memory_')||memoryAvailable(ritual.night,isNight(elapsed))) && (!t.id.startsWith('coffee_')||coffeeResidentAvailable(isNight(elapsed))) && (!t.id.startsWith('villager_')||outdoorResidentAvailable(isNight(elapsed))))
       .filter(t=>!wallBetween(x,z,t.x,t.z,world.occluders,0))
       .sort((a,b)=>(a.dist+(1-a.dot)*2)-(b.dist+(1-b.dot)*2))[0];
     const target=()=>targetAt(pos.x,pos.z,yaw);
@@ -144,6 +145,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
           };
           return {barn:world.barnSupports.map(item=>check(item,world.barnFloorMesh)),clues:world.clueSupports.map(({item,support})=>check(item,support))};
         },
+        outdoorResidents: () => world.outdoorResidents.map(r=>{const p={x:r.x,z:r.z};for(const wall of world.colliders)pushOutsideBox(p,wall,.3);return {id:r.id,visible:r.visual.group.visible,loaded:!!r.visual.group.getObjectByName('HandL'),x:r.x,z:r.z,clearance:Math.hypot(p.x-r.x,p.z-r.z)};}),
         spirits: () => ({elif:world.elif.visible,riza:world.riza.visible}),
         residentModels: () => world.residents.map(r=>({id:r.id,loaded:!!r.visual.group.getObjectByName('HandL')})),
         verifyThreatArt: async () => {await world.loadThreatArt();return {pursuer:!!world.pursuer.root.getObjectByName('Dokulu model'),scare:!!world.scare.root.getObjectByName('Dokulu model')};},
@@ -289,6 +291,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       world.wheel.rotation.x=(elapsed*.5)%(Math.PI*2);
       for(const r of world.residents){r.visual.group.visible=memoryAvailable(ritual.night,night)&&!ritual.ending;if(r.visual.group.visible){r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
       for(const r of world.coffeeResidents){r.visual.group.visible=coffeeResidentAvailable(night)&&!ritual.ending;if(r.visual.group.visible){if(!r.seated)r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
+      for(const r of world.outdoorResidents){r.visual.group.visible=outdoorResidentAvailable(night)&&!ritual.ending;if(r.visual.group.visible){r.visual.group.rotation.y=Math.atan2(pos.x-r.x,pos.z-r.z);r.visual.update(dt,false,Math.hypot(pos.x-r.x,pos.z-r.z),elapsed);}}
       world.elif.visible=!ritual.ending&&spiritAvailable('elif',ritual.night,night);world.riza.visible=!ritual.ending&&spiritAvailable('riza',ritual.night,night);
       for(const spirit of [world.elif,world.riza])if(spirit.visible){spirit.position.y=dermanliSurfaceHeight(spirit.position.x,spirit.position.z);spirit.rotation.y=Math.atan2(pos.x-spirit.position.x,pos.z-spirit.position.z);}
       world.homeLight.intensity=night ? 4.5+Math.sin(elapsed*11)*.12 : 1.5;

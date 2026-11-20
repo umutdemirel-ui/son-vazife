@@ -25,3 +25,15 @@ export const COFFEE_RESIDENTS = {
 } as const;
 export type CoffeeResidentId = keyof typeof COFFEE_RESIDENTS;
 export function coffeeResidentAvailable(isDark:boolean) {return !isDark;}
+
+/** Daytime villagers are outdoors, away from doorways; their models are reused for now. */
+export const OUTDOOR_RESIDENTS = {
+  hatice: {name:'Hatice Nine',model:'serife',site:'school',dx:5,dz:6,
+    line:'Hatice Nine: “Çocukların sesini duyar gibi oluyorum. Okul kapısının önündeki çanlara iyi bak, evladım.”'},
+  osman: {name:'Çiftçi Osman',model:'idris',site:'barn',dx:-5,dz:2,
+    line:'Çiftçi Osman: “Hasat zamanı herkes ahıra uğrardı. Defterde son senenin hesabı hâlâ durur.”'},
+  ismail: {name:'İsmail',model:'kenan',site:'mill',dx:-5,dz:4,
+    line:'İsmail: “Değirmenci yardım bekledi, sonra çarkın sesi bile duyulmaz oldu. Defterini içeride bırakmıştı.”'},
+} as const;
+export type OutdoorResidentId = keyof typeof OUTDOOR_RESIDENTS;
+export function outdoorResidentAvailable(isDark:boolean) {return !isDark;}
