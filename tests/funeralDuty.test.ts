@@ -29,3 +29,12 @@ test('all five nights advance only after the body is wrapped and buried',()=>{
 test('a new funeral arrives at night, not during the day',()=>{
  const s=newRitual();assert.match(act(s,'arrival',false),/gece/);assert.equal(s.body,'arrival');act(s,'arrival',true);assert.equal(s.body,'carrying');
 });
+
+test('saved duty state rejects invalid stages without discarding a valid existing state',async()=>{
+ const {isFuneralDuty}=await import('../src/game/funeralDuty');
+ const s=newRitual();assert.equal(isFuneralDuty(s),true);
+ assert.equal(isFuneralDuty({...s,night:6}),false);
+ assert.equal(isFuneralDuty({...s,body:'slab',stage:0,soaped:true}),false);
+ assert.equal(isFuneralDuty({...s,held:'bucket'}),false);
+ assert.equal(isFuneralDuty({...s,body:'done'}),false);
+});

@@ -1,3 +1,4 @@
+import {isFuneralDuty, type RitualState as FuneralDutyState} from './funeralDuty';
 import {
   AutopsyCaseId,
   AutopsyCaseState,
@@ -11,6 +12,7 @@ const SAVE_STORAGE_KEY = 'son_vazife_save_v2';
 
 export interface SaveGamePayload {
   version: 2;
+  funeralDuty?: FuneralDutyState;
   villageRevision?: 1 | 2 | 3 | 4 | 5 | 6;
   survivalSeconds?: number;
   storyEventsSeen?: string[];
@@ -91,6 +93,7 @@ export function readAutoSave(): SaveGamePayload | null {
     const parsed = JSON.parse(raw) as Partial<SaveGamePayload>;
     if (
       parsed.version !== 2 ||
+      (parsed.funeralDuty !== undefined && !isFuneralDuty(parsed.funeralDuty)) ||
       (parsed.villageRevision !== undefined && parsed.villageRevision !== 1 && parsed.villageRevision !== 2 && parsed.villageRevision !== 3 && parsed.villageRevision !== 4 && parsed.villageRevision !== 5 && parsed.villageRevision !== 6) ||
       typeof parsed.act !== 'number' ||
       !Number.isInteger(parsed.act) ||

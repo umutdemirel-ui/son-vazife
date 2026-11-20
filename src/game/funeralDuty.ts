@@ -84,3 +84,23 @@ export function leaveUnwatched(s:RitualState): boolean {
   if(s.body!=='slab'||s.candle||s.risen)return false;
   s.risen=true;s.violations++;return true;
 }
+
+/** Existing Kuzdağ saves have no duty field. Reject malformed new states instead
+ * of silently resetting progress or interpreting another village's coordinates. */
+export function isFuneralDuty(value:unknown): value is RitualState {
+  if(!value || typeof value!=='object' || Array.isArray(value))return false;
+  const s=value as Partial<RitualState>;
+  return Number.isInteger(s.night) && s.night!>=1 && s.night!<=5 &&
+    Number.isInteger(s.stage) && s.stage!>=0 && s.stage!<=6 &&
+    Number.isInteger(s.violations) && s.violations!>=0 && s.violations!<=9999 &&
+    ['arrival','carrying','slab','burialCarry','done'].includes(s.body as string) &&
+    ['empty','soap','ewer','bucket','camphor','shroud'].includes(s.held as string) &&
+    [s.candle,s.risen,s.soaped,s.dirty].every(v=>typeof v==='boolean') &&
+    Array.isArray(s.clues) && s.clues.length<=100 && s.clues.every(c=>typeof c==='string') &&
+    s.ending===null &&
+    (!s.soaped || (s.body==='slab' && (s.stage===1 || s.stage===2))) &&
+    (!s.dirty || (s.body==='slab' && s.stage===4)) &&
+    (s.held!=='bucket' || s.dirty===true) &&
+    (s.body!=='burialCarry' || (s.stage===6 && s.held==='empty')) &&
+    (s.body!=='done' || (s.night===5 && s.stage===6 && s.held==='empty'));
+}

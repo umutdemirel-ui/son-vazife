@@ -2,6 +2,7 @@ import { armSwing, createWorkHands } from './handRig';
 import { createHorrorFigures, disposeHorrorFigures } from './horrorFigures';
 import { requiredWashTool, washInstruction, type WashPerson, type WashTool } from './washing';
 import {newScrub,scrubStroke,SCRUB_STROKES,type ScrubProgress} from './scrubbing';
+import type {RitualState as FuneralDutyState} from './funeralDuty';
 import { atmosphereTargets } from './atmosphere';
 import { insideHome } from './homes';
 import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition, migrateMuhtarPosition } from './homeMigration';
@@ -322,6 +323,9 @@ export class SonVazifeEngine {
   private creatureSoundCooldown = 0;
   private dangerProximity = 0; // 0..1
   private violations = 0;
+
+  // Optional profession progression is separate from the original case checkpoints.
+  private funeralDuty: FuneralDutyState|null = null;
 
   // Ritual flags
   private stepPrepDone = false;
@@ -739,6 +743,7 @@ export class SonVazifeEngine {
     this.dangerProximity = 0;
     this.violations = 0;
 
+    this.funeralDuty = null;
     this.stepPrepDone = false;
     this.stepWashDone = false;
     this.washStage = 0;
@@ -994,6 +999,10 @@ export class SonVazifeEngine {
 
     this.world.washStations.soap.visible = !!this.inventory.find(i => i.id === 'sabun')?.collected && this.heldWashTool !== 'soap';
     this.world.washStations.ewer.visible = !!this.inventory.find(i => i.id === 'ibrik')?.collected && this.heldWashTool !== 'ewer';
+    this.world.washStations.camphor.visible = !!this.funeralDuty && this.funeralDuty.body==='slab' && this.funeralDuty.held!=='camphor';
+    this.world.washStations.shroud.visible = !!this.funeralDuty && this.funeralDuty.body==='slab' && this.funeralDuty.held!=='shroud';
+    this.world.funeralPlot.visible = this.funeralDuty?.body==='burialCarry';
+    for(const shelf of this.world.dutyShelves)shelf.visible=!!this.funeralDuty && this.funeralDuty.body!=='done';
     this.world.gasil.basinWall.visible = this.world.gasil.basinBottom.visible = this.heldWashTool !== 'dirty';
     this.world.gasil.basinWaterMesh.visible = this.stepPrepDone && !this.dirtyBasinDrained && this.heldWashTool !== 'dirty';
     this.updateHeldWashVisual();
@@ -1130,6 +1139,7 @@ export class SonVazifeEngine {
     this.pitch = save.playerPos.pitch;
     this.targetPitch = save.playerPos.pitch;
 
+    this.funeralDuty = save.funeralDuty ? {...save.funeralDuty,clues:[...save.funeralDuty.clues]} : null;
     this.candleLit = save.candleLit;
     this.candleOil = save.candleOil;
     this.handCandle.root.visible = this.candleLit;
@@ -1278,6 +1288,7 @@ export class SonVazifeEngine {
     const payload: SaveGamePayload = {
       version: 2,
       villageRevision: 6,
+      funeralDuty: this.funeralDuty ? {...this.funeralDuty,clues:[...this.funeralDuty.clues]} : undefined,
       survivalSeconds: this.survivalSeconds,
       storyEventsSeen: [...this.storyEventsSeen],
       caughtCount: this.caughtCount,
@@ -2040,6 +2051,8 @@ export class SonVazifeEngine {
         'wash_yolcu',
         'wash_soap',
         'wash_ewer',
+        'duty_camphor',
+        'duty_shroud',
         'dirty_bucket',
         'night_call',
         'night_tag',

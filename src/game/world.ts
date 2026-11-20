@@ -103,7 +103,9 @@ export interface WorldHandles {
   }>;
   virtualLights: VirtualPointLight[];
   worldLightPool: THREE.PointLight[];
-  washStations: { soap: THREE.Group; ewer: THREE.Group };
+  washStations: { soap: THREE.Group; ewer: THREE.Group; camphor: THREE.Group; shroud: THREE.Group };
+  funeralPlot: THREE.Mesh;
+  dutyShelves: THREE.Mesh[];
   apertureLights: { window: THREE.MeshBasicMaterial; officeDoor: THREE.MeshBasicMaterial };
   sunKeyLight: THREE.DirectionalLight;
   hemiLight: THREE.HemisphereLight;
@@ -656,15 +658,20 @@ export function buildVillageWorld(
   // Supplies placed in the washing room after collection, with separate E targets.
   const washSoap = createCopperEwerAndSoap('sabun');
   const washEwer = createCopperEwerAndSoap('ibrik');
+  const washCamphor = createCopperEwerAndSoap('kafur');
+  const washShroud = createCopperEwerAndSoap('kefen');
   washSoap.position.set(-2.75, 0.85, -2.35); washEwer.position.set(-2.75, 0.85, 2.3);
-  gasil.group.add(washSoap, washEwer);
-  const washShelfGeo = new THREE.BoxGeometry(0.7, 0.09, 0.65);
-  for (const z of [-2.35, 2.3]) {
+  washCamphor.position.set(-2.75,0.85,-1.3);washShroud.position.set(-2.75,0.85,1.2);
+  washCamphor.visible=washShroud.visible=false;
+  gasil.group.add(washSoap, washEwer, washCamphor, washShroud);
+  const washShelfGeo = new THREE.BoxGeometry(0.7, 0.09, 0.65), dutyShelves:THREE.Mesh[]=[];
+  for (const z of [-2.35, -1.3, 1.2, 2.3]) {
     const shelf = new THREE.Mesh(washShelfGeo, craft.wood); shelf.position.set(-2.75, 0.8, z); gasil.group.add(shelf);
+    if(z===-1.3||z===1.2){shelf.visible=false;dutyShelves.push(shelf);}
   }
   disposables.push(washShelfGeo);
   const supplyResources = new Set<THREE.BufferGeometry | THREE.Material>();
-  for (const prop of [washSoap, washEwer]) prop.traverse(o => {
+  for (const prop of [washSoap, washEwer, washCamphor, washShroud]) prop.traverse(o => {
     if (o instanceof THREE.Mesh) { supplyResources.add(o.geometry); for (const m of Array.isArray(o.material) ? o.material : [o.material]) supplyResources.add(m); }
   });
   disposables.push({ dispose: () => supplyResources.forEach(resource => resource.dispose()) });
@@ -742,6 +749,8 @@ export function buildVillageWorld(
   );
   registerTarget('wash_soap', new THREE.Vector3(gasilPos.x - 2.75, gasilPos.y + 0.92, gasilPos.z - 2.35), [0.55, 0.45, 0.55], 2.7);
   registerTarget('wash_ewer', new THREE.Vector3(gasilPos.x - 2.75, gasilPos.y + 1.05, gasilPos.z + 2.3), [0.55, 0.6, 0.55], 2.7);
+  registerTarget('duty_camphor', new THREE.Vector3(gasilPos.x - 2.75, gasilPos.y + 1.0, gasilPos.z - 1.3), [0.48, 0.5, 0.48], 2.7);
+  registerTarget('duty_shroud', new THREE.Vector3(gasilPos.x - 2.75, gasilPos.y + 1.0, gasilPos.z + 1.2), [0.5, 0.45, 0.5], 2.7);
   registerTarget('dirty_bucket', new THREE.Vector3(gasilPos.x + 0.25, gasilPos.y + 0.68, gasilPos.z + 1.05), [0.52, 0.52, 0.52], 2.7);
   registerTarget(
     'gasil_shutter',
@@ -861,6 +870,15 @@ export function buildVillageWorld(
     [2.2, 0.85, 1.05],
     3.4,
   );
+
+  // A low, nonblocking earth marker for the profession's eventual burial target.
+  const plotGeometry=new THREE.SphereGeometry(1,16,8);
+  const plotMaterial=new THREE.MeshStandardMaterial({color:0x493a2c,roughness:1});
+  const funeralPlot=new THREE.Mesh(plotGeometry,plotMaterial);
+  funeralPlot.position.set(-29.5,groundHeightAt(-29.5,-28.5)+.04,-28.5);
+  funeralPlot.scale.set(.9,.16,1.2);funeralPlot.visible=false;scene.add(funeralPlot);
+  disposables.push(plotGeometry,plotMaterial);
+  registerTarget('duty_burial',funeralPlot.position.clone().add(new THREE.Vector3(0,.3,0)),[1.6,.7,2],3);
 
   // İdris's weathered maintenance book, on its own low stone stand in the cemetery.
   const memorialBook = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.42), craft.wood);
@@ -1268,7 +1286,8 @@ export function buildVillageWorld(
     streetLights,
     virtualLights,
     worldLightPool,
-    washStations: { soap: washSoap, ewer: washEwer },
+    washStations: { soap: washSoap, ewer: washEwer, camphor: washCamphor, shroud: washShroud },
+    funeralPlot, dutyShelves,
     apertureLights: { window: windowLight, officeDoor: doorLight },
     sunKeyLight,
     hemiLight,
