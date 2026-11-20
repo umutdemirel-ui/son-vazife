@@ -158,7 +158,7 @@ export function buildVillageWorld(
   sunKeyLight.shadow.camera.far = 90;
   sunKeyLight.shadow.bias = -0.0005;
   sunKeyLight.shadow.normalBias = 0.02;
-  scene.add(sunKeyLight);
+  scene.add(sunKeyLight, sunKeyLight.target);
 
   scene.background = new THREE.Color(0x59656c);
   scene.fog = new THREE.FogExp2(0x59656c, 0.023);

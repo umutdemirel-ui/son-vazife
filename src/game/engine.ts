@@ -4,6 +4,7 @@ import { requiredWashTool, washInstruction, type WashPerson, type WashTool } fro
 import {newScrub,scrubStroke,SCRUB_STROKES,type ScrubProgress} from './scrubbing';
 import {newRitual,interactRitual,ritualObjective,workProblem,leaveUnwatched,type RitualState as FuneralDutyState} from './funeralDuty';
 import { atmosphereTargets } from './atmosphere';
+import { positionSunLight } from './sunLight';
 import { insideHome } from './homes';
 import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition, migrateMuhtarPosition } from './homeMigration';
 import { atEscapePoint, isEvening, survivalDay, SECONDS_PER_DAY } from './survival';
@@ -4175,8 +4176,7 @@ export class SonVazifeEngine {
       this.scene.fog.density = THREE.MathUtils.damp(this.scene.fog.density, a.fog, 1.2, dt);
     }
     // Slow sun/moon direction changes use the existing tier-limited shadow map.
-    const skyAngle = this.survivalSeconds / 600 * Math.PI * 2;
-    this.world.sunKeyLight.position.set(18 + Math.cos(skyAngle) * 5, 23 + a.daylight * 5, 22 + Math.sin(skyAngle) * 5);
+    positionSunLight(this.world.sunKeyLight, this.playerPos.x, this.playerPos.z, this.survivalSeconds, a.daylight);
     this.world.sunKeyLight.color.copy(_nightKey).lerp(_dayKey, a.daylight);
     this.world.sunKeyLight.intensity = THREE.MathUtils.damp(this.world.sunKeyLight.intensity, a.key + this.stormFlashIntensity, 3, dt);
     const iblBoost = this.scene.environment === null ? 0.14 : 0;

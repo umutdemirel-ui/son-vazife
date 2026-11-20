@@ -12,7 +12,7 @@ Kullanıcının yeni yönü: Dermanlı köyü tamamen kaldırılacak; beğenilen
 - Önceki ritüelin taşınabilir durum mantığı `src/game/funeralDuty.ts` içinde Kuzdağ hikâyesini zorla sonlandırmayacak şekilde ayrıldı; `scrubbing.ts` elle yıkamanın durumunu taşıyor.
 
 ## Son kontroller
-- Derleme, TypeScript kontrolü ve 66 birim testi geçti.
+- Derleme, TypeScript kontrolü ve 67 birim testi geçti. Gölge alanı oyuncuyu takip eder; asgari grafikte yerel ışık büyük yüzeylerde artık piksel düzeyinde hesaplanır. Dört kalite seviyesi tarayıcıda shader hatası olmadan işlendi.
 - Otomatik tarayıcı senaryoları Kuzdağ açılışı ve kayıt korumasını; üç vaka, sekiz bölüm ve üç sonu; beş vazifenin sahne hedefleri ve klavye ile tamamlanmasını kontrol etti. Vazife senaryosu etkileşimlerde ışınlanma kullanır. Buna ek olarak, çarpışma alanında tüm görev hedefleri arası bağlantı örneklendi ve cenazeyi taşıyarak açık gasilhane kapısından iki yönlü yürüyüş denendi.
 - Cenaze taşınırken koşma engellendi ve hız eski cenaze nakliyle eşitlendi. Bir yıkama sahnesi otomatik görüntüyle kontrol edildi; bu, tam görsel değerlendirme yerine geçmez.
 
