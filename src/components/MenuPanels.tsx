@@ -77,7 +77,7 @@ const KEYS = [
   ['Hareket et', 'W A S D'], ['Etrafına bak', 'Fare'], ['Etkileşime gir', 'E'],
   ['Koş', 'Shift'], ['Çömel', 'Ctrl / C'], ['Mumu yak / söndür', 'F'],
   ['Yıka', 'F + A / D'], ['Diğer işlemler', 'F basılı'],
-  ['Harita / defter', 'H / N'], ['Sesi aç / kapat', 'M'], ['Fareyi bırak', 'Esc'],
+  ['Harita / defter', 'Tab'], ['Sesi aç / kapat', 'M'], ['Fareyi bırak', 'Esc'],
 ];
 export function ControlsPanel({ onClose }: { onClose: () => void }) {
   return (

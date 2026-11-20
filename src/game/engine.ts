@@ -2,11 +2,11 @@ import { armSwing, createWorkHands } from './handRig';
 import { createHorrorFigures, disposeHorrorFigures } from './horrorFigures';
 import { requiredWashTool, washInstruction, type WashPerson, type WashTool } from './washing';
 import {newScrub,scrubStroke,SCRUB_STROKES,type ScrubProgress} from './scrubbing';
-import type {RitualState as FuneralDutyState} from './funeralDuty';
+import {newRitual,interactRitual,ritualObjective,workProblem,leaveUnwatched,type RitualState as FuneralDutyState} from './funeralDuty';
 import { atmosphereTargets } from './atmosphere';
 import { insideHome } from './homes';
 import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition, migrateMuhtarPosition } from './homeMigration';
-import { atEscapePoint, isEvening, survivalDay } from './survival';
+import { atEscapePoint, isEvening, survivalDay, SECONDS_PER_DAY } from './survival';
 import {
   FIELD_NOTES,
   nightStealthPrompt,
@@ -326,6 +326,7 @@ export class SonVazifeEngine {
 
   // Optional profession progression is separate from the original case checkpoints.
   private funeralDuty: FuneralDutyState|null = null;
+  private dutyWork: {stage:number;progress:ScrubProgress;seconds:number}|null = null;
 
   // Ritual flags
   private stepPrepDone = false;
@@ -336,7 +337,7 @@ export class SonVazifeEngine {
   private rinseStage = 0;
   private washingHand!: THREE.Group;
   private washAnim = 0;
-  private washTools!: Record<'cloth' | 'soap' | 'bucket' | 'ewer', THREE.Group>;
+  private washTools!: Record<'cloth' | 'soap' | 'bucket' | 'ewer' | 'camphor' | 'shroud', THREE.Group>;
   private heldWashTool: WashTool = 'empty';
   private soapAppliedFor: WashPerson | null = null;
   private extraWashes = { mahmut: 0, yolcu: 0 };
@@ -743,7 +744,7 @@ export class SonVazifeEngine {
     this.dangerProximity = 0;
     this.violations = 0;
 
-    this.funeralDuty = null;
+    this.funeralDuty = null;this.dutyWork=null;
     this.stepPrepDone = false;
     this.stepWashDone = false;
     this.washStage = 0;
@@ -942,8 +943,10 @@ export class SonVazifeEngine {
     handle.position.set(0, -0.15, -0.12); bucketTool.add(handle);
     const ewerTool = createCopperEwerAndSoap('ibrik');
     ewerTool.position.set(0.23, -0.3, -0.1); ewerTool.scale.setScalar(0.7);
-    this.washTools = { cloth: clothTool, soap: soapTool, bucket: bucketTool, ewer: ewerTool };
-    this.washingHand.add(clothTool, soapTool, bucketTool, ewerTool); this.washingHand.position.set(0, -0.3, -0.65);
+    const camphorTool=createCopperEwerAndSoap('kafur'),shroudTool=createCopperEwerAndSoap('kefen');
+    for(const tool of [camphorTool,shroudTool]){tool.position.set(.23,-.3,-.1);tool.scale.setScalar(.7);}
+    this.washTools = { cloth: clothTool, soap: soapTool, bucket: bucketTool, ewer: ewerTool,camphor:camphorTool,shroud:shroudTool };
+    this.washingHand.add(clothTool, soapTool, bucketTool, ewerTool,camphorTool,shroudTool); this.washingHand.position.set(0, -0.3, -0.65);
     this.washingHand.visible = false; this.camera.add(this.washingHand);
 
     this.syncQualityTierFromSettings();
@@ -953,16 +956,18 @@ export class SonVazifeEngine {
 
   private placeTransportBody() {
     const body = this.world.gasil.kefenWrapGroup;
-    const parent = this.bodyTransport === 'carried' ? this.camera
-      : this.bodyTransport === 'delivered' ? this.world.transportBed : this.world.gasil.deceasedGroup;
+    const duty=this.activeDuty();
+    const carried=duty ? duty.body==='carrying'||duty.body==='burialCarry' : this.bodyTransport==='carried';
+    const atBed=duty ? duty.body==='arrival' : this.bodyTransport==='delivered';
+    const parent = carried ? this.camera : atBed ? this.world.transportBed : this.world.gasil.deceasedGroup;
     if (body.parent !== parent) parent.add(body);
     body.rotation.set(0, 0, 0);
     body.scale.setScalar(1);
-    if (this.bodyTransport === 'carried') {
+    if (carried) {
       body.position.set(0, -0.55, -1.35);
       body.rotation.y = Math.PI / 2;
       body.scale.setScalar(0.78);
-    } else if (this.bodyTransport === 'delivered') body.position.set(0, 0.78, 0);
+    } else if (atBed) body.position.set(0, 0.78, 0);
     else body.position.set(0, 0, 0);
   }
 
@@ -987,6 +992,11 @@ export class SonVazifeEngine {
     this.world.gasil.pestemalMesh.visible = !inspectArif && this.stepPrepDone && !this.stepShroudDone;
     this.world.gasil.kefenWrapGroup.visible = !inspectArif && this.stepShroudDone;
     this.placeTransportBody();
+    const duty=this.activeDuty();
+    if(duty){
+      this.world.gasil.pestemalMesh.visible=!inspectArif&&duty.body==='slab'&&duty.stage<6;
+      this.world.gasil.kefenWrapGroup.visible=!inspectArif&&(duty.body==='carrying'||duty.body==='burialCarry'||(duty.body==='arrival'&&isEvening(this.survivalSeconds))||(duty.body==='slab'&&duty.stage===6));
+    }
     this.world.receiving.mahmut.visible = movedMahmut;
     this.world.receiving.yolcu.visible = movedYolcu;
     if (movedMahmut) void this.world.nightArt.request('mahmut');
@@ -997,17 +1007,18 @@ export class SonVazifeEngine {
     this.world.setSignal(signal);
     this.world.keeper.setStage(this.act === 7, signal);
 
-    this.world.washStations.soap.visible = !!this.inventory.find(i => i.id === 'sabun')?.collected && this.heldWashTool !== 'soap';
-    this.world.washStations.ewer.visible = !!this.inventory.find(i => i.id === 'ibrik')?.collected && this.heldWashTool !== 'ewer';
+    this.world.washStations.soap.visible = duty ? duty.body==='slab'&&duty.held!=='soap' : !!this.inventory.find(i => i.id === 'sabun')?.collected && this.heldWashTool !== 'soap';
+    this.world.washStations.ewer.visible = duty ? duty.body==='slab'&&duty.held!=='ewer' : !!this.inventory.find(i => i.id === 'ibrik')?.collected && this.heldWashTool !== 'ewer';
     this.world.washStations.camphor.visible = !!this.funeralDuty && this.funeralDuty.body==='slab' && this.funeralDuty.held!=='camphor';
     this.world.washStations.shroud.visible = !!this.funeralDuty && this.funeralDuty.body==='slab' && this.funeralDuty.held!=='shroud';
     this.world.funeralPlot.visible = this.funeralDuty?.body==='burialCarry';
     for(const shelf of this.world.dutyShelves)shelf.visible=!!this.funeralDuty && this.funeralDuty.body!=='done';
-    this.world.gasil.basinWall.visible = this.world.gasil.basinBottom.visible = this.heldWashTool !== 'dirty';
-    this.world.gasil.basinWaterMesh.visible = this.stepPrepDone && !this.dirtyBasinDrained && this.heldWashTool !== 'dirty';
+    this.world.gasil.basinWall.visible = this.world.gasil.basinBottom.visible = duty ? duty.held!=='bucket' : this.heldWashTool !== 'dirty';
+    this.world.gasil.basinWaterMesh.visible = duty ? duty.dirty&&duty.held!=='bucket' : this.stepPrepDone && !this.dirtyBasinDrained && this.heldWashTool !== 'dirty';
     this.updateHeldWashVisual();
-    this.world.gasil.vigilFlame.visible = this.vigilLit;
-    this.world.gasil.vigilLight.intensity = this.vigilLit ? 3.4 : 0;
+    const vigil=duty ? duty.candle : this.vigilLit;
+    this.world.gasil.vigilFlame.visible = vigil;
+    this.world.gasil.vigilLight.intensity = vigil ? 3.4 : 0;
     this.world.gasil.windowShadowFigure.visible = this.windowAnomalyActive;
     this.world.gasil.windowShadowFigure.position.set(-4.25, 1.45, 0);
     const windowGlowMat = this.world.gasil.windowGlowMesh.material as THREE.MeshStandardMaterial;
@@ -1023,7 +1034,7 @@ export class SonVazifeEngine {
 
       // The table at the old scene is empty after transfer. Explicit forensic review is a reconstruction.
       body.group.visible =
-        isInspecting ||
+        isInspecting || (cid==='case_arif' && !!duty && duty.body==='slab' && duty.stage<6) ||
         !(cid === 'case_arif' ? this.stepShroudDone : cid === 'case_mahmut' ? movedMahmut : movedYolcu);
       for (const marker of Object.values(body.anomalyMarkers)) marker.visible = isInspecting;
       body.incisionGroup.visible = isInspecting && st.zones.chest.incised;
@@ -1432,7 +1443,7 @@ export class SonVazifeEngine {
   public toggleCandle(): void {
     if (this.screen !== 'playing' || this.activeAutopsyCaseId || this.registryCaseId || this.nightPage)
       return;
-    if (!this.candleLit && (this.heldWashTool !== 'empty' || this.washAnim > 0)) {
+    if (!this.candleLit && (this.heldWashTool !== 'empty' || (this.activeDuty()?.held ?? 'empty') !== 'empty' || this.washAnim > 0)) {
       this.showCaption('Önce elindeki malzemeyi yerine bırak; yıkama iki el gerektirir.', 3); return;
     }
     if (!this.inventory.find((i) => i.id === 'defter')?.collected && this.act === 1) {
@@ -2118,8 +2129,52 @@ export class SonVazifeEngine {
     return true;
   }
 
+  private activeDuty(): FuneralDutyState|null {
+    return this.funeralDuty && this.funeralDuty.body!=='done' ? this.funeralDuty : null;
+  }
+
+  private dutyTarget(id:string):string|null {
+    return ({transport_bed:'arrival',tenesir_slab:'slab',vigil_candle:'candle',wash_soap:'soap',wash_ewer:'ewer',dirty_bucket:'bucket',gasil_drain:'drain',yard_drain:'discard',duty_camphor:'camphor',duty_shroud:'shroud',duty_burial:'cemetery'} as Record<string,string>)[id] ?? null;
+  }
+
+  private performDuty(id:string,work=false):void {
+    const duty=this.activeDuty();if(!duty)return;
+    const before=duty.night, result=interactRitual(duty,id,isEvening(this.survivalSeconds),work);
+    if(duty.held!=='empty'||duty.body==='carrying'||duty.body==='burialCarry')this.putAwayCandle();
+    if(duty.night>before)this.survivalSeconds=(Math.floor(this.survivalSeconds/SECONDS_PER_DAY)+1)*SECONDS_PER_DAY;
+    if(id==='slab'&&work){
+      const tool=duty.held;
+      this.startWashAnimation(tool==='soap'?'soap':tool==='ewer'?'ewer':tool==='camphor'?'camphor':tool==='shroud'?'shroud':'cloth');
+    }else if(id==='drain'||id==='discard')this.startWashAnimation('bucket');
+    if(id==='slab'||id==='drain'||id==='discard')this.audio.playWaterPour();else this.audio.playPickup();
+    this.showCaption(result,5);this.syncVisualMeshes();this.triggerAutoSave(false);this.pushHudState(true);
+  }
+
+  private finishDutyWork():void {
+    if(!this.dutyWork || !this.activeDuty() || this.activeInteractId!=='tenesir_slab')return;
+    this.dutyWork=null;this.performDuty('slab',true);
+  }
+
   private getInteractLabel(id: string): string | null {
     if (!this.accessFromHere(id)) return null;
+    const duty=this.activeDuty();
+    if(duty){
+      if(id==='wash_mahmut'||id==='wash_yolcu'||id==='night_tag')return null;
+      const target=this.dutyTarget(id);
+      if(target){
+        if(target==='arrival')return duty.body==='arrival'?(isEvening(this.survivalSeconds)?'[E] Cenazeyi sedyeden al':'Cenaze gece gelecek'):null;
+        if(target==='cemetery')return duty.body==='burialCarry'?'[E] Cenazeyi defnet':null;
+        if(target==='slab')return duty.body==='carrying'?'[E] Cenazeyi teneşire yerleştir':duty.body!=='slab'?null:duty.stage===6?'[E] Kefenli cenazeyi kaldır':`[F] ${ritualObjective(duty)}${duty.stage<3?' · A / D':''}`;
+        if(target==='candle')return duty.body==='slab'&&!duty.candle?'[E] Sabır mumunu yak':null;
+        if(target==='bucket')return duty.body==='slab'&&duty.dirty?'[E] Kirli su kovasını al / bırak':null;
+        if(target==='drain'||target==='discard')return duty.dirty&&duty.held==='bucket'?(target==='drain'?'[E] Kirli suyu gidere dök':'[E] Kirli suyu dışarı dök'):null;
+        if(duty.body!=='slab')return null;
+        const names:Record<string,string>={soap:'Sabun',ewer:'İbrik',camphor:'Kâfur',shroud:'Kefen'};
+        return names[target]?`[E] ${names[target]} ${duty.held===target?'yerine bırak':'al'}`:null;
+      }
+    }
+    if(id==='duty_camphor'||id==='duty_shroud'||id==='duty_burial')return null;
+    if(id==='transport_bed'&&!this.funeralDuty&&this.act>=6&&this.bodyTransport==='delivered')return '[E] Gassallık vazifesine başla';
     if (id === 'mosque_door') return `[E] Cami kapısını ${this.mosqueDoorOpen ? 'kapat' : 'aç'}`;
     if (id === 'transport_bed') return this.bodyTransport === 'carried' ? '[E] Cenazeyi nakil sedyesine yerleştir' : null;
     if (id.startsWith('outpost_door_')) {
@@ -2275,6 +2330,7 @@ export class SonVazifeEngine {
 
   private manualWashTarget(): {id:string;who:WashPerson;stage:number}|null {
     const id=this.activeInteractId;
+    if(this.activeDuty())return null;
     if(id==='tenesir_slab'&&this.act===2&&this.stepPrepDone&&!this.stepWashDone&&!this.bodyRisen)
       return {id,who:'arif',stage:this.washStage};
     if(id==='wash_mahmut'||id==='wash_yolcu'){
@@ -2292,13 +2348,19 @@ export class SonVazifeEngine {
   }
 
   private handleInteract(): void {
-    if (!this.finishingManualWash && this.manualWashTarget()) {
+    if (!this.activeDuty() && !this.finishingManualWash && this.manualWashTarget()) {
       this.showCaption('F tuşunu basılı tut; yıkarken A ve D tuşlarına sırayla bas.',3.5);return;
     }
     if (this.screen !== 'playing' || this.isOverlayBlockingMove() || this.scareFigure || !this.activeInteractId) return;
     const id = this.activeInteractId;
 
     if (!this.getInteractLabel(id)) return;
+    if(id==='transport_bed'&&!this.funeralDuty&&this.act>=6&&this.bodyTransport==='delivered'){
+      this.funeralDuty=newRitual();this.syncVisualMeshes();this.triggerAutoSave(false);
+      this.showCaption(ritualObjective(this.funeralDuty,isEvening(this.survivalSeconds)),6);this.pushHudState(true);return;
+    }
+    const duty=this.activeDuty(), dutyTarget=this.dutyTarget(id);
+    if(duty&&dutyTarget){this.performDuty(dutyTarget);return;}
     if (id === 'mosque_door') {
       this.mosqueDoorOpen = !this.mosqueDoorOpen;
       this.audio.playDoorCreak();
@@ -2311,7 +2373,7 @@ export class SonVazifeEngine {
       this.act = 6;
       this.audio.playTelephone();
       this.syncVisualMeshes();
-      this.showCaption('Cenaze teslim edildi. Gasilhanede yolcu etiketini incele; Mahmut ve yolcunun yıkamasını sedyelerin baş ucunda tamamlayabilirsin.', 8);
+      this.showCaption('Cenaze teslim edildi. Yeni gassallık vazifesine bu sedyeden başlayabilir veya Kuzdağ kayıtlarını incelemeye devam edebilirsin.', 8);
       this.triggerAutoSave(true); this.pushHudState(true);
       return;
     }
@@ -2850,6 +2912,7 @@ export class SonVazifeEngine {
   private onPointerLockChange = (): void => {
     const locked = document.pointerLockElement === this.renderer.domElement;
     if (this.isPointerLocked && !locked) {
+      this.manualWash=null;this.dutyWork=null;
       this.lastPointerLockExitTime = performance.now();
     }
     this.isPointerLocked = locked;
@@ -3000,6 +3063,15 @@ export class SonVazifeEngine {
 
     // Prevent browser shortcuts such as Ctrl+W where the browser permits it.
     if (this.screen === 'playing' && (e.ctrlKey || e.code === 'ControlLeft' || e.code === 'ControlRight')) e.preventDefault();
+    if(this.dutyWork && (e.code==='KeyA'||e.code==='KeyD')){
+      if(!e.repeat&&this.activeDuty()&&this.activeInteractId==='tenesir_slab'&&this.dutyWork.stage<3&&!this.isOverlayBlockingMove()){
+        this.dutyWork.progress=scrubStroke(this.dutyWork.progress,e.code==='KeyA'?'left':'right');
+        this.startWashAnimation(this.activeDuty()?.held==='soap'?'soap':'cloth');
+        if(this.dutyWork.progress.strokes>=SCRUB_STROKES)this.finishDutyWork();
+      }
+      return;
+    }
+    if(this.dutyWork && (e.code==='KeyW'||e.code==='KeyS'))this.dutyWork=null;
     if (this.manualWash && (e.code==='KeyA'||e.code==='KeyD')) {
       if(!e.repeat && this.screen==='playing' && !this.isOverlayBlockingMove() && this.manualWashTarget()?.id===this.manualWash.id && this.manualWash.stage<3){
         this.manualWash.progress=scrubStroke(this.manualWash.progress,e.code==='KeyA'?'left':'right');
@@ -3057,6 +3129,13 @@ export class SonVazifeEngine {
     if (e.code === 'KeyE' && !wasDown) {
       this.handleInteract();
     } else if (e.code === 'KeyF' && !wasDown) {
+      const duty=this.activeDuty();
+      if(duty&&this.activeInteractId==='tenesir_slab'&&duty.body==='slab'&&duty.stage<6&&!this.isOverlayBlockingMove()){
+        const problem=workProblem(duty);
+        if(problem)this.showCaption(problem,4);
+        else if(!['KeyW','KeyA','KeyS','KeyD'].some(k=>this.keys[k]))this.dutyWork={stage:duty.stage,progress:newScrub(),seconds:0};
+        return;
+      }
       const target=this.manualWashTarget();
       if(target){
         const applied=this.soapAppliedFor===target.who;
@@ -3077,7 +3156,7 @@ export class SonVazifeEngine {
 
   private onKeyUp = (e: KeyboardEvent): void => {
     this.keys[e.code] = false;
-    if(e.code==='KeyF')this.manualWash=null;
+    if(e.code==='KeyF'){this.manualWash=null;this.dutyWork=null;}
   };
 
   private isInsideGasilhane(p: THREE.Vector3): boolean {
@@ -3318,7 +3397,7 @@ export class SonVazifeEngine {
 
   private updateHeldWashVisual(): void {
     if (!this.washingHand || !this.washTools) return;
-    const held = this.heldWashTool;
+    const held = this.activeDuty()?.held ?? this.heldWashTool;
     this.washingHand.visible = this.screen === 'playing' && !this.activeAutopsyCaseId;
     if (this.washAnim <= 0) for (const [name, group] of Object.entries(this.washTools))
       group.visible = name === (held === 'dirty' ? 'bucket' : held);
@@ -3340,7 +3419,7 @@ export class SonVazifeEngine {
     return true;
   }
 
-  private startWashAnimation(tool: 'cloth' | 'soap' | 'bucket' | 'ewer'): void {
+  private startWashAnimation(tool: 'cloth' | 'soap' | 'bucket' | 'ewer' | 'camphor' | 'shroud'): void {
     this.washAnim = 1.5;
     for (const [name, group] of Object.entries(this.washTools)) group.visible = name === tool;
     this.washingHand.visible = true;
@@ -3403,7 +3482,12 @@ export class SonVazifeEngine {
       return;
     }
 
-    if (this.screen !== 'playing') {this.manualWash=null;return;}
+    if (this.screen !== 'playing') {this.manualWash=null;this.dutyWork=null;return;}
+    if(this.dutyWork){
+      const duty=this.activeDuty();
+      if(!this.keys.KeyF || this.isOverlayBlockingMove() || this.activeInteractId!=='tenesir_slab' || !duty || duty.body!=='slab' || duty.stage!==this.dutyWork.stage || document.hidden)this.dutyWork=null;
+      else if(this.dutyWork.stage>=3){this.dutyWork.seconds+=dt;if(this.dutyWork.seconds>=1.2)this.finishDutyWork();}
+    }
     if(this.manualWash){
       if(!this.keys.KeyF || this.isOverlayBlockingMove() || this.manualWashTarget()?.id!==this.manualWash.id || document.hidden)this.manualWash=null;
       else if(this.manualWash.stage>=3){
@@ -3415,8 +3499,9 @@ export class SonVazifeEngine {
 
     if (this.registryCaseId || this.nightPage) return;
     if (!this.isOverlayBlockingMove()) {
-      const oldDay = survivalDay(this.survivalSeconds);
+      const oldDay = survivalDay(this.survivalSeconds), wasEvening=isEvening(this.survivalSeconds);
       this.survivalSeconds += dt;
+      if(this.activeDuty()&&wasEvening!==isEvening(this.survivalSeconds))this.syncVisualMeshes();
       this.survivalSaveClock += dt;
       if (survivalDay(this.survivalSeconds) !== oldDay) {
         this.showCaption(`${survivalDay(this.survivalSeconds)}. gün: Sis hâlâ dağılmadı. Hayatta kal.`, 5);
@@ -3734,7 +3819,8 @@ export class SonVazifeEngine {
       this.washingHand.rotation.x = (this.washTools.bucket.visible || this.washTools.ewer.visible) ? -0.35 * Math.sin(Math.min(1, phase / 1.5) * Math.PI) : 0;
       this.washingHand.traverse(o => { if (o.name === 'parmak') o.rotation.x = 0.15 + Math.sin(phase * 9) * 0.12; });
     } else {
-      const restrained = this.heldWashTool !== 'empty' || this.bodyTransport === 'carried';
+      const currentDuty=this.activeDuty();
+      const restrained = this.heldWashTool !== 'empty' || this.bodyTransport === 'carried' || !!currentDuty&&(currentDuty.held!=='empty'||currentDuty.body==='carrying'||currentDuty.body==='burialCarry');
       const motion = armSwing(this.headBobPhase, blocked ? 0 : horizSpeed, this.isSprinting, restrained);
       this.washingHand.position.set(0, -0.3 + motion.bounce * 0.015, -0.65);
       this.washingHand.rotation.set(0, 0, 0);
@@ -3766,7 +3852,9 @@ export class SonVazifeEngine {
     }
 
     // Leaving an unfinished preparation without the vigil disturbs the body.
-    if (this.act >= 2 && this.act <= 5 && this.stepPrepDone && !this.stepShroudDone && !insideGasil && !this.vigilLit && !this.leftGasilWithoutVigilFlagged) {
+    const duty=this.activeDuty();
+    if(duty && !insideGasil && leaveUnwatched(duty)){this.syncVisualMeshes();this.showCaption('Sabır mumu yanmadan uzaklaştın.',5);this.triggerAutoSave(false);}
+    if (!duty && this.act >= 2 && this.act <= 5 && this.stepPrepDone && !this.stepShroudDone && !insideGasil && !this.vigilLit && !this.leftGasilWithoutVigilFlagged) {
       this.leftGasilWithoutVigilFlagged = true;
       this.bodyRisen = true;
       this.unlockGlossaryEntry('anom_vigil');
@@ -3775,8 +3863,8 @@ export class SonVazifeEngine {
       this.triggerAutoSave(false);
     }
     const body = this.world.gasil.deceasedGroup;
-    body.rotation.z = THREE.MathUtils.damp(body.rotation.z, this.bodyRisen ? -Math.PI / 2 : 0, 1.4, dt);
-    body.position.y = THREE.MathUtils.damp(body.position.y, this.bodyRisen ? 0.95 : 0.862, 1.4, dt);
+    body.rotation.z = THREE.MathUtils.damp(body.rotation.z, (duty?duty.risen:this.bodyRisen) ? -Math.PI / 2 : 0, 1.4, dt);
+    body.position.y = THREE.MathUtils.damp(body.position.y, (duty?duty.risen:this.bodyRisen) ? 0.95 : 0.862, 1.4, dt);
     // The vigil slowly burns down while away after the wash.
     if ((this.act === 3 || this.act === 4) && this.stepWashDone && !insideGasil) {
       if (this.vigilLit) {
@@ -4220,6 +4308,8 @@ export class SonVazifeEngine {
                                 ? 'Viraj Kaza Alanı'
                                 : 'Kuzdağ Köy Meydanı';
 
+    const duty=this.activeDuty();
+    if(duty)return {actTitle:`GASSALLIK · ${duty.night}. VAZİFE`,objective:ritualObjective(duty,isEvening(this.survivalSeconds)),location};
     if (this.finalCall) return { actTitle: 'SON YOL · KAÇIŞ', objective: 'İstasyondaki son perona ulaş ve köyden kaç.', location };
     if (this.act >= 6) {
       const next = this.nextNight() ?? 'night_call';
