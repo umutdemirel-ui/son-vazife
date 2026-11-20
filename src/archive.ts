@@ -11,13 +11,13 @@ export interface ArchiveEntry {
 // The four prints can be inspected before play; none gives away a case solution.
 export const ARCHIVE: ArchiveEntry[] = [
   {
-    title: 'Dermanlı Köyü',
+    title: 'Kuzdağ Köyü',
     image: '/assets/archive/kuzdag.jpg',
     alt: 'Dağların arasında, dar bir sokağa bakan eski ahşap köy evleri.',
     category: 'Yerleşim',
     caption: 'Anadolu, Kasım 1993',
     description:
-      'Gassal Halil ustasının mektubuyla ıssız Dermanlı’ya gelir. Meydan, evler ve çevresindeki yollar sessizliğe gömülmüştür.',
+      'Kuzdağ’ın sokakları ve eski kayıtları, gassalın önünde çözülecek bir hikâye bırakmıştır.',
     note: 'Gece gelen cenazelerle ilgili soru sorma.',
   },
   {

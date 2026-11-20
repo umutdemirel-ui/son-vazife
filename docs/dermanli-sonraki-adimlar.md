@@ -78,3 +78,8 @@ Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik erte
 - Altı gündüz karakterine mesleklerine uygun sepet, çuval, çay bardağı veya baston eklendi; eldeki nesneler yedek ve yüklenen modellerin el bağlantılarına takılır. Temel karakter modelleri hâlâ yeniden kullanılıyor; tamamen özgün modeller olarak değerlendirilmemeli. Bu uygulamalar da henüz doğrulanmadı.
 
 - Altı gündüz köylüsü artık eski dört GLB yerine her karakter için ayrı oranlar, yüz, kıyafet ve elde taşınan eşyalar kullanan prosedürel figürlerle oluşturuluyor. Kahvehanedeki iki kişi oturuyor; diğerleri dış mekânda. Eski köy anılarının kendi GLB ve yedekleri değişmedi. Test yardımcıları yeni figürleri tanıyacak şekilde güncellendi; bu değişiklik kullanıcı isteğiyle henüz çalıştırılarak doğrulanmadı.
+
+## Yeni kullanıcı yönü: Kuzdağ'a dönüş
+- Kullanıcı Dermanlı haritası ve diğer yeni kısımlar yerine eski haritayı istiyor; yalnız beğenilen ölü yıkama korunacak. Dermanlı kaydı silinmez veya Kuzdağ kaydına dönüştürülmez.
+- Ana giriş Kuzdağ oturumuna yönlendirildi. Kuzdağ'ın mevcut üç vakalık yıkama aşamalarında F basılıyken A/D ile dönüşümlü yıkama ve durulamada F basılı tutma eklendi. Bunlar Dermanlı ritüelinin tamamının, görsellerinin ve istasyonlarının birebir taşındığı anlamına gelmez; bu iş sürüyor.
+- Kuzdağ sahnesindeki geçmiş değişiklikler ve menü içeriği kaynak eski sürümle karşılaştırılarak geri alınmalı; yıkamanın görünümü, işlem sırası, kontrolleri ve kayıt uyumu tamamlanmalı. Kullanıcının önceki isteği gereği doğrulama şimdilik çalıştırılmadı; production deploy yapılmadı.

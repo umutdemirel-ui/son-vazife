@@ -2,6 +2,7 @@ import { DERMANLI_RECORDS, nearbyStoryEvent } from './dermanli';
 import { armSwing, createWorkHands } from './handRig';
 import { createHorrorFigures, disposeHorrorFigures } from './horrorFigures';
 import { requiredWashTool, washInstruction, type WashPerson, type WashTool } from './washing';
+import {newScrub,scrubStroke,SCRUB_STROKES,type ScrubProgress} from './dermanliWashing';
 import { atmosphereTargets } from './atmosphere';
 import { insideHome } from './homes';
 import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition, migrateMuhtarPosition } from './homeMigration';
@@ -327,6 +328,8 @@ export class SonVazifeEngine {
   private stepPrepDone = false;
   private stepWashDone = false;
   private washStage = 0;
+  private manualWash: {id:string;stage:number;progress:ScrubProgress;seconds:number}|null = null;
+  private finishingManualWash = false;
   private rinseStage = 0;
   private washingHand!: THREE.Group;
   private washAnim = 0;
@@ -2142,7 +2145,7 @@ export class SonVazifeEngine {
       const who = id === 'wash_mahmut' ? 'mahmut' : 'yolcu';
       if (!this.world.receiving[who].visible || (who === 'yolcu' && !this.hasEntry('night_tag'))) return null;
       const stage = this.extraWashes[who];
-      return stage < 4 ? `[E] ${who === 'mahmut' ? 'Mahmut' : 'Yolcu'} · ${washInstruction(stage, this.soapAppliedFor === who)}` : null;
+      return stage < 4 ? `[F] ${who === 'mahmut' ? 'Mahmut' : 'Yolcu'} · ${washInstruction(stage, this.soapAppliedFor === who)}${stage<3?' · A / D':''}` : null;
     }
     if (id.startsWith('npc_')) {
       const npcId = id.replace('npc_', '') as NpcId;
@@ -2211,7 +2214,7 @@ export class SonVazifeEngine {
         if (this.bodyRisen) return 'Sabır mumunu yak; cenaze teneşire geri uzansın';
         if (this.act === 2) {
           if (!this.stepPrepDone) return '[E] Örtüyü (Setr-i Avret) Ser ve Suyu Hazırla';
-          if (!this.stepWashDone) return `[E] ${washInstruction(this.washStage, this.soapAppliedFor === 'arif')}`;
+          if (!this.stepWashDone) return `[F] ${washInstruction(this.washStage, this.soapAppliedFor === 'arif')}${this.washStage<3?' · A / D':''}`;
           if (this.windowAnomalyActive && !this.shutterClosed) return 'Önce pencere kepengini kapat!';
           if (!this.dirtyBasinDrained) return 'Önce kirli su leğenini iç gidere boşalt';
           return 'Bekçi Hasan’dan Sağlık Ocağı Anahtarını alıp Şoför Mahmut’u incele';
@@ -2262,7 +2265,28 @@ export class SonVazifeEngine {
     }
   }
 
+  private manualWashTarget(): {id:string;who:WashPerson;stage:number}|null {
+    const id=this.activeInteractId;
+    if(id==='tenesir_slab'&&this.act===2&&this.stepPrepDone&&!this.stepWashDone&&!this.bodyRisen)
+      return {id,who:'arif',stage:this.washStage};
+    if(id==='wash_mahmut'||id==='wash_yolcu'){
+      const who=id==='wash_mahmut'?'mahmut':'yolcu';
+      if(this.world.receiving[who].visible&&(who!=='yolcu'||this.hasEntry('night_tag'))&&this.extraWashes[who]<4)
+        return {id,who,stage:this.extraWashes[who]};
+    }
+    return null;
+  }
+
+  private finishManualWash(): void {
+    if(!this.manualWash || this.manualWashTarget()?.id!==this.manualWash.id)return;
+    this.manualWash=null;this.finishingManualWash=true;
+    try {this.handleInteract();} finally {this.finishingManualWash=false;}
+  }
+
   private handleInteract(): void {
+    if (!this.finishingManualWash && this.manualWashTarget()) {
+      this.showCaption('F tuşunu basılı tut; yıkarken A ve D tuşlarına sırayla bas.',3.5);return;
+    }
     if (this.screen !== 'playing' || this.isOverlayBlockingMove() || this.scareFigure || !this.activeInteractId) return;
     const id = this.activeInteractId;
 
@@ -2974,6 +2998,15 @@ export class SonVazifeEngine {
 
     // Prevent browser shortcuts such as Ctrl+W where the browser permits it.
     if (this.screen === 'playing' && (e.ctrlKey || e.code === 'ControlLeft' || e.code === 'ControlRight')) e.preventDefault();
+    if (this.manualWash && (e.code==='KeyA'||e.code==='KeyD')) {
+      if(!e.repeat && this.screen==='playing' && !this.isOverlayBlockingMove() && this.manualWashTarget()?.id===this.manualWash.id && this.manualWash.stage<3){
+        this.manualWash.progress=scrubStroke(this.manualWash.progress,e.code==='KeyA'?'left':'right');
+        this.startWashAnimation(this.heldWashTool==='soap'?'soap':'cloth');
+        if(this.manualWash.progress.strokes>=SCRUB_STROKES)this.finishManualWash();
+      }
+      return;
+    }
+    if(this.manualWash && (e.code==='KeyW'||e.code==='KeyS'))this.manualWash=null;
     const wasDown = Boolean(this.keys[e.code]);
     this.keys[e.code] = true;
 
@@ -3022,7 +3055,12 @@ export class SonVazifeEngine {
     if (e.code === 'KeyE' && !wasDown) {
       this.handleInteract();
     } else if (e.code === 'KeyF' && !wasDown) {
-      this.toggleCandle();
+      const target=this.manualWashTarget();
+      if(target){
+        const applied=this.soapAppliedFor===target.who;
+        if(this.heldWashTool!==requiredWashTool(target.stage,applied) || (this.soapAppliedFor && !applied))this.showCaption(washInstruction(target.stage,applied),4);
+        else if(!['KeyW','KeyA','KeyS','KeyD'].some(k=>this.keys[k]))this.manualWash={id:target.id,stage:target.stage,progress:newScrub(),seconds:0};
+      } else this.toggleCandle();
     } else if (e.code === 'KeyM' && !wasDown) {
       this.toggleMute();
     } else if (e.code === 'KeyC' && !wasDown && this.controlSettings.crouchToggle) {
@@ -3036,6 +3074,7 @@ export class SonVazifeEngine {
 
   private onKeyUp = (e: KeyboardEvent): void => {
     this.keys[e.code] = false;
+    if(e.code==='KeyF')this.manualWash=null;
   };
 
   private isInsideGasilhane(p: THREE.Vector3): boolean {
@@ -3361,7 +3400,14 @@ export class SonVazifeEngine {
       return;
     }
 
-    if (this.screen !== 'playing') return;
+    if (this.screen !== 'playing') {this.manualWash=null;return;}
+    if(this.manualWash){
+      if(!this.keys.KeyF || this.isOverlayBlockingMove() || this.manualWashTarget()?.id!==this.manualWash.id || document.hidden)this.manualWash=null;
+      else if(this.manualWash.stage>=3){
+        this.manualWash.seconds+=dt;
+        if(this.manualWash.seconds>=1.2)this.finishManualWash();
+      }
+    }
     if (!this.isOverlayBlockingMove() && this.updateCreatureScare(dt)) return;
 
     if (this.registryCaseId || this.nightPage) return;

@@ -26,7 +26,7 @@ export function ArchivePanel({
 }) {
   const entry = ARCHIVE[index];
   return (
-    <MenuDialog title="Köy arşivi" kicker="DERMANLI / SAHA DOSYASI" onClose={onClose} wide>
+    <MenuDialog title="Köy arşivi" kicker="KUZDAĞ / SAHA DOSYASI" onClose={onClose} wide>
       <div className="archive-reader" aria-live="polite">
         <figure>
           <img src={entry.image} alt={entry.alt} />
@@ -75,7 +75,7 @@ export function ArchivePanel({
 
 const KEYS = [
   ['Hareket et', 'W A S D'], ['Etrafına bak', 'Fare'], ['Etkileşime gir', 'E'],
-  ['Koş', 'Shift'], ['Çömel', 'Ctrl / C'], ['Mumu yak', 'E'],
+  ['Koş', 'Shift'], ['Çömel', 'Ctrl / C'], ['Mumu yak / söndür', 'F'],
   ['Yıka', 'F + A / D'], ['Diğer işlemler', 'F basılı'],
   ['Harita / defter', 'H / N'], ['Sesi aç / kapat', 'M'], ['Fareyi bırak', 'Esc'],
 ];
@@ -83,7 +83,7 @@ export function ControlsPanel({ onClose }: { onClose: () => void }) {
   return (
     <MenuDialog title="Nasıl oynanır?" kicker="OYUNCU REHBERİ / 01" onClose={onClose}>
       <p className="panel-intro">
-        Gündüz köyü keşfet, kayıtları defterinde topla. Gece cenazeyi teneşire taşı, sabır mumunu yak ve malzemeleri sırayla kullan. Yıkarken F basılıyken A ve D tuşlarına sırayla bas.
+        Kuzdağ’ı keşfet, vakaları ve kayıtları incele. Malzemeleri sırayla kullan; yıkarken F basılıyken A ve D tuşlarına sırayla bas. Diğer işlemlerde E ile etkileşime gir.
       </p>
       <h3 className="section-tag">
         <Keyboard size={16} />
