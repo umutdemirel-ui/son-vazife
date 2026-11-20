@@ -134,6 +134,17 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             return ray.intersectObject(world.gasil.group,true).map(hit=>{const mesh=hit.object as THREE.Mesh,material=Array.isArray(mesh.material)?mesh.material[0]:mesh.material;return {distance:hit.distance,transparent:material.transparent,opacity:material.opacity};});
           });
         },
+        outdoorCharacterAudit: () => {
+          world.terrainGround.updateWorldMatrix(true,true);
+          return [...world.outdoorResidents.map(r=>({id:r.id,visual:r.visual,x:r.x,z:r.z})),...world.residents.map(r=>({id:r.id,visual:r.visual,x:r.x,z:r.z}))].map(r=>{
+            r.visual.group.updateWorldMatrix(true,true);
+            const mesh:THREE.SkinnedMesh[]=[];r.visual.group.traverse(o=>{if(o instanceof THREE.SkinnedMesh)mesh.push(o);});
+            const bounds=new THREE.Box3();for(const m of mesh)bounds.union(new THREE.Box3().setFromObject(m,true));
+            const ground=new THREE.Raycaster(new THREE.Vector3(r.x,100,r.z),new THREE.Vector3(0,-1,0)).intersectObject(world.terrainGround,false)[0]?.point.y;
+            const resolved={x:r.x,z:r.z};for(const c of world.colliders)pushOutsideBox(resolved,c,.3);
+            return {id:r.id,x:r.x,z:r.z,visible:r.visual.group.visible,loaded:mesh.length>0,ground,root:r.visual.group.position.y,base:mesh.length?bounds.min.y:null,clearance:Math.hypot(resolved.x-r.x,resolved.z-r.z)};
+          });
+        },
         millExteriorAudit: () => {
           const {herb,channel,stream}=world.millExterior;
           world.terrainGround.updateWorldMatrix(true,true);stream.updateWorldMatrix(true,true);channel.updateWorldMatrix(true,true);herb.updateWorldMatrix(true,true);world.wheel.updateWorldMatrix(true,true);
