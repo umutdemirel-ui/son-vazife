@@ -54,3 +54,25 @@ test('terrain height used by characters and trees matches visible triangles on h
  }
  terrain.dispose();
 });
+
+test('surveyed road, trail and stream triangles stay close above rendered ground',async()=>{
+ const THREE=await import('three');
+ const {createDermanliTerrain,dermanliSurfaceHeight}=await import('../src/game/dermanliTerrain');
+ const texture=new THREE.Texture(),terrain=createDermanliTerrain({ground:texture,road:texture});
+ try {
+  for(const path of DERMANLI_PATHS){
+   const mesh=terrain.root.getObjectByName(path.id) as import('three').Mesh;
+   assert.ok(mesh,`missing ribbon ${path.id}`);
+   const p=mesh.geometry.getAttribute('position'),index=mesh.geometry.getIndex();assert.ok(index);
+   for(let i=0;i<index.count;i+=3){
+    const a=index.getX(i),b=index.getX(i+1),c=index.getX(i+2);
+    // Test the interior as well as vertices, where ribbon and terrain triangulations differ.
+    for(const [u,v] of [[.33,.33],[.5,.1],[.1,.5]]){
+     const w=1-u-v,x=p.getX(a)*w+p.getX(b)*u+p.getX(c)*v,z=p.getZ(a)*w+p.getZ(b)*u+p.getZ(c)*v;
+     const y=p.getY(a)*w+p.getY(b)*u+p.getY(c)*v,gap=y-dermanliSurfaceHeight(x,z);
+     assert.ok(gap>.04&&gap<.09,`${path.id} has ground gap ${gap} at ${x},${z}`);
+    }
+   }
+  }
+ }finally{terrain.dispose();texture.dispose();}
+});

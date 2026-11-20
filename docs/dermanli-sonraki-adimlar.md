@@ -13,6 +13,7 @@ Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden pro
 - [x] Kahvehane, gassal evi, okul, terk evler ve ahırdaki düzeltilen mobilyaların desteklerini sahnede test et.
 - [x] Taş köprüye rampalar ekle; yüzey yüksekliğini ve oyuncunun rampada yürüyüşünü sına.
 - [x] 260 çam ağacının arazi temasını ve çarpışmasını, 30 mezar taşının yerleşimini, beş toprak yığınını ve mezarlık girişini sahnede tara. Çam dokusunun şeffaf alt kenarından kaynaklanan küçük boşluğu düzelt; yamaç ve mezarlık görüntülerini kontrol et.
+- [x] Tüm harita yolu, patika ve dere şeritlerinin üçgen içlerini örnekle; gerçek arazi yüzeyinden yükseklik farklarının 4–9 cm aralığında kaldığını test et. Bu yalnız zemin yüzeyi kontrolüdür, bütün çarpışma rotalarının testi değildir.
 - [x] Değirmen yanındaki bitki kümesini araziye oturt; su kanalını dereyle örtüşen bölgede ayrıştır, çarkın dönüşünü ve kanal/çark sınırlayıcı kutularının kesişimini canlı sahnede doğrula. Dış görünümü incele.
 - [x] Köy girişinin iki sütununu ve yön levhasını, okul çanlarının direklerini zemine ve çarpışmaya göre kontrol et; çanlara kiriş ve askı ekle. Giriş merkezinin ve çanların yaklaşma noktalarının açık olduğunu, beş gece testinde çan etkileşimini doğrula; giriş ve çan görsellerini incele.
 - [x] Meydan ağacının şeffaf taban boşluğunu düzelt; iki bank, çeşme ve kuyunun zemin yüksekliğini ve merkezlerinde çarpışma kaydını canlı sahnede kontrol et. Meydan ve kuyu görsellerini incele.
@@ -26,7 +27,7 @@ Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden pro
 ## Kalan işler — sırayla, ölçülebilir alt görevler
 
 1. **Gasilhane:**
-   - [ ] Masaüstü yazılımsal tarayıcı dışında gerçek cihazlarda iç/dış görünüm ve yıkama istasyonlarını doğrula; bulguları düzelt.
+   - [ ] Masaüstü yazılımsal tarayıcıda düşük/yüksek kalite kontrolü tekrar geçti; dışında gerçek cihazlarda iç/dış görünüm ve yıkama istasyonlarını doğrula, bulguları düzelt. Yerel önizlemede kullanıcı geri bildirimi bekleniyor.
    - [ ] Kullanıcı değerlendirmesini al; tasarım onaylanana kadar nihai kabul etme ve değişikliklerden sonra yıkama/son testlerini tekrarla.
 2. **Haritanın zemin ve çarpışma taraması:**
    - [ ] Ağaç, mezarlık, tarla, köy girişi, okul çan düzeneği, değirmen yanındaki bitki ve kanal ile belirtilen meydan/kuyu öğeleri tarandı; kalan açık arazi eşyalarını gerçek araziye göre tara ve doğrulanan hataları konum ve görsel testleriyle düzelt.
