@@ -233,6 +233,38 @@ function dressResident(root:THREE.Object3D, outfit:ResidentOutfit, seated:boolea
   }
 }
 
+/** Purpose-made everyday objects distinguish Dermanlı villagers from the old cast. */
+function villageBelongings(outfit:ResidentOutfit) {
+  const left=new THREE.Group(),right=new THREE.Group();
+  const wood=finish(0x73563b),metal=finish(0x786b56,.35),cloth=finish(0xaaa18a),tea=finish(0x71351c,.1,.35);
+  if(outfit==='farm-vest') {
+    // A shallow woven basket, carried low by its arched handle.
+    const basket=mesh(right,new THREE.CylinderGeometry(.14,.10,.18,12,1,true),wood,0,-.20,0);
+    basket.rotation.z=.12;
+    const handle=mesh(right,new THREE.TorusGeometry(.13,.012,6,16,Math.PI),wood,0,-.11,0);
+    handle.rotation.z=0;
+    for(const y of [-.27,-.21,-.15])mesh(right,new THREE.TorusGeometry(.12,.007,5,16),cloth,0,y,0).rotation.x=Math.PI/2;
+  } else if(outfit==='mill-apron') {
+    const sack=mesh(right,new THREE.SphereGeometry(.13,12,9),cloth,0,-.20,0);sack.scale.set(.9,1.2,.8);
+    mesh(right,new THREE.CylinderGeometry(.025,.06,.07,8),cloth,0,-.06,0);
+    mesh(right,new THREE.TorusGeometry(.05,.008,5,12),wood,0,-.09,0).rotation.x=Math.PI/2;
+  } else if(outfit==='coffee-apron'||outfit==='flat-cap'||outfit==='wool-scarf') {
+    // A tulip-shaped tea glass and a thin saucer.
+    const glass=new THREE.LatheGeometry([new THREE.Vector2(.035,0),new THREE.Vector2(.045,.015),new THREE.Vector2(.035,.055),new THREE.Vector2(.05,.12)],12);
+    mesh(right,glass,tea,0,-.18,0);
+    mesh(right,new THREE.CylinderGeometry(.075,.075,.012,16),metal,0,-.185,0);
+  } else if(outfit==='headscarf') {
+    mesh(right,new THREE.CylinderGeometry(.013,.016,.68,8),wood,0,-.32,0);
+    mesh(right,new THREE.SphereGeometry(.035,8,6),wood,0,.035,0);
+  }
+  // All geometries and materials are disposed with the parent visual, including
+  // empty material instances which did not become part of the chosen object.
+  const used=new Set<THREE.Material>();
+  for(const group of [left,right])group.traverse(o=>{if(o instanceof THREE.Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])used.add(m);});
+  for(const material of [wood,metal,cloth,tea])if(!used.has(material))material.dispose();
+  return {left,right};
+}
+
 export class ResidentVisual {
   readonly group = new THREE.Group();
   readonly eyeHeight: number;
@@ -256,7 +288,7 @@ export class ResidentVisual {
     this.group.name = `resident-${id}`;
     this.fallback = options.seated ? waitingSeatedFigure(id) : waitingFigure(id);
     if(options.outfit)dressResident(this.fallback,options.outfit,this.seated,false);
-    const { left, right } = options.props === false ? {left:new THREE.Group(),right:new THREE.Group()} : belongings(id);
+    const { left, right } = options.props === false ? (options.outfit ? villageBelongings(options.outfit) : {left:new THREE.Group(),right:new THREE.Group()}) : belongings(id);
     const grip = wardrobe[id].grip;
     left.position.set(0.245, grip, 0);
     right.position.set(-0.245, grip, 0);

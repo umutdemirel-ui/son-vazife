@@ -73,3 +73,6 @@ Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik erte
 ### Uygulama devamı — doğrulama ertelendi
 - Taslaktaki tarla olayı için geceleri bakışla görünen, sıralar arasında hareket eden ve çarpışması olmayan ayrı bir gölge eklendi; ahır olayı için düşük sesli sentezlenmiş hayvan çağrısı eklendi. Değirmen çarkı gündüz durur, gece aralıklı döner; ilgili mevcut test beklentileri bu davranışa uyarlandı.
 - Bu son değişiklikler kullanıcının isteğiyle henüz doğrulanmadı; görsel kalite, ses ve kayıt sonrası davranışları ile diğer oyun akışları doğrulanmış sayılmaz.
+
+- Köy girişine uzak ayak sesleri, cami çevresine sürüklenme sesi ve gassal evi kapı olayı sırasında ışık bozulması eklendi. Beşinci gecedeki toprak olayı, görülecek dış mezar yığınına bakınca tetiklenir ve kayıtlı olay olarak kalır.
+- Altı gündüz karakterine mesleklerine uygun sepet, çuval, çay bardağı veya baston eklendi; eldeki nesneler yedek ve yüklenen modellerin el bağlantılarına takılır. Temel karakter modelleri hâlâ yeniden kullanılıyor; tamamen özgün modeller olarak değerlendirilmemeli. Bu uygulamalar da henüz doğrulanmadı.

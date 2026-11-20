@@ -206,6 +206,21 @@ export class HorrorAudioEngine {
     }
   }
 
+  /** A subdued scrape, as if fabric were dragged across the floor. */
+  public playDistantDrag(): void {
+    if (!this.ctx || !this.masterGain || !this.noiseBuffer || this.muted) return;
+    const ctx=this.ctx, t=ctx.currentTime+.08;
+    const source=ctx.createBufferSource(), filter=ctx.createBiquadFilter(), gain=ctx.createGain();
+    source.buffer=this.noiseBuffer;filter.type='bandpass';filter.frequency.value=340;filter.Q.value=.7;
+    gain.gain.setValueAtTime(.0001,t);
+    gain.gain.linearRampToValueAtTime(.035,t+.32);
+    gain.gain.linearRampToValueAtTime(.012,t+.75);
+    gain.gain.linearRampToValueAtTime(.027,t+1.05);
+    gain.gain.exponentialRampToValueAtTime(.0001,t+1.7);
+    source.connect(filter);filter.connect(gain);gain.connect(this.masterGain);
+    source.start(t,0,1.75);source.stop(t+1.75);
+  }
+
   /** A distant, wavering low animal call, not a jump scare. */
   public playDistantAnimal(): void {
     if (!this.ctx || !this.masterGain || this.muted) return;
