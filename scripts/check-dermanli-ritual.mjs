@@ -49,6 +49,8 @@ try {
  if(coffeeOutside==='coffee')throw Error('Coffeehouse notice can be read through the back wall');
  const abandonedOutside=await page.evaluate(()=>{const [x,z]=window.__dermanliTest.abandonedHomes()[0];return window.__dermanliTest.targetFrom(x+1.5,z-3.0,Math.PI);});
  if(abandonedOutside==='abandoned0')throw Error('Abandoned house letter can be read through the back wall');
+ const windows=await page.evaluate(()=>window.__dermanliTest.mortuaryWindows());
+ if(windows.length!==2||windows.some(hits=>!hits.some(h=>h.transparent&&h.opacity<.5)||hits.some(h=>!h.transparent)))throw Error(`Mortuary window blocked: ${JSON.stringify(windows)}`);
  const supports=await page.evaluate(()=>window.__dermanliTest.stationSupport());
  for(const [id,gap] of Object.entries(supports))if(gap===null||Math.abs(gap)>.035)throw Error(`Station ${id} floats or clips its support: ${JSON.stringify(supports)}`);
  const missing=await page.evaluate(()=>window.__dermanliTest.scanReachability());

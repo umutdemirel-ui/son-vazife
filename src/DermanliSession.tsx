@@ -119,6 +119,13 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             const hit=ray.intersectObject(world.gasil.group,true)[0];return [id,hit?base-hit.point.y:null];
           }));
         },
+        mortuaryWindows: () => {
+          const [x,z]=S.gasilhane,y=dermanliSurfaceHeight(x,z);world.gasil.group.updateWorldMatrix(true,true);
+          return [-1.7,.63].map(dx=>{
+            const ray=new THREE.Raycaster(new THREE.Vector3(x+dx+.13,y+2.31,z+5.2),new THREE.Vector3(0,0,-1),0,1.45);
+            return ray.intersectObject(world.gasil.group,true).map(hit=>{const mesh=hit.object as THREE.Mesh,material=Array.isArray(mesh.material)?mesh.material[0]:mesh.material;return {distance:hit.distance,transparent:material.transparent,opacity:material.opacity};});
+          });
+        },
         squareArt: () => ({fountain:!!world.fountain.getObjectByName('hayrat'),tree:world.squareTree.visible}),
         visualState: () => ({mounds:world.graveMounds.filter(m=>m.visible).length,litWindows:world.emptyHomeWindows.filter(w=>w.visible).length,fountain:world.fountainWater.visible}),
         coffeeResidents: () => world.coffeeResidents.map(r=>({id:r.id,visible:r.visual.group.visible,seated:r.seated,loaded:!!r.visual.group.getObjectByName('HandL')})),

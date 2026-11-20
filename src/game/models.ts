@@ -1,3 +1,4 @@
+import { createGasilSouthWall } from './gasilWindows';
 import { CEMETERY_GRAVES, MOSQUE_GRAVES } from './cemetery';
 import { funeralFigure, preparationTowel } from './funerary';
 import { watcherFigure, type NightArt } from './nightArt';
@@ -609,10 +610,12 @@ export function createMosqueAndGasilhane(
   const rd = 6.4;
   const rh = 3.4;
 
-  const floor = new THREE.Mesh(new THREE.BoxGeometry(rw, 0.16, rd + 1.2), gasilFloorMat);
+  const floor = layout === 'dermanli'
+    ? block(gasilGroup,gasilFloorMat,rw,.16,rd+1.2,0,.08,.6,1.5)
+    : new THREE.Mesh(new THREE.BoxGeometry(rw, 0.16, rd + 1.2), gasilFloorMat);
   floor.position.set(0, 0.08, 0.6);
   floor.receiveShadow = true;
-  gasilGroup.add(floor);
+  if(layout === 'legacy')gasilGroup.add(floor);
 
   const ceiling = new THREE.Mesh(new THREE.BoxGeometry(rw + 0.3, 0.22, rd + 1.5), plasterMat);
   ceiling.position.set(0, rh + 0.11, 0.6);
@@ -645,13 +648,18 @@ export function createMosqueAndGasilhane(
   porchLanternLight.position.set(rw / 2 + 0.49, 2.3, 1.18);
   gasilGroup.add(lanternBracket, lanternGlass, porchLanternLight);
 
-  const northWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
+  const northWall = layout === 'dermanli'
+    ? block(gasilGroup,gasilWallMat,rw,rh,.24,0,rh/2,-rd/2,2)
+    : new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
   northWall.position.set(0, rh / 2, -rd / 2);
   northWall.receiveShadow = true;
-  const southWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
-  southWall.position.set(0, rh / 2, rd / 2 + 1.2);
-  southWall.receiveShadow = true;
-  gasilGroup.add(northWall, southWall);
+  if(layout === 'dermanli')createGasilSouthWall(gasilGroup,gasilWallMat,craft.windowGlass,craft.wood,craft.metal);
+  else {
+    const southWall = new THREE.Mesh(new THREE.BoxGeometry(rw, rh, 0.24), gasilWallMat);
+    southWall.position.set(0, rh / 2, rd / 2 + 1.2);
+    southWall.receiveShadow = true;
+    gasilGroup.add(northWall, southWall);
+  }
 
   const eastLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.4), gasilWallMat);
   eastLeft.position.set(rw / 2, rh / 2, -2.0);
@@ -674,7 +682,7 @@ export function createMosqueAndGasilhane(
   doorKnobIn.position.set(-0.08, 1.05, 1.38);
   doorPivot.add(doorMesh, doorKnob, doorKnobIn);
   gasilGroup.add(doorPivot);
-  craft.gasilEntry(gasilGroup, doorPivot, rw, rd, rh, gasilWallMat, 1.2);
+  craft.gasilEntry(gasilGroup, doorPivot, rw, rd, rh, gasilWallMat, 1.2, layout === 'dermanli');
 
   const westLeft = new THREE.Mesh(new THREE.BoxGeometry(0.24, rh, 2.3), gasilWallMat);
   westLeft.position.set(-rw / 2, rh / 2, -2.05);
@@ -757,12 +765,20 @@ export function createMosqueAndGasilhane(
   // Exposed ceiling beams and hanging towels recall the opening-screen room.
   for (const z of [-2.1, 0.1, 2.3, 3.9])
     block(gasilGroup, timberMat, rw - 0.25, 0.16, 0.16, 0, rh - 0.1, z);
-  block(gasilGroup, timberMat, 2.1, 0.08, 0.12, -1.75, 2.35, rd / 2 + 0.98);
   const towelMat = new THREE.MeshStandardMaterial({ color: 0xa9a49a, roughness: 1, side: THREE.DoubleSide });
-  for (const x of [-2.45, -1.75, -1.05]) {
-    const towel = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.94, 4, 4), towelMat);
-    towel.position.set(x, 1.83, rd / 2 + 0.90);
-    gasilGroup.add(towel);
+  if(layout === 'legacy') {
+    block(gasilGroup, timberMat, 2.1, 0.08, 0.12, -1.75, 2.35, rd / 2 + 0.98);
+    for (const x of [-2.45, -1.75, -1.05]) {
+      const towel = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.94, 4, 4), towelMat);
+      towel.position.set(x, 1.83, rd / 2 + 0.90);gasilGroup.add(towel);
+    }
+  } else {
+    // Move the towel rail to the west wall so it doesn't cover the new windows.
+    block(gasilGroup,timberMat,.12,.08,1.55,-3.23,2.35,2.75);
+    for(const z of [2.25,2.75,3.25]){
+      const towel=new THREE.Mesh(new THREE.PlaneGeometry(.36,.85,4,4),towelMat);
+      towel.rotation.y=Math.PI/2;towel.position.set(-3.20,1.88,z);gasilGroup.add(towel);
+    }
   }
   if (layout === 'legacy') {
   // Shallow wall-mounted cupboards and stacks of folded linen, away from the slab.
