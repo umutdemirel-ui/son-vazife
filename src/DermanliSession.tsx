@@ -134,6 +134,20 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             return ray.intersectObject(world.gasil.group,true).map(hit=>{const mesh=hit.object as THREE.Mesh,material=Array.isArray(mesh.material)?mesh.material[0]:mesh.material;return {distance:hit.distance,transparent:material.transparent,opacity:material.opacity};});
           });
         },
+        buildingFloorAudit: () => {
+          const probes:[string,THREE.Object3D,readonly [number,number],number,number][]=[
+            ['gasil',world.gasil.group,S.gasilhane,1.6,.8],['gasil-step',world.gasil.group,S.gasilhane,4,0],
+            ['mosque',world.gasil.group,S.mosque,3.0,0],['mosque-porch',world.gasil.group,S.mosque,4.9,1.4],
+            ['office',world.office,S.office,0,2.4],['office-porch',world.office,S.office,-4,1],
+            ['coffee',world.coffeehouse,S.coffee,0,2],['coffee-porch',world.coffeehouse,S.coffee,0,3.4],
+            ['barn',world.barn,S.barn,0,1.8],['mill',world.millExterior.mill,S.mill,0,2],
+          ];
+          return probes.map(([id,root,site,dx,dz])=>{
+            root.updateWorldMatrix(true,true);const x=site[0]+dx,z=site[1]+dz,base=dermanliSurfaceHeight(...site);
+            const hit=new THREE.Raycaster(new THREE.Vector3(x,base+.5,z),new THREE.Vector3(0,-1,0),0,1).intersectObject(root,true)[0];
+            return {id,visibleFloor:hit?.point.y??null,walking:dermanliWalkingHeight(x,z,world.homes)};
+          });
+        },
         homeEntranceAudit: () => {
           world.terrainGround.updateWorldMatrix(true,true);
           return world.homes.map(home=>{

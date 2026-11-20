@@ -11,6 +11,7 @@ Oyun tamamlanmış sayılmaz. Ölü yıkama sistemi korunacak; oyun bitmeden pro
 - [x] Masaüstü SwiftShader tarayıcıda gasilhaneyi düşük/yüksek ayarlarda içten ve dıştan incele; tezgâh desteklerini, camları ve istasyon rotalarını doğrula. Ön cephedeki gerilmiş kaplama düzeltildi.
 - [x] Bu değişiklik sonrası çarpışmalı beş gece ve huzur, karanlık, kaçış sonlarını yeniden test et.
 - [x] Kahvehane, gassal evi, okul, terk evler ve ahırdaki düzeltilen mobilyaların desteklerini sahnede test et.
+- [x] Gasilhane, cami, muhtarlık, kahvehane, ahır ve değirmenin yürüyüş yüksekliğini görünür döşemeler ve dört giriş/eşik dahil 10 noktada doğrula; yıkama, üç son ve menü testlerini tekrarla.
 - [x] Gassal evi, okul ve dört terk evin açılmış kapı/çarpışma konumlarını ve döşemelerini kontrol et; oyuncu ve takipçi yüksekliğini ev zeminlerine uydur, gassal kapısından klavyeyle girişi ve okul olayını test et.
 - [x] Taş köprüye rampalar ekle; yüzey yüksekliğini ve oyuncunun rampada yürüyüşünü sına.
 - [x] 260 çam ağacının arazi temasını ve çarpışmasını, 30 mezar taşının yerleşimini, beş toprak yığınını ve mezarlık girişini sahnede tara. Çam dokusunun şeffaf alt kenarından kaynaklanan küçük boşluğu düzelt; yamaç ve mezarlık görüntülerini kontrol et.
