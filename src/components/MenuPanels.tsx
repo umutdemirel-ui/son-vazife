@@ -191,6 +191,10 @@ export function SettingsPanel({
         />
       </div>
       <div className="setting-row">
+        <span>Yumuşak fare bakışı</span>
+        <Switch label="Yumuşak fare bakışı" value={controls.lookSmoothing} onClick={() => update({ lookSmoothing: !controls.lookSmoothing })} />
+      </div>
+      <div className="setting-row">
         <span>C ile tek basışta eğil</span>
         <Switch
           label="C ile tek basışta eğil"

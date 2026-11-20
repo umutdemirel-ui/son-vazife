@@ -4,6 +4,7 @@ import { createDermanliWorld } from './game/dermanliWorld';
 import { DERMANLI_SITES as S, DERMANLI_BOUNDS as B } from './game/dermanliMap';
 import { dermanliSurfaceHeight } from './game/dermanliTerrain';
 import { dermanliWalkingHeight } from './game/dermanliBridge';
+import {applyLookDelta,advanceLook} from './game/dermanliLook';
 import { pushOutsideBox } from './game/collision';
 import {moveDermanliPlayer} from './game/dermanliMovement';
 import {wallBetween} from './game/nightPatrol';
@@ -78,12 +79,14 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
     const bell=saved?.bell??newBell(saved?0:undefined);
     let elapsed=saved?.elapsed??0, nextCue=0, hits=saved?.hits??0, nextRandomScare=(saved?.elapsed??0)+75+Math.random()*45; const threat=new DermanliThreat(); const seenEvents=new Set(saved?.events??[]);
     const pos={x:saved?.x??S.entrance[0],z:saved?.z??S.entrance[1]+2}; let yaw=saved?.yaw??0, pitch=saved?.pitch??0, phase=0, last=performance.now(), frame=0, locked=false, previousNight=isNight(elapsed), caption=initial.caption, captionUntil=performance.now()+12000, lastUi=0, lastSave=performance.now(), scareUntil=0, workUntil=0, workProgress=0, workStarted=0, workHeld=false, threatArtRequested=false, crouchToggled=false, windowShadowUntil=0, houseShadowUntil=0; let scrub=newScrub();
+    let targetLook={yaw,pitch};
+    const setYaw=(value:number)=>{yaw=value;targetLook.yaw=value;};
     const save=()=>writeDermanliSave({version:1,ritual,x:pos.x,z:pos.z,yaw,pitch,elapsed,events:[...seenEvents],hits,bell});
     // Establish the new-session save before the menu can be rendered again.
     save();
     const keys=new Set<string>();
-    const onMove=(e:MouseEvent)=>{if(!locked)return; yaw-=e.movementX*.0022*controls.mouseSensitivity; pitch=Math.max(-1.3,Math.min(1.3,pitch-e.movementY*.0022*controls.mouseSensitivity*(controls.invertY?-1:1)));};
-    const onLock=()=>{last=performance.now();locked=document.pointerLockElement===renderer.domElement; if(!locked){keys.clear();workHeld=false;workProgress=0;}};
+    const onMove=(e:MouseEvent)=>{if(!locked)return;targetLook=applyLookDelta(targetLook,e.movementX,e.movementY,controls.mouseSensitivity,controls.invertY);if(!controls.lookSmoothing)({yaw,pitch}=targetLook);};
+    const onLock=()=>{last=performance.now();locked=document.pointerLockElement===renderer.domElement; if(!locked){keys.clear();workHeld=false;workProgress=0;targetLook={yaw,pitch};}};
     const targetAt=(x:number,z:number,angle:number)=>world.targets.map(t=>{const dx=t.x-x,dz=t.z-z,dist=Math.hypot(dx,dz);return {...t,dist,dot:dist<.1?1:(dx*-Math.sin(angle)+dz*-Math.cos(angle))/dist};})
       .filter(t=>t.dist<t.radius && t.dot>.45 && (t.id!=='discard'||ritual.held==='bucket') && (t.id!=='drain'||(ritual.held==='bucket'&&ritual.dirty)) && (t.id!=='forest'||ritual.body!=='burialCarry') && ((t.id!=='elif'&&t.id!=='riza')||spiritAvailable(t.id,ritual.night,isNight(elapsed))) && (!t.id.startsWith('memory_')||memoryAvailable(ritual.night,isNight(elapsed))) && (!t.id.startsWith('coffee_')||coffeeResidentAvailable(isNight(elapsed))) && (!t.id.startsWith('villager_')||outdoorResidentAvailable(isNight(elapsed))))
       .filter(t=>!wallBetween(x,z,t.x,t.z,world.occluders,0))
@@ -95,6 +98,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       const debug = {
         state: () => JSON.parse(JSON.stringify(ritual)),
         clock: () => elapsed,
+        look: () => ({yaw,pitch,targetYaw:targetLook.yaw,targetPitch:targetLook.pitch,smoothing:controls.lookSmoothing,locked}),
         endingView: () => ({x:camera.position.x,y:camera.position.y,z:camera.position.z,master:world.master.visible}),
         targetFrom: (x:number,z:number,angle:number) => targetAt(x,z,angle)?.id ?? null,
         gasilhane: () => [...S.gasilhane],
@@ -205,7 +209,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
           const route=[] as number[];for(let at=end;at!==first;at=parent[at])route.push(at);route.reverse();
           const drive=(x:number,z:number)=>{const dx=x-pos.x,dz=z-pos.z,n=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.2));for(let i=0;i<n;i++)moveDermanliPlayer(pos,dx/n,dz/n,world.colliders);};
           drive(start.x,start.z);for(const at of route)drive(at%w+minX,Math.floor(at/w)+minZ);
-          yaw=Math.atan2(pos.x-t.x,pos.z-t.z);return target()?.id===id?'ok':`aim failure ${id}`;
+          setYaw(Math.atan2(pos.x-t.x,pos.z-t.z));return target()?.id===id?'ok':`aim failure ${id}`;
         },
         goToTarget: (id:string) => {
           const t=world.targets.find(item=>item.id===id); if(!t) return false;
@@ -215,10 +219,10 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             const a=i*Math.PI/16; const candidate={x:t.x+Math.cos(a)*distance,z:t.z+Math.sin(a)*distance};
             const resolved={...candidate}; for(const c of world.colliders)pushOutsideBox(resolved,c,.32);
             if(Math.hypot(resolved.x-candidate.x,resolved.z-candidate.z)>.01)continue;
-            pos.x=candidate.x;pos.z=candidate.z;yaw=Math.atan2(pos.x-t.x,pos.z-t.z);
+            pos.x=candidate.x;pos.z=candidate.z;setYaw(Math.atan2(pos.x-t.x,pos.z-t.z));
             if(target()?.id===id)return true;
           }
-          pos.x=previous.x;pos.z=previous.z;yaw=previous.yaw;return false;
+          pos.x=previous.x;pos.z=previous.z;setYaw(previous.yaw);return false;
         },
       };
       (window as unknown as {__dermanliTest?:typeof debug}).__dermanliTest=debug;
@@ -283,6 +287,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       (scene.background as THREE.Color).set(night?0x1c2930:0x465255);
       if(scene.fog instanceof THREE.FogExp2){scene.fog.color.copy(scene.background as THREE.Color);scene.fog.density=night?.023+ritual.night*.001:.018;}
       if(locked&&night&&!ritual.ending&&now>nextCue){const event=nextEvent(ritual.night,pos.x,pos.z,yaw,seenEvents);if(event){if(event.id==='gasil'&&ritual.night>=2)windowShadowUntil=now+4500;if(event.id==='house')houseShadowUntil=now+4500;seenEvents.add(`${ritual.night}:${event.id}`);caption=event.text;captionUntil=now+6500;nextCue=now+30000;if(event.sound==='water')audio.playWaterPour();else if(event.sound==='whisper')audio.playWhisper();else if(event.sound==='knock')audio.playWindowKnock();else audio.playFloorboardCreak();save();}}
+      if(locked)({yaw,pitch}=advanceLook({yaw,pitch},targetLook,dt,controls.lookSmoothing));
       let forward=0,side=0; if(locked&&!overlayBlocked.current){forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));}
       const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight'), crouch=keys.has('ControlLeft')||keys.has('ControlRight')||(controls.crouchToggle?crouchToggled:keys.has('KeyC'));
       const len=Math.hypot(forward,side), speed=(crouch?1.55:sprint?5.1:2.8); if(len){forward/=len;side/=len;moveDermanliPlayer(pos,(-Math.sin(yaw)*forward+Math.cos(yaw)*side)*speed*dt,(-Math.cos(yaw)*forward-Math.sin(yaw)*side)*speed*dt,world.colliders);phase+=dt*(sprint?12:8);}

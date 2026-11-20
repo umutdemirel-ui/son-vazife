@@ -4,7 +4,7 @@ const require=createRequire(import.meta.url);
 const {chromium}=process.env.PLAYWRIGHT_MODULE ? await import(process.env.PLAYWRIGHT_MODULE) : require('playwright');
 const browser=await chromium.launch({executablePath:process.env.BROWSER || undefined,headless:true,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 try{
- const page=await browser.newPage({viewport:{width:1024,height:700}}),errors=[];
+ const page=await browser.newPage({viewport:{width:640,height:400}}),errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.VILLAGE_URL||'http://localhost:3016/');
  await page.evaluate(()=>localStorage.setItem('son_vazife_save_v2','legacy-save'));
@@ -20,6 +20,18 @@ try{
  if(!(await page.evaluate(()=>JSON.parse(localStorage.getItem('son_vazife_controls_v1')).invertY)))throw Error('Control preference not stored');
  await page.getByRole('button',{name:'KÖYE GİR'}).click();await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
  if(!(await page.locator('body').innerText()).includes('Ses kapalı'))throw Error('Menu mute not applied in game');
+ await page.locator('canvas').click({position:{x:320,y:200}});await page.waitForFunction(()=>!!document.pointerLockElement&&window.__dermanliTest.look().locked);
+ const smooth=await page.evaluate(()=>{const before=window.__dermanliTest.look();document.dispatchEvent(new MouseEvent('mousemove',{movementX:100,movementY:50}));return {before,after:window.__dermanliTest.look()};});
+ if(!smooth.after.smoothing||Math.abs(smooth.after.yaw-smooth.before.yaw)>.001||smooth.after.targetYaw>=smooth.before.yaw||smooth.after.targetPitch<=smooth.before.pitch)throw Error(`Smooth inverted look mismatch: ${JSON.stringify(smooth)}`);
+ await page.waitForFunction(()=>{const v=window.__dermanliTest.look();return Math.abs(v.yaw-v.targetYaw)<.005&&Math.abs(v.pitch-v.targetPitch)<.005;},null,{timeout:15000});
+ await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);
+ await page.getByRole('button',{name:'Menü',exact:true}).click();await page.getByRole('button',{name:'DEVAM ET'}).waitFor();
+ await page.getByRole('button',{name:'Ayarlar'}).click();await settings.getByRole('switch',{name:'Yumuşak fare bakışı'}).click();await settings.getByRole('button',{name:'Tamam'}).click();
+ await page.getByRole('button',{name:'DEVAM ET'}).click();await page.waitForFunction(()=>!!window.__dermanliTest,{timeout:60000});
+ await page.locator('canvas').click({position:{x:320,y:200}});await page.waitForFunction(()=>!!document.pointerLockElement&&window.__dermanliTest.look().locked);
+ const direct=await page.evaluate(()=>{const before=window.__dermanliTest.look();document.dispatchEvent(new MouseEvent('mousemove',{movementX:100,movementY:50}));return {before,after:window.__dermanliTest.look()};});
+ if(direct.after.smoothing||direct.after.yaw>=direct.before.yaw||direct.after.pitch<=direct.before.pitch||direct.after.yaw!==direct.after.targetYaw)throw Error(`Direct inverted look mismatch: ${JSON.stringify(direct)}`);
+ await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);
  await page.getByRole('button',{name:'Menü',exact:true}).click();await page.getByRole('button',{name:'DEVAM ET'}).waitFor();
  await page.getByRole('button',{name:'Yeni oyun',exact:true}).click();
  const restart=page.getByRole('dialog',{name:'Yeni nöbet'});await restart.waitFor();await restart.getByRole('button',{name:'Vazgeç'}).click();
