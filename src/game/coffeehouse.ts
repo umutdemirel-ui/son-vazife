@@ -13,11 +13,13 @@ export const COFFEEHOUSE_WALLS: readonly BoxCollider[] = [
 export const COFFEEHOUSE_OPEN_DOOR: BoxCollider = {minX:-1.08,maxX:-.92,minZ:2.52,maxZ:4.52};
 export const COFFEEHOUSE_POSTS: readonly BoxCollider[] = [-3.2,3.2].map(x=>({minX:x-.09,maxX:x+.09,minZ:3.31,maxZ:3.49}));
 
+export const COFFEEHOUSE_FLOOR_HEIGHT = .10;
+
 /** Single-storey village coffeehouse: purpose-built, not a reskinned house. */
 export function createCoffeehouse(craft: VillageCraft) {
   const root=new THREE.Group();root.name='Dermanlı kahvehanesi';
   const w=7,d=5,h=3.05,wall=craft.lime[0],wood=craft.wood;
-  block(root,wood,w,.14,d,0,.03,0,1.4);
+  block(root,wood,w,.14,d,0,COFFEEHOUSE_FLOOR_HEIGHT-.07,0,1.4);
   block(root,wall,w,h,.2,0,h/2,-d/2,2.2);
   for(const x of [-w/2,w/2])block(root,wall,.2,h,d,x,h/2,0,2.2);
   // Front elevation is physically split into a central door and two large windows.

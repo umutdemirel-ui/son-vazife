@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createCoffeehouse,COFFEEHOUSE_WALLS,COFFEEHOUSE_OPEN_DOOR,COFFEEHOUSE_POSTS } from './coffeehouse';
+import { createCoffeehouse,COFFEEHOUSE_WALLS,COFFEEHOUSE_OPEN_DOOR,COFFEEHOUSE_POSTS,COFFEEHOUSE_FLOOR_HEIGHT } from './coffeehouse';
 import { createDermanliTerrain, dermanliSurfaceHeight } from './dermanliTerrain';
 import { DERMANLI_PATHS, DERMANLI_SITES as S, distanceToPath, type Point } from './dermanliMap';
 import { loadVillageTextures } from './textures';
@@ -295,20 +295,22 @@ export function createDermanliWorld(scene: THREE.Scene) {
   target('barn','Ahır · Hasat kaydı',[ax+1.9,az+1],1.65);ownDetails(barn);
 
   const [kx,kz]=coffeeSite,ky=dermanliSurfaceHeight(kx,kz);
+  const coffeeFloor=ky+COFFEEHOUSE_FLOOR_HEIGHT;
+  const coffeeSupports:THREE.Object3D[]=[];
   // Side seating leaves an uninterrupted aisle to the notice on the rear wall.
   for(const dx of [-2,2]){
-    const bench=createVillageBench(craft);bench.position.set(kx+dx,ky,kz+.45);objects.add(bench);ownDetails(bench);
+    const bench=createVillageBench(craft);bench.position.set(kx+dx,coffeeFloor,kz+.45);objects.add(bench);ownDetails(bench);coffeeSupports.push(bench);
     colliders.push({minX:kx+dx-.9,maxX:kx+dx+.9,minZ:kz+.15,maxZ:kz+.75});
-    box(1.05,.09,.72,kx+dx,ky+.77,kz-1.15,craft.wood);
-    for(const ox of [-.43,.43])for(const oz of [-.25,.25])box(.09,.72,.09,kx+dx+ox,ky+.36,kz-1.15+oz,craft.wood);
+    box(1.05,.09,.72,kx+dx,coffeeFloor+.77,kz-1.15,craft.wood);
+    for(const ox of [-.43,.43])for(const oz of [-.25,.25])coffeeSupports.push(box(.09,.72,.09,kx+dx+ox,coffeeFloor+.36,kz-1.15+oz,craft.wood));
     colliders.push({minX:kx+dx-.525,maxX:kx+dx+.525,minZ:kz-1.51,maxZ:kz-.79});
   }
   const glassMaterial=new THREE.MeshStandardMaterial({color:0xc6cecb,roughness:.2,transparent:true,opacity:.55,depthWrite:false,side:THREE.DoubleSide});ownMaterial.push(glassMaterial);
   const glassGeometry=new THREE.LatheGeometry([new THREE.Vector2(.035,0),new THREE.Vector2(.055,.025),new THREE.Vector2(.046,.065),new THREE.Vector2(.039,.10),new THREE.Vector2(.06,.155)],16);ownGeometry.push(glassGeometry);
   const saucerGeometry=new THREE.CylinderGeometry(.095,.08,.012,16);ownGeometry.push(saucerGeometry);
   for(const [dx,dz] of [[-2.25,-1.15],[-1.75,-1.18],[1.75,-1.15],[2.25,-1.18]] as const){
-    const saucer=new THREE.Mesh(saucerGeometry,craft.enamel);saucer.position.set(kx+dx,ky+.826,kz+dz);objects.add(saucer);
-    const glass=new THREE.Mesh(glassGeometry,glassMaterial);glass.position.set(kx+dx,ky+.832,kz+dz);objects.add(glass);
+    const saucer=new THREE.Mesh(saucerGeometry,craft.enamel);saucer.position.set(kx+dx,coffeeFloor+.826,kz+dz);objects.add(saucer);
+    const glass=new THREE.Mesh(glassGeometry,glassMaterial);glass.position.set(kx+dx,coffeeFloor+.832,kz+dz);objects.add(glass);
   }
   const noticeCanvas=document.createElement('canvas');noticeCanvas.width=512;noticeCanvas.height=512;
   const noticeContext=noticeCanvas.getContext('2d');if(noticeContext){noticeContext.fillStyle='#c5b28a';noticeContext.fillRect(0,0,512,512);noticeContext.strokeStyle='#685945';noticeContext.lineWidth=8;noticeContext.strokeRect(24,24,464,464);noticeContext.fillStyle='#3b3023';noticeContext.textAlign='center';noticeContext.font='bold 57px serif';noticeContext.fillText('DUYURU',256,110);noticeContext.font='32px serif';noticeContext.fillText('KÖY HALKINA',256,198);noticeContext.fillText('YARDIM HABERİ',256,265);noticeContext.fillText('BEKLENİYOR',256,310);noticeContext.font='24px serif';noticeContext.fillText('MUHTARLIK',256,424);}
@@ -368,7 +370,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const coffeeResidents=(Object.keys(COFFEE_RESIDENTS) as CoffeeResidentId[]).map(id=>{
     const def=COFFEE_RESIDENTS[id],x=kx+def.x,z=kz+def.z;
     const visual=new ResidentVisual(def.model,residentLoader,undefined,true,{seated:def.seated,props:false});
-    visual.group.name=`coffee-${id}`;visual.group.position.set(x,ky+(def.seated?0:.10),z);visual.group.rotation.y=def.seated?Math.PI:0;
+    visual.group.name=`coffee-${id}`;visual.group.position.set(x,coffeeFloor,z);visual.group.rotation.y=def.seated?Math.PI:0;
     visual.group.visible=false;objects.add(visual.group);target(`coffee_${id}`,`${def.name} ile konuş`,[x,z],1.65);
     return {id,visual,x,z,seated:def.seated};
   });
@@ -475,5 +477,5 @@ export function createDermanliWorld(scene: THREE.Scene) {
   const scare=watcherFigure(art,'sis-gozcusu',createSisGozcusu(),true);
   pursuer.root.visible=false;scare.root.visible=false;objects.add(pursuer.root,scare.root);
   art.near('sis-gozcusu',gx,gz,25);
-  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
+  return {targets,colliders,occluders,stationMeshes,gasil,homes,apparition:scare.root,pursuer,scare,figures,arrivalBody,arrivalUnwrapped,arrivalWrapped,slabBody,wheel,homeLight,fountain,squareTree,emptyHomeWindows,emptyHomeLight,fountainWater,graveMounds,elif,riza,master,residents,coffeeResidents,coffeehouse:coffeehouse.root,coffeeSupports,updateArt(x:number,z:number){art.approach({x,z});}, loadThreatArt(){return Promise.all([art.request('karabasma'),art.request('sis-gozcusu')]);}, dispose(){ workshop.dispose();detailGeometry.forEach(g=>g.dispose());millMaterials.forEach(m=>m.dispose());oakMap.dispose();hayTexture.dispose();coffeeTexture.dispose();noticeTexture.dispose();gateTexture.dispose();wayTexture.dispose();residents.forEach(r=>r.visual.dispose());coffeeResidents.forEach(r=>r.visual.dispose());disposeHorrorFigures(figures);disposeDermanliSpirits([elif,riza]); bellTexture.dispose(); boardTexture.dispose(); schoolSignTexture.dispose(); pineMap.dispose(); terrain.dispose(); art.dispose(); craft.dispose(); textures.disposeAll(); ownGeometry.forEach(g=>g.dispose()); ownMaterial.forEach(m=>m.dispose()); scene.remove(objects); }};
 }

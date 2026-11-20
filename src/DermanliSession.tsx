@@ -114,6 +114,14 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         squareArt: () => ({fountain:!!world.fountain.getObjectByName('hayrat'),tree:world.squareTree.visible}),
         visualState: () => ({mounds:world.graveMounds.filter(m=>m.visible).length,litWindows:world.emptyHomeWindows.filter(w=>w.visible).length,fountain:world.fountainWater.visible}),
         coffeeResidents: () => world.coffeeResidents.map(r=>({id:r.id,visible:r.visual.group.visible,seated:r.seated,loaded:!!r.visual.group.getObjectByName('HandL')})),
+        coffeeSupport: () => {
+          world.coffeehouse.updateWorldMatrix(true,true);
+          return world.coffeeSupports.map(item=>{
+            const bounds=new THREE.Box3().setFromObject(item),center=bounds.getCenter(new THREE.Vector3());
+            const ray=new THREE.Raycaster(new THREE.Vector3(center.x,bounds.min.y+.02,center.z),new THREE.Vector3(0,-1,0),0,1);
+            const hit=ray.intersectObject(world.coffeehouse,true)[0];return hit?bounds.min.y-hit.point.y:null;
+          });
+        },
         spirits: () => ({elif:world.elif.visible,riza:world.riza.visible}),
         residentModels: () => world.residents.map(r=>({id:r.id,loaded:!!r.visual.group.getObjectByName('HandL')})),
         verifyThreatArt: async () => {await world.loadThreatArt();return {pursuer:!!world.pursuer.root.getObjectByName('Dokulu model'),scare:!!world.scare.root.getObjectByName('Dokulu model')};},
