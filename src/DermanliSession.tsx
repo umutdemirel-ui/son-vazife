@@ -101,6 +101,15 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
         abandonedHomes: () => S.abandonedHomes.map(p=>[...p]),
         approachNight: () => {elapsed=DAY_SECONDS/2-2;previousNight=false;},
         worldTools: () => Object.fromEntries(Object.entries(world.stationMeshes).map(([id,mesh])=>[id,mesh.visible])),
+        stationSupport: () => {
+          world.gasil.group.updateWorldMatrix(true,true);
+          return Object.fromEntries(Object.entries(world.stationMeshes).map(([id,item])=>{
+            const p=item.getWorldPosition(new THREE.Vector3());
+            const base=p.y-(id==='bucket'?.19:0);
+            const ray=new THREE.Raycaster(new THREE.Vector3(p.x,base+.02,p.z),new THREE.Vector3(0,-1,0),0,2);
+            const hit=ray.intersectObject(world.gasil.group,true)[0];return [id,hit?base-hit.point.y:null];
+          }));
+        },
         squareArt: () => ({fountain:!!world.fountain.getObjectByName('hayrat'),tree:world.squareTree.visible}),
         visualState: () => ({mounds:world.graveMounds.filter(m=>m.visible).length,litWindows:world.emptyHomeWindows.filter(w=>w.visible).length,fountain:world.fountainWater.visible}),
         coffeeResidents: () => world.coffeeResidents.map(r=>({id:r.id,visible:r.visual.group.visible,seated:r.seated,loaded:!!r.visual.group.getObjectByName('HandL')})),
@@ -259,7 +268,7 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
       world.arrivalUnwrapped.visible=ritual.body!=='burialCarry';world.arrivalWrapped.visible=ritual.body==='burialCarry';
       world.arrivalBody.scale.setScalar(ritual.night===4?.72:1);
       if(ritual.body==='carrying'||ritual.body==='burialCarry') {world.arrivalBody.visible=true;world.arrivalBody.position.set(pos.x-Math.sin(yaw)*.75,camera.position.y-.55,pos.z-Math.cos(yaw)*.75);world.arrivalBody.rotation.set(0,yaw,0);}
-      else {world.arrivalBody.position.set(S.gasilhane[0]+5,.84,S.gasilhane[1]);world.arrivalBody.rotation.set(0,0,0);}
+      else {world.arrivalBody.position.set(S.gasilhane[0]+5.5,dermanliSurfaceHeight(...S.gasilhane)+.84,S.gasilhane[1]+1.6);world.arrivalBody.rotation.set(0,0,0);}
       if(locked&&now-lastSave>15000){lastSave=now;save();}
       // Ending tableau is rendered in the same world, not just described by a menu.
       world.master.visible=ritual.ending==='peace' && ENDING_BEATS.peace[endingStageRef.current]?.scene==='mortuary';

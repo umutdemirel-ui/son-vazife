@@ -34,7 +34,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   };
   const target = (id: string,label: string,p: Point,radius = 2.1) => targets.push({ id,label,x:p[0],z:p[1],radius });
   // Existing detailed, walk-in gasilhane: its local origin is the wash slab.
-  const gasil = createMosqueAndGasilhane(textures, craft, art);
+  const gasil = createMosqueAndGasilhane(textures, craft, art, 'dermanli');
   gasil.group.position.set(S.gasilhane[0], dermanliSurfaceHeight(...S.gasilhane), S.gasilhane[1]); objects.add(gasil.group);
   gasil.ceilingLight.color.set(0x91b9dc);gasil.ceilingLight.intensity=5;
   const slabBody=funeralFigure(art,'arif',false); gasil.deceasedGroup.add(slabBody);
@@ -48,7 +48,11 @@ export function createDermanliWorld(scene: THREE.Scene) {
     {minX:-3.5,maxX:3.5,minZ:-3.5,maxZ:-3.3},{minX:3.2,maxX:3.5,minZ:-8,maxZ:-6.45},
     {minX:3.2,maxX:3.5,minZ:-4.95,maxZ:-3.4},
   ]);
-  colliders.push(...gasilWalls,...translateColliders({x:S.gasilhane[0],z:S.gasilhane[1]},[{minX:-1.25,maxX:1.25,minZ:-.65,maxZ:.65}]));
+  colliders.push(...gasilWalls,...translateColliders({x:S.gasilhane[0],z:S.gasilhane[1]},[
+    {minX:-1.25,maxX:1.25,minZ:-.65,maxZ:.65},
+    {minX:-3.04,maxX:3.04,minZ:-3.12,maxZ:-2.24},
+    {minX:-3.18,maxX:-2.26,minZ:1.77,maxZ:2.87},
+  ]));
   // Low furniture blocks movement but does not obscure the view.
   occluders.push(...gasilWalls);
   // Retain the detailed previous muhtarlık interior in the new square.
@@ -64,7 +68,7 @@ export function createDermanliWorld(scene: THREE.Scene) {
   target('mosque','Cami · İmamın notu',[S.mosque[0]+3.8,S.mosque[1]-1.1],1.8);
   box(.05,.45,.34,S.gasilhane[0]+3.56,1.35,S.gasilhane[1]-6.8,mat(0xbfb49a));
   target('office','Muhtarlık · Kayıt defteri',[S.office[0]+.4,S.office[1]+1.4],1.6);
-  const [gx,gz]=S.gasilhane;
+  const [gx,gz]=S.gasilhane,gy=dermanliSurfaceHeight(gx,gz);
   target('slab','Teneşir', [gx,gz], 2.05);
   target('candle','Sabır mumu', [gx-1.35,gz-.75], 1.7);
   const stations = [
@@ -73,24 +77,33 @@ export function createDermanliWorld(scene: THREE.Scene) {
   ] as const;
   const stationMeshes:Record<string,THREE.Object3D>={};
   for(const [id,label,type,x,z] of stations) {
-    const item=createCopperEwerAndSoap(type); item.position.set(gx+x,.85,gz+z); objects.add(item);stationMeshes[id]=item;
+    const item=createCopperEwerAndSoap(type); item.position.set(gx+x,gy+.85,gz+z); objects.add(item);stationMeshes[id]=item;
     target(id,label,[gx+x,gz+z],1.65);
   }
-  target('bucket','Kirli su kovası',[gx+.25,gz+1.05],1.5);
+  target('bucket','Kirli su kovası',[gx+1.55,gz+1.7],1.5);
   target('drain','Gider',[gx-1.9,gz+2.0],1.3);
   target('discard','Kirli suyu dışarı dök',[gx+5,gz+4],1.2);
-  target('arrival','Cenazeyi al',[gx+5,gz],1.6);
+  target('arrival','Cenazeyi al',[gx+5.5,gz+1.6],1.6);
   target('forest','Orman yolu · Ayrıl',[-56.4,21.6],2.7);
   const bucket=cylinderPlaceholder();
   function cylinderPlaceholder() {
     const g=new THREE.CylinderGeometry(.24,.18,.38,12,1,true); ownGeometry.push(g);
-    const b=new THREE.Mesh(g,craft.metal); b.position.set(gx+.25,.3,gz+1.05);objects.add(b);return b;
+    const b=new THREE.Mesh(g,craft.metal); b.position.set(gx+1.55,gy+.35,gz+1.7);objects.add(b);return b;
   }
   stationMeshes.bucket=bucket;
-  const bed=box(2,.15,.75,gx+5,.75,gz,wood);
+  // A covered, open-sided entrance gives the outdoor stretcher a sheltered arrival point.
+  const porch=block(objects,craft.wood,2.15,.16,5.5,gx+4.32,gy+2.96,gz,1.5);ownGeometry.push(porch.geometry);
+  for(const z of [-2.55,2.55]){
+    box(.15,2.88,.15,gx+5.24,gy+1.44,gz+z,craft.wood);
+    box(.25,.12,.25,gx+5.24,gy+.06,gz+z,craft.masonry);
+    colliders.push({minX:gx+5.16,maxX:gx+5.32,minZ:gz+z-.08,maxZ:gz+z+.08});
+  }
+  const bed=box(2,.15,.75,gx+5.5,gy+.75,gz+1.6,wood);
+  for(const x of [-.85,.85])for(const z of [-.28,.28])box(.11,.675,.11,gx+5.5+x,gy+.3375,gz+1.6+z,wood);
+  colliders.push({minX:gx+4.5,maxX:gx+6.5,minZ:gz+1.225,maxZ:gz+1.975});
   const arrivalBody = new THREE.Group();
   const arrivalUnwrapped=funeralFigure(art,'arif',false),arrivalWrapped=funeralFigure(art,'yolcu',false);
-  arrivalBody.add(arrivalUnwrapped,arrivalWrapped);arrivalBody.position.set(gx+5,.84,gz);objects.add(arrivalBody);
+  arrivalBody.add(arrivalUnwrapped,arrivalWrapped);arrivalBody.position.set(gx+5.5,gy+.84,gz+1.6);objects.add(arrivalBody);
   art.near('yolcu',gx,gz,25);
   void bed;
 

@@ -483,6 +483,7 @@ export function createMosqueAndGasilhane(
   textures: VillageTextures,
   craft: VillageCraft,
   art: NightArt,
+  layout: 'legacy' | 'dermanli' = 'legacy',
 ): GasilhaneRefs {
   const root = new THREE.Group();
 
@@ -763,6 +764,7 @@ export function createMosqueAndGasilhane(
     towel.position.set(x, 1.83, rd / 2 + 0.90);
     gasilGroup.add(towel);
   }
+  if (layout === 'legacy') {
   // Shallow wall-mounted cupboards and stacks of folded linen, away from the slab.
   for (const x of [-1.8, -0.65]) {
     block(gasilGroup, craft.shutters[0], 1.0, 0.86, 0.26, x, 2.35, rd / 2 + 0.92, 1.4);
@@ -832,6 +834,30 @@ export function createMosqueAndGasilhane(
         z + depth / 2 + 0.055,
       );
     }
+  }
+
+  } else {
+    // Grounded counters: all four ritual tools have a real supporting surface.
+    // The north counter stays against the wall; the west stand leaves the window aisle open.
+    block(gasilGroup, craft.shutters[0], 6.0, .62, .82, 0, .51, -2.68, 1.5);
+    block(gasilGroup, marbleMat, 6.08, .09, .88, 0, .805, -2.68, 1.4);
+    for(const x of [-2.25,-.75,.75,2.25]){
+      block(gasilGroup, craft.wood, 1.35, .49, .035, x, .51, -2.247, 1.2);
+      block(gasilGroup, craft.shutters[0], 1.22, .36, .025, x, .51, -2.222, 1.2);
+      block(gasilGroup, craft.metal, .12, .035, .035, x, .62, -2.2);
+    }
+    block(gasilGroup, craft.shutters[0], .86, .62, 1.04, -2.72, .51, 2.32, 1.3);
+    block(gasilGroup, marbleMat, .92, .09, 1.1, -2.72, .805, 2.32, 1.4);
+    block(gasilGroup, craft.wood, .035, .48, .88, -2.27, .51, 2.32, 1.2);
+    block(gasilGroup, craft.metal, .035, .035, .13, -2.24, .61, 2.32);
+    // Shallow closed storage above the counter is separated from the towels and working area.
+    for(const x of [-1.8,1.8]){
+      block(gasilGroup, craft.shutters[0], 1.15, .72, .24, x, 2.28, -2.99, 1.4);
+      block(gasilGroup, craft.wood, 1.08, .65, .035, x, 2.28, -2.85, 1.3);
+      block(gasilGroup, craft.metal, .04, .1, .04, x+.42, 2.28, -2.81);
+    }
+    // An unobtrusive rail and tiled splashback make the water station readable.
+    block(gasilGroup, craft.metal, .04, .04, .9, -3.23, 1.35, 2.32);
   }
 
   // Marble Teneşir Slab
