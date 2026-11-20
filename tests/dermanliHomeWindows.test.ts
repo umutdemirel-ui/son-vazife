@@ -41,16 +41,20 @@ test('house walking height follows the actual floor, including rotated buildings
  stone.dispose();wood.dispose();glass.dispose();
 });
 
-test('gassal side windows are see-through while side walls still block passage',()=>{
+test('gassal, school and abandoned side windows are transparent and collision-safe',()=>{
  const stone=new THREE.MeshStandardMaterial(),wood=new THREE.MeshStandardMaterial(),glass=new THREE.MeshStandardMaterial({transparent:true,opacity:.3,side:THREE.DoubleSide});
  const craft={wood,masonry:stone,lime:[stone],earthen:stone,limestone:stone,shutters:[wood],windowGlass:glass,roofVariants:[stone],metalRoof:stone,door:wood,kilim:stone,metal:wood,plate:()=>{},window:()=>{}} as unknown as VillageCraft;
- const {home,walls}=buildHome({x:0,z:0,rotY:0,w:7,d:5,h:3,style:'tas'},0,0,craft,'gassal');home.root.updateMatrixWorld(true);
- for(const side of [-1,1]){
-  const ray=new THREE.Raycaster(new THREE.Vector3(0,1.8,-.8),new THREE.Vector3(side,0,0),0,3.8);
-  const hits=ray.intersectObject(home.root,true);assert.ok(hits.some(h=>(h.object as THREE.Mesh).material===glass));
-  assert.ok(hits.every(h=>(h.object as THREE.Mesh).material===glass),'side opening blocked by an opaque wall');
-  const p={x:side*3.5,z:-.8};for(const wall of walls)pushOutsideBox(p,wall,.32);
-  assert.notEqual(p.x,side*3.5,'glass should block player movement');
+ for(const use of ['gassal','school','abandoned'] as const){
+  const width=use==='school'?8:7,depth=use==='school'?6:5;
+  const {home,walls}=buildHome({x:0,z:0,rotY:0,w:width,d:depth,h:3,style:'tas'},0,0,craft,use);home.root.updateMatrixWorld(true);
+  for(const side of [-1,1]){
+   const ray=new THREE.Raycaster(new THREE.Vector3(0,1.8,-.8),new THREE.Vector3(side,0,0),0,width/2+.3);
+   const hits=ray.intersectObject(home.root,true);assert.ok(hits.some(h=>(h.object as THREE.Mesh).material===glass),`${use} missing glazing`);
+   assert.ok(hits.every(h=>(h.object as THREE.Mesh).material===glass),`${use} side opening blocked by an opaque wall`);
+   const p={x:side*width/2,z:-.8};for(const wall of walls)pushOutsideBox(p,wall,.32);
+   assert.notEqual(p.x,side*width/2,`${use} glass should block player movement`);
+  }
+  home.root.traverse(o=>{if(o instanceof THREE.Mesh)o.geometry.dispose();});
  }
- home.root.traverse(o=>{if(o instanceof THREE.Mesh)o.geometry.dispose();});stone.dispose();wood.dispose();glass.dispose();
+ stone.dispose();wood.dispose();glass.dispose();
 });

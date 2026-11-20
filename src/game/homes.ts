@@ -48,7 +48,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   block(root, finish, w, height, wall, 0, height / 2, -d / 2, 2.2);
   for (const side of [-1, 1]) {
     const x=side*w/2;
-    if(use!=='gassal')block(root,finish,wall,height,d,x,height/2,0,2.2);
+    if(use==='home')block(root,finish,wall,height,d,x,height/2,0,2.2);
     else {
       // Genuine side openings, with transparent glass rather than a decal over masonry.
       const center=-.6,width=1.05,sill=1.08,top=2.2;
@@ -58,7 +58,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
       block(root,finish,wall,sill,width,x,sill/2,center,2.2);
       block(root,finish,wall,height-top,width,x,(height+top)/2,center,2.2);
       const glass=new THREE.Mesh(new THREE.PlaneGeometry(width,top-sill),craft.windowGlass);
-      glass.name='Gassal yan pencere camı';glass.rotation.y=Math.PI/2;glass.position.set(x,(sill+top)/2,center);root.add(glass);
+      glass.name='Dermanlı yan pencere camı';glass.rotation.y=Math.PI/2;glass.position.set(x,(sill+top)/2,center);root.add(glass);
       for(const z of [center-width/2,center+width/2])block(root,craft.wood,.24,top-sill+.12,.08,x,(sill+top)/2,z,1.2);
       for(const y of [sill,top])block(root,craft.wood,.24,.08,width+.12,x,y,center,1.2);
       block(root,craft.wood,.24,top-sill,.055,x,(sill+top)/2,center,1.2);

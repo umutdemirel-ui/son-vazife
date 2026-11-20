@@ -8,7 +8,7 @@ export const EVENTS: readonly Event[] = [
  {id:'gasil',at:S.gasilhane,radius:5,minNight:1,text:'Gasilhanede kimse dokunmadığı hâlde bir an su sesi duyuluyor.',sound:'water'},
  {id:'square',at:S.square,radius:6,minNight:1,text:'Meydandaki çeşme bir an kendi kendine akıyor.',look:true,sound:'water'},
  {id:'home',at:S.gassalHome,radius:7,minNight:2,text:'Gassal evinin kapısına içeriden üç kez vuruluyor.',sound:'knock'},
- {id:'well',at:S.well,radius:5,minNight:2,text:'Kuyudan bir fısıltı yükseliyor; söylediği isim anlaşılmıyor.',sound:'whisper'},
+ {id:'well',at:S.well,radius:5,minNight:2,text:'Kuyudan bir fısıltı yükseliyor; kuyunun ipi kendiliğinden sallanıyor.',look:true,sound:'whisper'},
  {id:'house',at:[S.abandonedHomes[0][0]-2.125,S.abandonedHomes[0][1]+2.5],radius:6,minNight:2,text:'Terk evin penceresinde bir gölge belirip kayboluyor.',look:true,sound:'creak'},
  {id:'mill',at:S.mill,radius:8,minNight:3,text:'Değirmenin içinden durup başlayan bir çark sesi geliyor.',sound:'creak'},
  {id:'barn',at:S.barn,radius:8,minNight:3,text:'Ahırdan bir an hayvan sesi duyuluyor; içerisi boş.',sound:'creak'},

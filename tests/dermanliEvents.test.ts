@@ -50,3 +50,12 @@ test('square fountain event requires facing the fountain and is not repeated tha
  assert.equal(nextEvent(1,x,z+4,0,new Set())?.id,'square');
  assert.equal(nextEvent(1,x,z+4,0,new Set(['1:square'])),null);
 });
+
+test('well apparition requires night two and a view of the well',async()=>{
+ const {DERMANLI_SITES:S}=await import('../src/game/dermanliMap');const [x,z]=S.well;
+ assert.equal(nextEvent(1,x,z+4,0,new Set()),null);
+ assert.equal(nextEvent(2,x,z+4,Math.PI,new Set()),null);
+ assert.equal(nextEvent(2,x,z+4,0,new Set(),1),null);
+ assert.equal(nextEvent(2,x,z+4,0,new Set())?.id,'well');
+ assert.equal(nextEvent(2,x,z+4,0,new Set(['2:well'])),null);
+});

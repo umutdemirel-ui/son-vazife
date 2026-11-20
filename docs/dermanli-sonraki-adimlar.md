@@ -27,6 +27,9 @@ Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik erte
 - [x] Model isteklerini engelleyerek üç gündüz köylüsü ve dört gece anısının yedek görünümlerinin zeminini ve görünürlüğünü doğrula; iki yedek karakterle klavye etkileşimini ve gündüz/gece örneklerini kontrol et.
 - [x] Üç gündüz köylüsü ve dört gece anısının yüklü modellerinde ayak/zemin ve konum çarpışma açıklığını, gündüz/gece görünürlüğünü tarayıcıda denetle; gündüz ve gece örneklerini görsel olarak incele.
 - [x] Üç dış mekân köylüsü ekle; altı gündüz köylüsüne farklı giysi ayrıntıları ve ilerlemeye bağlı, kaydedilen konuşmalar ver.
+- [x] Kuyu ipini fısıltı olayı sırasında sallandır; bakış, süre ve kayıt sonrası tekrarlamama davranışını test et.
+- [x] Okul ve dört terk evin yan cephelerine gerçek cam açıklıkları ekle; gassal eviyle birlikte 12 pencerenin görünürlük ve çarpışmasını test et.
+- [x] Kuzdağ kaydı varsa tamamlanan vaka adlarını Dermanlı defterinde salt okunur, ayrı hikâye özeti olarak göster; iki kaydın değişmediğini test et. Bu, vakaların oynanışa aktarımı değildir.
 - [x] Meydan çeşmesinin bakışla tetiklenen su akışını görselleştir; süre, kayıt sonrası tekrarlamama ve görsel kontrolü doğrula. Gasilhanede görünmeyen musluğa ilişkin yanıltıcı olay metnini düzelt.
 - [x] Gassal evinin iki yan cephesine gerçek cam açıklıkları ekle; içten görünürlük, çarpışma ve dış görünümü kontrol et.
 - [x] Dört eski karakterin adlarını Kuzdağ tanımlarıyla karşılaştır; Kenan adını özgün yazımıyla eşleştir ve test et. Bu, eski hikâye ve vakaların aktarımı değildir.
@@ -49,11 +52,11 @@ Gerçek cihaz ve tasarım değerlendirmesi kullanıcı isteğiyle şimdilik erte
    - [ ] Kalan olayları tek tek tetik, yön/görünürlük, ses, tekrar ve kayıt açısından denetle; anlatılan görsel olayların gerçekten görünmesini sağla.
    - [ ] Eksik korku karakterlerini belirleyip ekle; çarpışma ve yıkama akışını bozmadıklarını sına.
 5. **Yapılar ve dokular:**
-   - [ ] Gassal evinin yan cepheleri tamamlandı; gassal evinin arka cephesi ile okul ve terk evlerin diğer cephelerini ayrı ayrı inceleyip düzelt.
+   - [ ] Gassal evi, okul ve terk evlerin yan cepheleri tamamlandı; arka cepheleri ve kalan ayrıntıları ayrı ayrı inceleyip düzelt.
    - [ ] Değirmenin kalan ayrıntıları ve diğer yapı cephelerini gözden geçir; doku, açıklık ve erişim testleri ekle.
 6. **Eski oyun bütünlüğü:**
    - [ ] Eski menü ve karakterlerin eksik davranışlarını karşılaştırıp gider.
-   - [ ] Kuzdağ hikâyesi, vakalar, zaman ve kayıt sistemleri ile Dermanlı akışının uyumunu incele; korunacak yıkama sistemiyle çakışmadan aktarım planını uygula. Eski kayıtları izinsiz silme veya yeni kayıtla karıştırma.
+   - [ ] Kuzdağ tamamlanmış vaka özeti salt okunur gösteriliyor; Kuzdağ hikâyesi, oynanabilir vakalar, zaman ve kayıt sistemleri ile Dermanlı akışının uyumunu incele; korunacak yıkama sistemiyle çakışmadan aktarım planını uygula. Eski kayıtları izinsiz silme veya yeni kayıtla karıştırma.
 7. **Son doğrulama:**
    - [ ] Her büyük değişiklikte lint, test, build, çarpışmalı beş gece, ilgili görsel kontrol ve gerekiyorsa üç son/menü testlerini çalıştır.
    - [ ] Tüm bölgelerin ve farklı cihazların kontrolü tamamlanmadan oyunu bitmiş veya production'a hazır ilan etme.
