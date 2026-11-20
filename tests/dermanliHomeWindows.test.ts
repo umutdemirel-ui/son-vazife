@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
 import * as THREE from 'three';
-import {buildHome} from '../src/game/homes';
+import {buildHome,HOME_FLOOR_HEIGHT} from '../src/game/homes';
 import {pushOutsideBox} from '../src/game/collision';
 import type {VillageCraft} from '../src/game/villageCraft';
 
@@ -11,6 +11,8 @@ test('Dermanlı home windows are actual openings but remain collision-safe',()=>
  for(const use of ['gassal','abandoned'] as const){
    const {home,walls}=buildHome({x:0,z:0,rotY:0,w:6.5,d:5,h:3,style:'tas'},3,0,craft,use);
    home.root.updateMatrixWorld(true);
+   const floor=new THREE.Raycaster(new THREE.Vector3(0,1,0),new THREE.Vector3(0,-1,0)).intersectObject(home.root,true);
+   assert.ok(Math.abs(floor[0].point.y-HOME_FLOOR_HEIGHT)<1e-6);
    const ray=new THREE.Raycaster(new THREE.Vector3(2.375,1.77,0),new THREE.Vector3(0,0,1));
    const hits=ray.intersectObject(home.root,true).filter(hit=>hit.distance<2.8);
    assert.ok(hits.some(hit=>(hit.object as THREE.Mesh).material===glass),`${use} glass is visible from inside`);

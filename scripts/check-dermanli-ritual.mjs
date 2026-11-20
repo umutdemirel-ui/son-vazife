@@ -24,6 +24,8 @@ try {
  await page.waitForFunction(()=>window.__dermanliTest.residentModels().every(r=>r.loaded),{timeout:60000});
  await page.waitForFunction(()=>window.__dermanliTest.coffeeResidents().length===3&&window.__dermanliTest.coffeeResidents().every(r=>r.loaded&&r.visible),null,{timeout:60000});
  if((await page.evaluate(()=>window.__dermanliTest.coffeeResidents())).filter(r=>r.seated).length!==2)throw Error('Coffeehouse seating missing');
+ const homeSupport=await page.evaluate(()=>window.__dermanliTest.homeSupport());
+ if(homeSupport.length!==30||homeSupport.some(gap=>gap===null||Math.abs(gap)>.02))throw Error(`Home or school furniture is not on its floor: ${JSON.stringify(homeSupport)}`);
  const coffeeSupport=await page.evaluate(()=>window.__dermanliTest.coffeeSupport());
  if(coffeeSupport.length!==10||coffeeSupport.some(gap=>gap===null||Math.abs(gap)>.02))throw Error(`Coffeehouse furniture is not on its floor: ${JSON.stringify(coffeeSupport)}`);
  await page.waitForFunction(()=>{const art=window.__dermanliTest.squareArt();return art.fountain&&art.tree;},null,{timeout:60000});

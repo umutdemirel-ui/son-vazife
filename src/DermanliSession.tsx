@@ -122,6 +122,12 @@ export default function DermanliSession({onExit,resume}:{onExit:()=>void;resume:
             const hit=ray.intersectObject(world.coffeehouse,true)[0];return hit?bounds.min.y-hit.point.y:null;
           });
         },
+        homeSupport: () => world.homeSupports.map(({item,home})=>{
+          const bounds=new THREE.Box3().setFromObject(item),center=bounds.getCenter(new THREE.Vector3());
+          world.homes[home].root.updateWorldMatrix(true,true);
+          const ray=new THREE.Raycaster(new THREE.Vector3(center.x,bounds.min.y+.01,center.z),new THREE.Vector3(0,-1,0),0,.5);
+          const hit=ray.intersectObject(world.homes[home].root,true)[0];return hit?bounds.min.y-hit.point.y:null;
+        }),
         spirits: () => ({elif:world.elif.visible,riza:world.riza.visible}),
         residentModels: () => world.residents.map(r=>({id:r.id,loaded:!!r.visual.group.getObjectByName('HandL')})),
         verifyThreatArt: async () => {await world.loadThreatArt();return {pursuer:!!world.pursuer.root.getObjectByName('Dokulu model'),scare:!!world.scare.root.getObjectByName('Dokulu model')};},

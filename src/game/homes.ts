@@ -3,6 +3,8 @@ import { bakeStaticChildrenByMaterial } from './meshBatch';
 import { houseFootprint, type BoxCollider } from './collision';
 import { block, face, pitchedRoof, type HouseStyle, type VillageCraft } from './villageCraft';
 
+export const HOME_FLOOR_HEIGHT = 0.08;
+
 export interface HomeSpec { x: number; z: number; rotY: number; w: number; d: number; h: number; style: HouseStyle }
 export interface Home {
   root: THREE.Group;
@@ -42,7 +44,7 @@ export function buildHome(spec: HomeSpec, number: number, ground: number, craft:
   const { w, d } = spec, wall = 0.18, height = 2.75 + (number % 3) * 0.12, opening = use === 'home' ? 1.45 : 2;
   const finish = spec.style === 'tas' ? craft.masonry : number % 4 === 0 ? craft.earthen : craft.lime[number % craft.lime.length];
   const upperFinish = spec.style === 'tas' ? craft.lime[(number + 1) % craft.lime.length] : finish;
-  block(root, craft.wood, w, 0.12, d, 0, 0.02, 0, 1.5);
+  block(root, craft.wood, w, 0.12, d, 0, HOME_FLOOR_HEIGHT - 0.06, 0, 1.5);
   block(root, finish, w, height, wall, 0, height / 2, -d / 2, 2.2);
   for (const side of [-1, 1])
     block(root, finish, wall, height, d, side * w / 2, height / 2, 0, 2.2);
