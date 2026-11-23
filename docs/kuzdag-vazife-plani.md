@@ -17,7 +17,10 @@ Kullanıcının yeni yönü: Dermanlı köyü tamamen kaldırılacak; beğenilen
 - Cenaze taşınırken koşma engellendi ve hız eski cenaze nakliyle eşitlendi. Bir yıkama sahnesi otomatik görüntüyle kontrol edildi; bu, tam görsel değerlendirme yerine geçmez.
 - 23 Kasım 2026: `codex/kuzdag-survey-map` dalındaki köy haritası üretime yayımlandı. Canlı tarayıcıda yeni oturumun açılışı, defter haritası, ilk cenazeyi alma, açık kapıdan gasilhaneye taşıma ve teneşire bırakma gerçek yürüyüşle denendi. Bu akışta tarayıcı konsolunda hata veya uyarı görülmedi.
 - 23 Kasım 2026: Gölge haritası artık Three.js'in desteklenen `PCFShadowMap` türünü kullanıyor. Canlı tarayıcıda asgari, düşük, dengeli, yüksek ve otomatik kalite seçimleri denendi; konsola hata veya uyarı yazılmadı. Test, TypeScript ve üretim derlemesi aynı Vercel derlemesinde başarılı oldu.
+- 23 Kasım 2026: Gerçek oyun akışında ilk cenaze dış sedyeden alındı, açık gasilhane kapısından taşındı, teneşire bırakıldı ve ilk teslim dosyası mühürlendi. Ardından hazırlık eşyalarından defter alındı. Test kaydı yalnızca dal önizlemesinde tutuldu.
+- 23 Kasım 2026: Fareyle bakış hareketinden sonra ekranda kalan “Bakış için tıkla veya sürükle” ipucu düzeltildi. Dal önizlemesinde sürükleme ile kamera hareket ettirildi, ipucunun kapandığı ve konsolun hatasız kaldığı doğrulandı.
+- 23 Kasım 2026: Commit `9a33bd1` Vercel üretim dağıtımı `dpl_8RJsM61JpCtit1pYqVgKLSGuzZJH` ile `son-vazife.vercel.app` adresine yayımlandı. Üretim adresi HTTP 200 döndü ve canlı giriş ekranı açıldı. Bu dağıtımda 67/67 test geçti, TypeScript denetimi ve derleme tamamlandı; derleyici mevcut büyük oyun paketi için boyut uyarısı verdi.
 
 ## Kalanlar
-- Önsözden son perona kadar baştan sona doğal oyun yürüyüşü henüz tamamlanmadı; otomatik senaryo daha sonraki vaka, vazife ve finalleri ışınlanmayla kapsıyor.
+- Önsözden son perona kadar baştan sona doğal oyun yürüyüşü henüz tamamlanmadı; gerçek yürüyüş ilk teslim ve hazırlık hedefinin ilk eşyasına kadar geldi. Otomatik senaryo daha sonraki vaka, vazife ve finalleri ışınlanmayla kapsıyor.
 - Farklı cihazlarda ve çözünürlüklerde kontrol ile sahnenin tam görsel değerlendirmesi henüz yapılmadı.
