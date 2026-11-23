@@ -502,17 +502,22 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
               <h3 className="font-display text-sm font-bold tracking-[0.16em] uppercase text-[#4b3824] mb-2">
                 Kuzdağ · {MAP_LANDMARKS.length} Bölge
               </h3>
-              {MAP_LANDMARKS.map((lm) => {
+              {MAP_LANDMARKS.map((lm, i) => {
                 const seen = discoveredDistricts.includes(lm.id);
                 return (
-                  <div key={lm.id} className="border-b border-[#8c7556]/35 pb-2">
-                    <div className="flex items-center justify-between font-bold text-[#1f160d]">
-                      <span>{lm.name}</span>
-                      <span className={seen ? 'text-[#2b5835]' : 'text-[#73624c]'}>
-                        {seen ? 'Keşfedildi' : 'Uzak'}
-                      </span>
+                  <div key={lm.id} className="flex gap-2 border-b border-[#8c7556]/35 pb-2">
+                    <span className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center border font-mono text-[10px] font-bold ${seen ? 'border-[#43533c] bg-[#536247] text-[#f1e8d4]' : 'border-[#78674e] bg-[#c8b998] text-[#42382a]'}`}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2 font-bold text-[#1f160d]">
+                        <span>{lm.name}</span>
+                        <span className={`shrink-0 ${seen ? 'text-[#2b5835]' : 'text-[#73624c]'}`}>
+                          {seen ? 'Keşfedildi' : 'Uzak'}
+                        </span>
+                      </div>
+                      <div className="text-[#4f3d2b]">{lm.sub}</div>
                     </div>
-                    <div className="text-[#4f3d2b]">{lm.sub}</div>
                   </div>
                 );
               })}

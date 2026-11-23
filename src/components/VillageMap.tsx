@@ -45,7 +45,7 @@ function MapLabel({ x, y, children, anchor = 'middle' }: {
       y={y}
       textAnchor={anchor}
       fontFamily="var(--mono), monospace"
-      fontSize="9"
+      fontSize="12"
       fontWeight="700"
       letterSpacing=".4"
       fill="#352c21"
@@ -195,10 +195,9 @@ export function VillageMap({ discoveredDistricts, playerMapPos, showEscape }: Vi
             const code = String(i + 1).padStart(2, '0');
             return (
               <g key={landmark.id} aria-label={`${landmark.name}${seen ? ', keşfedildi' : ''}`}>
-                <circle cx={x} cy={y} r="9.2" fill={seen ? '#4b5945' : '#6e5841'} stroke="#282219" strokeWidth="1.7" />
-                <circle cx={x} cy={y} r="6.8" fill="none" stroke="#d7c69f" strokeWidth=".7" />
-                <text x={x} y={y + 2.5} textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="6.5" fontWeight="700" fill="#f0e3c6">{code}</text>
-                <MapLabel x={x} y={y - 12}>{landmark.short.toLocaleUpperCase('tr-TR')}</MapLabel>
+                <circle cx={x} cy={y} r="11" fill={seen ? '#4b5945' : '#6e5841'} stroke="#282219" strokeWidth="1.7" />
+                <circle cx={x} cy={y} r="8.2" fill="none" stroke="#d7c69f" strokeWidth=".8" />
+                <text x={x} y={y + 3.2} textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="9" fontWeight="700" fill="#f0e3c6">{code}</text>
               </g>
             );
           })}
