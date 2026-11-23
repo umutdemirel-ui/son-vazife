@@ -1,6 +1,6 @@
-import { ESCAPE_POINT } from '../game/survival';
-import { VALLEY, LANDMARKS as MAP_LANDMARKS, MAIN_LANES, CORE_LANES, OUTER_LANES, MUHTAR } from '../game/valley';
+import { LANDMARKS as MAP_LANDMARKS } from '../game/valley';
 import React, { useState } from 'react';
+import { VillageMap } from './VillageMap';
 import {
   AutopsyCaseId,
   AutopsyCaseState,
@@ -60,10 +60,6 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
     setNoteTitle('');
     setNoteBody('');
   };
-
-  // Convert world coords x:[-48..42], z:[-52..44] -> SVG 0..420 x 0..320
-  const toSvgX = (wx: number) => 12 + ((wx - VALLEY.x1) / (VALLEY.x2 - VALLEY.x1)) * 396;
-  const toSvgY = (wz: number) => 12 + ((wz - VALLEY.z1) / (VALLEY.z2 - VALLEY.z1)) * 296;
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4 bg-[#060709]/82">
@@ -494,82 +490,12 @@ export const NotebookModal: React.FC<NotebookModalProps> = ({
 
         {tab === 'map' && (
           <div className="grid grid-cols-1 md:grid-cols-5 gap-6 items-start">
-            <div className="md:col-span-3 bg-[#dfd1b2] border border-[#7d6547] p-3">
-              <svg viewBox="0 0 420 320" className="w-full h-auto">
-                {/* Stream line at x ≈ -24 */}
-                <path
-                  d={`M ${toSvgX(-24)} 0 Q ${toSvgX(-22)} 160 ${toSvgX(-25)} 320`}
-                  fill="none"
-                  stroke="#4d7384"
-                  strokeWidth="8"
-                  opacity="0.7"
-                />
-                {[...MAIN_LANES, ...CORE_LANES, ...OUTER_LANES].map(([x1, z1, x2, z2, w]) => (
-                  <line
-                    key={`${x1},${z1}:${x2},${z2}`}
-                    x1={toSvgX(x1)}
-                    y1={toSvgY(z1)}
-                    x2={toSvgX(x2)}
-                    y2={toSvgY(z2)}
-                    stroke="#745f44"
-                    strokeWidth={w * 0.72}
-                    strokeLinecap="round"
-                  />
-                ))}
-                <text x="14" y="20" fontSize="10" fontWeight="bold" fill="#3e4839">
-                  ↑ K
-                </text>
-                {/* Landmark pins */}
-                {MAP_LANDMARKS.map((lm) => {
-                  const seen = discoveredDistricts.includes(lm.id);
-                  const px = toSvgX(lm.x);
-                  const py = toSvgY(lm.z);
-                  return (
-                    <g key={lm.id}>
-                      <circle
-                        cx={px}
-                        cy={py}
-                        r="7"
-                        fill={seen ? '#2f452d' : '#7c6b53'}
-                        stroke="#1f160d"
-                        strokeWidth="1.5"
-                      />
-                      <text
-                        x={px}
-                        y={py - 12}
-                        textAnchor="middle"
-                        fontSize="10"
-                        fontWeight="bold"
-                        fill="#1f160d"
-                      >
-                        {lm.short}
-                      </text>
-                    </g>
-                  );
-                })}
-
-                <g transform={`translate(${toSvgX(MUHTAR.x)}, ${toSvgY(MUHTAR.z)})`}>
-                  <rect x="-5" y="-5" width="10" height="10" fill="#2f452d" stroke="#1f160d" />
-                  <text y="-10" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#1f160d">Muhtarlık</text>
-                </g>
-
-                {clues.some((clue) => clue.id === 'night_call' && clue.discovered) && (
-                  <g transform={`translate(${toSvgX(ESCAPE_POINT.x)}, ${toSvgY(ESCAPE_POINT.z)})`}>
-                    <circle r="9" fill="none" stroke="#9e241b" strokeWidth="2" strokeDasharray="3 2" />
-                    <text y="-13" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#9e241b">KAÇIŞ</text>
-                  </g>
-                )}
-                {/* Live Player Marker */}
-                <g transform={`translate(${toSvgX(playerMapPos.x)}, ${toSvgY(playerMapPos.z)})`}>
-                  <path
-                    d="M0 -8 L5.8 5 L0 3 L-5.8 5 Z"
-                    transform={`rotate(${(-playerMapPos.yaw * 180) / Math.PI})`}
-                    fill="#9e241b"
-                    stroke="#f7ebd2"
-                    strokeWidth="1.6"
-                  />
-                </g>
-              </svg>
+            <div className="md:col-span-3">
+              <VillageMap
+                discoveredDistricts={discoveredDistricts}
+                playerMapPos={playerMapPos}
+                showEscape={clues.some((clue) => clue.id === 'night_call' && clue.discovered)}
+              />
             </div>
 
             <div className="md:col-span-2 space-y-2.5 text-xs">
