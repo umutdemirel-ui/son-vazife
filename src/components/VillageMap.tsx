@@ -5,6 +5,7 @@ import {
   LANDMARKS,
   MAIN_LANES,
   MUHTAR,
+  OUTPOSTS,
   OUTER_HOMES,
   OUTER_LANES,
   VALLEY,
@@ -17,40 +18,58 @@ interface VillageMapProps {
   showEscape: boolean;
 }
 
-const VIEW = { width: 560, height: 530, inset: 18 } as const;
-const MAP_WIDTH = VIEW.width - VIEW.inset * 2;
-const MAP_HEIGHT = VIEW.height - VIEW.inset * 2;
-const SCALE_X = MAP_WIDTH / (VALLEY.x2 - VALLEY.x1);
-const SCALE_Y = MAP_HEIGHT / (VALLEY.z2 - VALLEY.z1);
-const toX = (x: number) => VIEW.inset + ((x - VALLEY.x1) / (VALLEY.x2 - VALLEY.x1)) * MAP_WIDTH;
-const toY = (z: number) => VIEW.inset + ((z - VALLEY.z1) / (VALLEY.z2 - VALLEY.z1)) * MAP_HEIGHT;
-const lanes = [...MAIN_LANES, ...CORE_LANES, ...OUTER_LANES];
+const SHEET = { width: 720, height: 590 } as const;
+const MAP = {
+  x: 30,
+  y: 64,
+  width: SHEET.width - 60,
+  height: SHEET.height - 128,
+} as const;
+const SCALE_X = MAP.width / (VALLEY.x2 - VALLEY.x1);
+const SCALE_Y = MAP.height / (VALLEY.z2 - VALLEY.z1);
+const toX = (x: number) => MAP.x + ((x - VALLEY.x1) / (VALLEY.x2 - VALLEY.x1)) * MAP.width;
+const toY = (z: number) => MAP.y + ((z - VALLEY.z1) / (VALLEY.z2 - VALLEY.z1)) * MAP.height;
+const lanes = [...OUTER_LANES, ...CORE_LANES, ...MAIN_LANES];
 
-const forest = [
+const woodedRidges = [
+  [-72, -78, 148, 20, 'north'],
+  [-72, 18, 28, 44, 'west'],
+  [48, -48, 28, 110, 'east'],
+] as const;
+const contours = [
+  [-3, -78, 56, 18], [3, -77, 46, 14], [9, -75, 34, 11],
+  [-70, 18, 30, 28], [-69, 19, 24, 22],
+  [70, 8, 40, 68], [69, 8, 32, 57], [68, 8, 23, 42],
+  [-35, -36, 17, 15], [-35, -36, 12, 10],
+] as const;
+const treeMarks = [
   [-67, -66], [-58, -72], [-46, -68], [-34, -73], [-20, -70], [-5, -73], [12, -72], [29, -73], [47, -70], [64, -65],
   [-68, -51], [-61, -39], [-68, -24], [-64, -8], [-69, 10], [-67, 27], [-67, 44], [-62, 58], [-51, 62], [-39, 58],
-  [-25, 61], [-11, 58], [5, 61], [20, 59], [35, 61], [50, 59], [67, 55], [69, 38], [68, 20], [67, 2], [68, -16], [67, -34], [68, -50],
+  [-25, 61], [-11, 58], [5, 61], [20, 59], [35, 61], [50, 59], [67, 55], [69, 38], [68, 20], [67, 2], [68, -16], [-68, -36],
   [-54, -55], [-48, -46], [-58, -20], [-51, 2], [-59, 18], [-55, 35], [-42, 53], [57, -57], [62, -43], [59, -29], [63, -12], [59, 8], [58, 28], [62, 48],
 ] as const;
 
-function MapLabel({ x, y, children, anchor = 'middle' }: {
+function MapText({ x, y, children, anchor = 'middle', size = 10, className = '' }: {
   x: number;
   y: number;
   children: string;
   anchor?: 'start' | 'middle' | 'end';
+  size?: number;
+  className?: string;
 }) {
   return (
     <text
       x={x}
       y={y}
       textAnchor={anchor}
-      fontFamily="var(--mono), monospace"
-      fontSize="12"
+      fontFamily="var(--mono), 'IBM Plex Mono', monospace"
+      fontSize={size}
       fontWeight="700"
-      letterSpacing=".4"
-      fill="#352c21"
-      stroke="#d8cdb4"
-      strokeWidth="3.2"
+      letterSpacing="1.1"
+      className={className}
+      fill="#302920"
+      stroke="#ded2b8"
+      strokeWidth="3.5"
       paintOrder="stroke"
       strokeLinejoin="round"
     >
@@ -59,185 +78,245 @@ function MapLabel({ x, y, children, anchor = 'middle' }: {
   );
 }
 
-/** A measured field sheet: map scale follows the real 148 × 140 metre valley survey. */
-export function VillageMap({ discoveredDistricts, playerMapPos, showEscape }: VillageMapProps) {
+function Pine({ x, y, scale = 1, ink = '#344236' }: { x: number; y: number; scale?: number; ink?: string }) {
   return (
-    <figure className="w-full border border-[#665744] bg-[#d6cbb0] p-2 shadow-[0_12px_28px_#17130e33]">
-      <figcaption className="flex items-center justify-between gap-2 border-b border-[#77664d]/50 px-2 pb-2 font-mono text-[9px] uppercase tracking-[.16em] text-[#514634]">
-        <span>SAHA KROKİSİ · NO. 01</span>
-        <span>KUZDAĞ · KASIM 1993</span>
+    <g transform={`translate(${x} ${y}) scale(${scale})`} opacity=".82">
+      <path d="M0 -7 -4.5 1.2 -2 1.2 -5 6.5 5 6.5 2 1.2 4.5 1.2Z" fill={ink} />
+      <path d="M0 5v3" stroke="#675a43" strokeWidth=".9" />
+    </g>
+  );
+}
+
+function LandmarkStamp({ id, name, x, z, index, discovered }: {
+  id: string;
+  name: string;
+  x: number;
+  z: number;
+  index: number;
+  discovered: boolean;
+}) {
+  const px = toX(x);
+  const py = toY(z);
+  const number = String(index + 1).padStart(2, '0');
+  const isSquare = id === 'square';
+  return (
+    <g aria-label={`${name}${discovered ? ', keşfedildi' : ', uzak'}`}>
+      <circle cx={px} cy={py} r={isSquare ? 16 : 13} fill="#e5dbc4" fillOpacity=".88" stroke="#4a3c2c" strokeWidth="1.2" />
+      <circle cx={px} cy={py} r={isSquare ? 12.5 : 10.5} fill={discovered ? '#445642' : '#8c7152'} stroke="#f0e4cc" strokeWidth="1" />
+      {isSquare ? <path d={`M${px - 6} ${py - 2}  ${px} ${py - 7}  ${px + 6} ${py - 2}  ${px + 6} ${py + 5}  ${px - 6} ${py + 5}Z`} fill="none" stroke="#f1e6d0" strokeWidth="1.3" /> : null}
+      <text x={px} y={py + 3} textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="7.5" fontWeight="700" fill="#fff2d7">{number}</text>
+      <circle cx={px} cy={py} r="18" fill="none" stroke={discovered ? '#455741' : '#715b40'} strokeWidth=".7" strokeDasharray="1.5 3" opacity=".72" />
+    </g>
+  );
+}
+
+/** An illustrated field map. Its road and marker coordinates stay tied to the walkable valley. */
+export function VillageMap({ discoveredDistricts, playerMapPos, showEscape }: VillageMapProps) {
+  const scaleBar = 20 * SCALE_X;
+  return (
+    <figure className="relative isolate w-full overflow-hidden border border-[#574938] bg-[#d7cbb0] p-2.5 shadow-[0_18px_44px_#15110d55] sm:p-3">
+      <div className="pointer-events-none absolute inset-[5px] border border-[#8c795a]/55" />
+      <figcaption className="relative flex flex-wrap items-end justify-between gap-x-4 gap-y-1 border-b border-[#79684e]/55 px-2 pb-2.5">
+        <div>
+          <p className="font-mono text-[8px] uppercase tracking-[.28em] text-[#8b3d32]">Kuzdağ Köy Arşivi · Belge 01</p>
+          <p className="mt-1 font-display text-lg font-semibold tracking-[.13em] text-[#302619] sm:text-xl">KUZDAĞ SAHA HARİTASI</p>
+        </div>
+        <div className="text-right font-mono text-[8px] uppercase leading-relaxed tracking-[.14em] text-[#514534] sm:text-[9px]">
+          <p>Anadolu · Kasım 1993</p>
+          <p>Ölçekli arazi krokisi</p>
+        </div>
       </figcaption>
+
       <svg
-        viewBox={`0 0 ${VIEW.width} ${VIEW.height}`}
-        className="block h-auto w-full"
+        viewBox={`0 0 ${SHEET.width} ${SHEET.height}`}
+        className="relative z-0 mt-2 block h-auto w-full border border-[#72624a]/70"
         role="img"
         aria-labelledby="village-map-title village-map-description"
       >
-        <title id="village-map-title">Kuzdağ köyü saha haritası</title>
+        <title id="village-map-title">Kuzdağ köyü arşiv saha haritası</title>
         <desc id="village-map-description">
-          Kuzey yukarıdadır. Yerleşim yolları, dere, haneler ve sekiz önemli bölge ölçülü olarak gösterilmiştir.
+          Giriş ekranındaki 1993 köy arşivi kayıtlarıyla aynı sepya ve kırmızı damga estetiğinde, gerçek yürüyüş yollarına göre çizilmiş Kuzdağ haritası. Kuzey yukarıdadır; dere, orman, sekiz bölge ve bulunduğunuz yer gösterilir.
         </desc>
         <defs>
-          <pattern id="survey-paper-grain" width="31" height="31" patternUnits="userSpaceOnUse">
-            <circle cx="3" cy="6" r=".7" fill="#75684e" opacity=".15" />
-            <circle cx="22" cy="17" r=".6" fill="#82745a" opacity=".11" />
-            <path d="M8 27h5M25 4h2" stroke="#fff5df" strokeWidth=".7" opacity=".28" />
+          <linearGradient id="map-ground" x2="0" y2="1">
+            <stop offset="0" stopColor="#c9c2a8" />
+            <stop offset=".48" stopColor="#b9b59d" />
+            <stop offset="1" stopColor="#c5b99c" />
+          </linearGradient>
+          <linearGradient id="map-river" x2="1" y2="0">
+            <stop offset="0" stopColor="#576e6b" />
+            <stop offset=".5" stopColor="#8da097" />
+            <stop offset="1" stopColor="#657b75" />
+          </linearGradient>
+          <pattern id="map-paper-fleck" width="32" height="32" patternUnits="userSpaceOnUse">
+            <circle cx="5" cy="7" r=".85" fill="#665841" opacity=".14" />
+            <circle cx="24" cy="21" r=".7" fill="#8b7553" opacity=".15" />
+            <path d="M11 29h5M27 4h2" stroke="#fff4d9" strokeWidth=".8" opacity=".45" />
           </pattern>
-          <pattern id="survey-woodland" width="16" height="16" patternUnits="userSpaceOnUse">
-            <path d="M8 2 4 10h8zM8 8v4" fill="#67705a" stroke="#465340" strokeWidth=".7" opacity=".78" />
+          <pattern id="map-ridge-hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(28)">
+            <path d="M0 0v9" stroke="#48513e" strokeWidth="1" opacity=".17" />
           </pattern>
-          <clipPath id="survey-map-clip">
-            <rect x={VIEW.inset} y={VIEW.inset} width={MAP_WIDTH} height={MAP_HEIGHT} />
-          </clipPath>
+          <pattern id="map-river-lines" width="16" height="9" patternUnits="userSpaceOnUse">
+            <path d="M0 3q4-3 8 0t8 0M-4 8q4-3 8 0t8 0" fill="none" stroke="#e0e2cb" strokeWidth=".8" opacity=".52" />
+          </pattern>
+          <pattern id="map-grid" width="36" height="36" patternUnits="userSpaceOnUse">
+            <path d="M36 0H0V36" fill="none" stroke="#5c5947" strokeWidth=".75" opacity=".2" />
+            <circle cx="0" cy="0" r="1.1" fill="#4f4938" opacity=".34" />
+          </pattern>
+          <clipPath id="valley-map-clip"><rect x={MAP.x} y={MAP.y} width={MAP.width} height={MAP.height} /></clipPath>
+          <filter id="map-marker-shadow" x="-30%" y="-30%" width="160%" height="160%">
+            <feDropShadow dx="0" dy="1.2" stdDeviation="1" floodColor="#20190f" floodOpacity=".28" />
+          </filter>
         </defs>
 
-        <rect width={VIEW.width} height={VIEW.height} fill="#c9bea3" />
-        <rect width={VIEW.width} height={VIEW.height} fill="url(#survey-paper-grain)" />
-        <rect x="9" y="9" width={VIEW.width - 18} height={VIEW.height - 18} fill="none" stroke="#78664c" strokeWidth="1" />
-        <rect x={VIEW.inset} y={VIEW.inset} width={MAP_WIDTH} height={MAP_HEIGHT} fill="#b8b49c" stroke="#5d503e" strokeWidth="1.2" />
+        <rect width={SHEET.width} height={SHEET.height} fill="#d8cdb4" />
+        <rect width={SHEET.width} height={SHEET.height} fill="url(#map-paper-fleck)" />
+        <rect x="9" y="9" width={SHEET.width - 18} height={SHEET.height - 18} fill="none" stroke="#6e5c43" strokeWidth="1" />
+        <rect x={MAP.x} y={MAP.y} width={MAP.width} height={MAP.height} fill="url(#map-ground)" stroke="#433b2d" strokeWidth="1.5" />
 
-        <g clipPath="url(#survey-map-clip)">
-          {/* Hill shade and the broken woodland edge enclose the village like the archive photograph. */}
-          <path d={`M${toX(-72)} ${toY(-78)} H${toX(76)} V${toY(-57)} Q${toX(38)} ${toY(-47)} ${toX(6)} ${toY(-61)} Q${toX(-28)} ${toY(-48)} ${toX(-72)} ${toY(-57)}Z`} fill="#aaa990" opacity=".63" />
-          <path d={`M${toX(-72)} ${toY(18)} Q${toX(-46)} ${toY(23)} ${toX(-55)} ${toY(62)} H${toX(-72)}Z`} fill="#989982" opacity=".48" />
-          <path d={`M${toX(48)} ${toY(-47)} Q${toX(72)} ${toY(-36)} ${toX(76)} ${toY(-12)} V${toY(62)} H${toX(57)} Q${toX(49)} ${toY(26)} ${toX(60)} ${toY(-4)}Z`} fill="#999b81" opacity=".48" />
-          <path d={`M${toX(-72)} ${toY(-78)} H${toX(76)} V${toY(-57)} Q${toX(38)} ${toY(-47)} ${toX(6)} ${toY(-61)} Q${toX(-28)} ${toY(-48)} ${toX(-72)} ${toY(-57)}Z`} fill="url(#survey-woodland)" opacity=".58" />
-          <path d={`M${toX(48)} ${toY(-47)} Q${toX(72)} ${toY(-36)} ${toX(76)} ${toY(-12)} V${toY(62)} H${toX(57)} Q${toX(49)} ${toY(26)} ${toX(60)} ${toY(-4)}Z`} fill="url(#survey-woodland)" opacity=".53" />
-          <path d={`M${toX(-72)} ${toY(18)} Q${toX(-46)} ${toY(23)} ${toX(-55)} ${toY(62)} H${toX(-72)}Z`} fill="url(#survey-woodland)" opacity=".48" />
-
-          {/* Topographic contours mark the uplands and the cemetery rise. */}
-          {[
-            [-2, -78, 57], [5, -77, 49], [7, -77, 39],
-            [-70, 18, 32], [-70, 18, 25],
-            [70, 8, 37], [70, 8, 30], [70, 8, 22],
-            [-34, -36, 13], [-34, -36, 9],
-          ].map(([x, z, radius], i) => (
-            <ellipse
-              key={`contour-${i}`}
-              cx={toX(x)}
-              cy={toY(z)}
-              rx={radius * SCALE_X}
-              ry={radius * SCALE_Y}
-              fill="none"
-              stroke="#786f57"
-              strokeWidth="1"
-              strokeDasharray={i % 3 === 0 ? '1 0' : '3 3'}
-              opacity=".42"
-            />
-          ))}
-
-          {/* Survey grid, clipped to the valley boundary. */}
-          {Array.from({ length: 9 }, (_, i) => {
-            const x = VIEW.inset + (MAP_WIDTH / 8) * i;
-            return <path key={`grid-x-${i}`} d={`M${x} ${VIEW.inset}V${VIEW.height - VIEW.inset}`} stroke="#72684f" strokeWidth=".6" opacity=".2" />;
+        <g clipPath="url(#valley-map-clip)">
+          {/* Shaded mountain skirts establish a valley instead of a flat grid. */}
+          {woodedRidges.map(([x, z, width, height, side], i) => {
+            const cx = toX(x + width / 2);
+            const cy = toY(z + height / 2);
+            const rx = (width / (VALLEY.x2 - VALLEY.x1)) * MAP.width / 2;
+            const ry = (height / (VALLEY.z2 - VALLEY.z1)) * MAP.height / 2;
+            return <g key={side}>
+              <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="#8d9277" opacity={i === 0 ? '.32' : '.28'} />
+              <ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="url(#map-ridge-hatch)" opacity=".68" />
+            </g>;
           })}
-          {Array.from({ length: 9 }, (_, i) => {
-            const y = VIEW.inset + (MAP_HEIGHT / 8) * i;
-            return <path key={`grid-y-${i}`} d={`M${VIEW.inset} ${y}H${VIEW.width - VIEW.inset}`} stroke="#72684f" strokeWidth=".6" opacity=".2" />;
-          })}
+          {/* The fir-covered crest at the north borrows the misty mountain silhouette from the title art. */}
+          <path d={`M${toX(-72)} ${toY(-57)}  L${toX(-59)} ${toY(-67)}  L${toX(-48)} ${toY(-60)}  L${toX(-35)} ${toY(-74)}  L${toX(-23)} ${toY(-62)}  L${toX(-8)} ${toY(-76)}  L${toX(5)} ${toY(-61)}  L${toX(18)} ${toY(-72)}  L${toX(33)} ${toY(-60)}  L${toX(47)} ${toY(-69)}  L${toX(61)} ${toY(-58)}  L${toX(76)} ${toY(-64)} V${toY(-78)} H${toX(-72)}Z`} fill="#737a64" opacity=".62" />
+          <path d={`M${toX(-72)} ${toY(-57)}  L${toX(-59)} ${toY(-67)}  L${toX(-48)} ${toY(-60)}  L${toX(-35)} ${toY(-74)}  L${toX(-23)} ${toY(-62)}  L${toX(-8)} ${toY(-76)}  L${toX(5)} ${toY(-61)}  L${toX(18)} ${toY(-72)}  L${toX(33)} ${toY(-60)}  L${toX(47)} ${toY(-69)}  L${toX(61)} ${toY(-58)}  L${toX(76)} ${toY(-64)}`} fill="none" stroke="#f0e7d0" strokeWidth="1.2" opacity=".62" />
 
-          {/* Trees trace the dense edges while leaving the surveyed village and paths readable. */}
-          {forest.map(([x, z], i) => (
-            <path key={`tree-${i}`} d={`M${toX(x)} ${toY(z) - 3.2}l-2.4 4.5h4.8z`} fill="#3f4c3a" opacity=".7" />
-          ))}
+          {contours.map(([x, z, rx, ry], i) => <ellipse
+            key={`contour-${i}`} cx={toX(x)} cy={toY(z)} rx={rx * SCALE_X} ry={ry * SCALE_Y}
+            fill="none" stroke="#716a52" strokeWidth="1.1" strokeDasharray={i % 2 ? '2 4' : 'none'} opacity=".4"
+          />)}
 
-          {/* The stream is drawn to measured scale; roads cross it at the village and cemetery bridges. */}
-          <path
-            d={`M${toX(-25)} ${toY(-78)} C${toX(-21)} ${toY(-48)} ${toX(-28)} ${toY(-17)} ${toX(-24)} ${toY(8)} S${toX(-22)} ${toY(42)} ${toX(-25)} ${toY(62)}`}
-            fill="none"
-            stroke="#566b68"
-            strokeWidth={4.4 * ((SCALE_X + SCALE_Y) / 2) + 3}
-            opacity=".75"
-          />
-          <path
-            d={`M${toX(-25)} ${toY(-78)} C${toX(-21)} ${toY(-48)} ${toX(-28)} ${toY(-17)} ${toX(-24)} ${toY(8)} S${toX(-22)} ${toY(42)} ${toX(-25)} ${toY(62)}`}
-            fill="none"
-            stroke="#819a91"
-            strokeWidth={4.4 * ((SCALE_X + SCALE_Y) / 2)}
-            opacity=".92"
-          />
+          <rect x={MAP.x} y={MAP.y} width={MAP.width} height={MAP.height} fill="url(#map-grid)" />
 
-          {/* Packed earth lanes carry the same measured widths as the 3D world. */}
+          {/* A fine tree engraving marks the boundary forest while keeping the roads legible. */}
+          {treeMarks.map(([x, z], i) => <Pine key={`tree-${i}`} x={toX(x)} y={toY(z)} scale={i % 4 === 0 ? 1.22 : .82} ink={i % 3 === 0 ? '#3c4938' : '#566149'} />)}
+
+          {/* The stream and its crossings follow the same valley survey as the playable world. */}
+          <path d={`M${toX(-25)} ${toY(-78)} C${toX(-21)} ${toY(-48)} ${toX(-28)} ${toY(-17)} ${toX(-24)} ${toY(8)} S${toX(-22)} ${toY(42)} ${toX(-25)} ${toY(62)}`}
+            fill="none" stroke="#394f50" strokeWidth={4.4 * ((SCALE_X + SCALE_Y) / 2) + 6} opacity=".72" />
+          <path d={`M${toX(-25)} ${toY(-78)} C${toX(-21)} ${toY(-48)} ${toX(-28)} ${toY(-17)} ${toX(-24)} ${toY(8)} S${toX(-22)} ${toY(42)} ${toX(-25)} ${toY(62)}`}
+            fill="none" stroke="url(#map-river)" strokeWidth={4.4 * ((SCALE_X + SCALE_Y) / 2)} />
+          <path d={`M${toX(-25)} ${toY(-78)} C${toX(-21)} ${toY(-48)} ${toX(-28)} ${toY(-17)} ${toX(-24)} ${toY(8)} S${toX(-22)} ${toY(42)} ${toX(-25)} ${toY(62)}`}
+            fill="none" stroke="url(#map-river-lines)" strokeWidth={4.4 * ((SCALE_X + SCALE_Y) / 2) - 1} />
+
+          {/* Main roads have darker ink edges, warm paper fill and broken cartographer centre marks. */}
           {lanes.map(([x1, z1, x2, z2, width], i) => {
             const roadWidth = width * ((SCALE_X + SCALE_Y) / 2);
-            return (
-              <g key={`road-${i}`}>
-                <line x1={toX(x1)} y1={toY(z1)} x2={toX(x2)} y2={toY(z2)} stroke="#594a39" strokeWidth={roadWidth + 3} strokeLinecap="round" opacity=".92" />
-                <line x1={toX(x1)} y1={toY(z1)} x2={toX(x2)} y2={toY(z2)} stroke={i < MAIN_LANES.length ? '#a78d68' : '#b79f7a'} strokeWidth={roadWidth} strokeLinecap="round" />
-                <line x1={toX(x1)} y1={toY(z1)} x2={toX(x2)} y2={toY(z2)} stroke="#dfcba4" strokeWidth="1.2" strokeDasharray="2 5" strokeLinecap="round" opacity=".55" />
-              </g>
-            );
+            const d = `M${toX(x1)} ${toY(z1)}L${toX(x2)} ${toY(z2)}`;
+            return <g key={`road-${i}`}>
+              <path d={d} fill="none" stroke="#534332" strokeWidth={roadWidth + 2.8} strokeLinecap="round" strokeLinejoin="round" opacity=".9" />
+              <path d={d} fill="none" stroke={i >= OUTER_LANES.length + CORE_LANES.length ? '#b4976d' : '#c3a77c'} strokeWidth={roadWidth} strokeLinecap="round" strokeLinejoin="round" />
+              <path d={d} fill="none" stroke="#eadbb9" strokeWidth="1.1" strokeDasharray="2 6" strokeLinecap="round" opacity=".8" />
+            </g>;
           })}
 
-          {/* House roofs orient toward the same lanes as the constructed village. */}
-          {CORE_HOME_CENTRES.map(([x, z], i) => (
-            <g key={`core-home-${i}`} transform={`translate(${toX(x)} ${toY(z)}) rotate(${i % 2 ? 4 : -4})`}>
-              <rect x="-7" y="-5" width="14" height="10" rx="1" fill="#8b684d" stroke="#4e4033" strokeWidth="1.2" />
-              <path d="M-7 -1 0 -6 7 -1" fill="none" stroke="#d1b48a" strokeWidth="1.3" />
-            </g>
-          ))}
-          {OUTER_HOMES.map(([x, z, yaw], i) => (
-            <g key={`outer-home-${i}`} transform={`translate(${toX(x)} ${toY(z)}) rotate(${-yaw * 180 / Math.PI})`}>
-              <rect x="-5.2" y="-3.8" width="10.4" height="7.6" rx=".8" fill="#96795a" stroke="#564735" strokeWidth="1" />
-              <path d="M-5.2 -0.4 0 -4.3 5.2 -0.4" fill="none" stroke="#d1b48a" strokeWidth="1" />
+          {/* Timber roofs echo the archive photographs and sit on the real house centres. */}
+          {CORE_HOME_CENTRES.map(([x, z], i) => <g key={`home-${i}`} transform={`translate(${toX(x)} ${toY(z)}) rotate(${i % 2 ? 4 : -4})`}>
+            <path d="M-7 0 0 -5.3 7 0V5H-7Z" fill="#88694d" stroke="#45382a" strokeWidth="1.2" />
+            <path d="M-7 0 0 -5.3 7 0" fill="none" stroke="#d2b88d" strokeWidth="1.3" />
+            <path d="M0 -4v9" stroke="#534435" strokeWidth=".8" />
+          </g>)}
+          {OUTER_HOMES.map(([x, z, yaw], i) => <g key={`outer-home-${i}`} transform={`translate(${toX(x)} ${toY(z)}) rotate(${-yaw * 180 / Math.PI})`}>
+            <path d="M-5.3 0 0 -4.2 5.3 0V3.8H-5.3Z" fill="#967b59" stroke="#554634" strokeWidth="1" />
+            <path d="M-5.3 0 0 -4.2 5.3 0" fill="none" stroke="#dfc89c" strokeWidth=".9" />
+          </g>)}
+
+          {/* Simple civic symbols identify the distinctive archive locations at map scale. */}
+          <g transform={`translate(${toX(0)} ${toY(4)})`}>
+            <path d="M-13 3 0 -9 13 3V13H-13Z" fill="#6e4e39" stroke="#3d3024" strokeWidth="1.6" />
+            <path d="M-5 13V4H5V13M0 -9v-6m-3 3h6" fill="none" stroke="#e4d3b2" strokeWidth="1.5" />
+          </g>
+          <g transform={`translate(${toX(CLINIC.x)} ${toY(CLINIC.z)})`}>
+            <path d="M-9 5V-4L0-10 9-4V5Z" fill="#d1c39f" stroke="#564733" strokeWidth="1.2" />
+            <path d="M0-6v8m-4-4h8" stroke="#9d4133" strokeWidth="2" />
+          </g>
+          <g transform={`translate(${toX(-36)} ${toY(8)})`}>
+            <circle r="8" fill="#d0c09b" stroke="#554635" strokeWidth="1.3" />
+            <path d="M-5-3h10M-5 0h10M-5 3h10M0-7v14" stroke="#706049" strokeWidth=".8" />
+          </g>
+          {Object.values(OUTPOSTS).map((place) => (
+            <g key={place.name} transform={`translate(${toX(place.x)} ${toY(place.z)})`}>
+              <path d="M-8 1 0-6 8 1V6H-8Z" fill="#7d6046" stroke="#3e3125" strokeWidth="1.2" />
+              <path d="M-8 1 0-6 8 1" fill="none" stroke="#e3cd9f" strokeWidth="1.1" />
+              <path d="M-2 6V2H2V6" fill="none" stroke="#eadbbd" strokeWidth=".9" />
             </g>
           ))}
 
-          <MapLabel x={toX(-50)} y={toY(-56)}>KARAÇAM ORMANI</MapLabel>
-          <MapLabel x={toX(62)} y={toY(18)}>DOĞU SIRTI</MapLabel>
-          <MapLabel x={toX(-38)} y={toY(-45)}>MEZARLIK TEPESİ</MapLabel>
+          {/* Terrain names are printed like handwritten notes on the original field sheet. */}
+          <MapText x={toX(-49)} y={toY(-52)} size={9}>KARAÇAM ORMANI</MapText>
+          <MapText x={toX(62)} y={toY(18)} size={9}>DOĞU SIRTI</MapText>
+          <MapText x={toX(-39)} y={toY(-46)} size={8}>MEZARLIK TEPESİ</MapText>
+          <MapText x={toX(-24)} y={toY(16)} anchor="start" size={8}>DERE</MapText>
+          <MapText x={toX(2)} y={toY(-18)} size={8}>KUZDAĞ</MapText>
 
-          {/* Landmarks are numbered like the location records in the title screen archive. */}
-          {LANDMARKS.map((landmark, i) => {
-            const seen = discoveredDistricts.includes(landmark.id);
-            const x = toX(landmark.x);
-            const y = toY(landmark.z);
-            const code = String(i + 1).padStart(2, '0');
-            return (
-              <g key={landmark.id} aria-label={`${landmark.name}${seen ? ', keşfedildi' : ''}`}>
-                <circle cx={x} cy={y} r="11" fill={seen ? '#4b5945' : '#6e5841'} stroke="#282219" strokeWidth="1.7" />
-                <circle cx={x} cy={y} r="8.2" fill="none" stroke="#d7c69f" strokeWidth=".8" />
-                <text x={x} y={y + 3.2} textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="9" fontWeight="700" fill="#f0e3c6">{code}</text>
-              </g>
-            );
-          })}
+          {LANDMARKS.map((landmark, index) => <g key={landmark.id} filter="url(#map-marker-shadow)">
+            <LandmarkStamp
+              id={landmark.id}
+              name={landmark.name}
+              x={landmark.x}
+              z={landmark.z}
+              index={index}
+              discovered={discoveredDistricts.includes(landmark.id)}
+            />
+          </g>)}
 
           <g transform={`translate(${toX(MUHTAR.x)} ${toY(MUHTAR.z)})`} aria-label="Muhtarlık">
-            <rect x="-6" y="-6" width="12" height="12" fill="#a34235" stroke="#38291f" strokeWidth="1.5" />
-            <path d="M-4 0h8M0 -4v8" stroke="#f0dfbd" strokeWidth="1" />
-            <MapLabel x={10} y={-8} anchor="start">MUHTARLIK</MapLabel>
+            <rect x="-7" y="-7" width="14" height="14" fill="#a13d32" stroke="#34281f" strokeWidth="1.4" />
+            <path d="M-4 0h8M0-4v8" stroke="#f4e7ce" strokeWidth="1.2" />
+            <MapText x={10} y={-8} anchor="start" size={8}>MUHTARLIK</MapText>
           </g>
 
-          {showEscape && (
-            <g transform={`translate(${toX(ESCAPE_POINT.x)} ${toY(ESCAPE_POINT.z)})`} aria-label="Kaçış noktası">
-              <circle r="12" fill="#9e382c" fillOpacity=".18" stroke="#9e382c" strokeWidth="2" strokeDasharray="3 2" />
-              <path d="M0 -6 5 5 0 2 -5 5Z" fill="#9e382c" stroke="#f1e3c9" strokeWidth="1" />
-              <MapLabel x={0} y={-16}>PERON · ÇIKIŞ</MapLabel>
-            </g>
-          )}
+          {showEscape && <g transform={`translate(${toX(ESCAPE_POINT.x)} ${toY(ESCAPE_POINT.z)})`} aria-label="Kaçış noktası">
+            <circle r="16" fill="#a13d32" fillOpacity=".12" stroke="#a13d32" strokeWidth="2" strokeDasharray="4 3" />
+            <path d="M0 -8 7 7 0 3 -7 7Z" fill="#a13d32" stroke="#f1e3c9" strokeWidth="1.2" />
+            <MapText x={0} y={-22} size={8}>PERON · ÇIKIŞ</MapText>
+          </g>}
 
-          <g transform={`translate(${toX(playerMapPos.x)} ${toY(playerMapPos.z)})`} aria-label="Bulunduğunuz yer">
-            <circle r="11" fill="#9e382c" fillOpacity=".16" />
-            <path d="M0 -9 6 6 0 3 -6 6Z" transform={`rotate(${-playerMapPos.yaw * 180 / Math.PI})`} fill="#a4362b" stroke="#f7ebd2" strokeWidth="1.8" />
+          <g transform={`translate(${toX(playerMapPos.x)} ${toY(playerMapPos.z)})`} aria-label="Bulunduğunuz yer" filter="url(#map-marker-shadow)">
+            <circle r="14" fill="#a33d32" fillOpacity=".16" />
+            <circle r="7.5" fill="#a33d32" stroke="#f1e6d1" strokeWidth="1.2" />
+            <path d="M0 -10 6 6 0 3 -6 6Z" transform={`rotate(${-playerMapPos.yaw * 180 / Math.PI})`} fill="#a33d32" stroke="#fff3dc" strokeWidth="1.7" />
           </g>
         </g>
 
-        {/* North arrow and coordinate marginalia echo the archival field sheet. */}
-        <g transform="translate(39 43)">
-          <text x="0" y="-9" textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="9" fontWeight="700" fill="#342b20">K</text>
-          <path d="M0 -4 5 9 0 6 -5 9Z" fill="#a33e32" stroke="#342b20" strokeWidth=".8" />
+        {/* North arrow and scale sit outside the terrain ink, as in a printed map margin. */}
+        <g transform={`translate(${SHEET.width - 43} 92)`}>
+          <text x="0" y="-13" textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="11" fontWeight="700" fill="#382e22">K</text>
+          <path d="M0 -8 7 9 0 5 -7 9Z" fill="#a23c32" stroke="#3f3025" strokeWidth="1" />
+          <path d="M0 7v18" stroke="#3f3025" strokeWidth="1" />
         </g>
-        <g transform={`translate(${VIEW.width - 94} ${VIEW.height - 36})`}>
-          <path d={`M0 0h${20 * SCALE_X}M0 -3v6M${20 * SCALE_X} -3v6`} stroke="#42382a" strokeWidth="1.4" />
-          <text x={10 * SCALE_X} y="-6" textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="8" fill="#42382a">20 m</text>
+        <g transform={`translate(${SHEET.width - 122} ${SHEET.height - 37})`}>
+          <path d={`M0 0h${scaleBar}M0-4v8M${scaleBar}-4v8`} stroke="#40372a" strokeWidth="1.4" />
+          <text x={scaleBar / 2} y="-7" textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="9" fontWeight="700" fill="#40372a">20 METRE</text>
         </g>
+        <g transform="translate(43 538) rotate(-9)">
+          <circle r="19" fill="none" stroke="#9a4438" strokeWidth="1.3" opacity=".84" />
+          <circle r="15" fill="none" stroke="#9a4438" strokeWidth=".7" strokeDasharray="2 2" opacity=".84" />
+          <text x="0" y="-1" textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="5.5" fontWeight="700" letterSpacing=".5" fill="#984438">KUZDAĞ</text>
+          <text x="0" y="6" textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="4.5" fill="#984438">ARŞİV · 1993</text>
+        </g>
+        <text x={SHEET.width / 2} y={SHEET.height - 13} textAnchor="middle" fontFamily="var(--mono), monospace" fontSize="8" letterSpacing="1.5" fill="#554937">SAHA NOTU 01 · KUZEY YUKARIDADIR · KIRMIZI OK YÖNÜNÜZÜ GÖSTERİR</text>
       </svg>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#77664d]/50 px-2 pt-2 font-mono text-[9px] uppercase tracking-[.08em] text-[#514634]">
-        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-[3px] w-5 bg-[#a78d68] ring-1 ring-[#594a39]" />Yol</span>
-        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-[3px] w-5 bg-[#819a91]" />Dere</span>
-        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-full border border-[#282219] bg-[#6e5841]" />Bölge</span>
-        <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 bg-[#9e382c]" />Siz</span>
+
+      <div className="relative mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-[#79684e]/55 px-1 pt-2 font-mono text-[8px] uppercase tracking-[.12em] text-[#493d2d] sm:text-[9px]">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <span className="inline-flex items-center gap-1.5"><i className="inline-block h-[3px] w-5 bg-[#b4976d] ring-1 ring-[#534332]" />Yol ağı</span>
+          <span className="inline-flex items-center gap-1.5"><i className="inline-block h-[3px] w-5 bg-[#84978c] ring-1 ring-[#394f50]" />Dere</span>
+          <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-full border border-[#4a3c2c] bg-[#445642]" />Keşfedildi</span>
+          <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-full border border-[#4a3c2c] bg-[#8c7152]" />Uzak bölge</span>
+        </div>
+        <span className="tracking-[.09em]">{discoveredDistricts.length} / {LANDMARKS.length} bölge kaydedildi</span>
       </div>
     </figure>
   );
 }
+
