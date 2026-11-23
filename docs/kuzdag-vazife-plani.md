@@ -15,7 +15,9 @@ Kullanıcının yeni yönü: Dermanlı köyü tamamen kaldırılacak; beğenilen
 - Derleme, TypeScript kontrolü ve 67 birim testi geçti. Gölge alanı oyuncuyu takip eder; asgari grafikte yerel ışık büyük yüzeylerde artık piksel düzeyinde hesaplanır. Dört kalite seviyesi tarayıcıda shader hatası olmadan işlendi.
 - Otomatik tarayıcı senaryoları Kuzdağ açılışı ve kayıt korumasını; üç vaka, sekiz bölüm ve üç sonu; beş vazifenin sahne hedefleri ve klavye ile tamamlanmasını kontrol etti. Vazife senaryosu etkileşimlerde ışınlanma kullanır. Buna ek olarak, çarpışma alanında tüm görev hedefleri arası bağlantı örneklendi ve cenazeyi taşıyarak açık gasilhane kapısından iki yönlü yürüyüş denendi.
 - Cenaze taşınırken koşma engellendi ve hız eski cenaze nakliyle eşitlendi. Bir yıkama sahnesi otomatik görüntüyle kontrol edildi; bu, tam görsel değerlendirme yerine geçmez.
+- 23 Kasım 2026: `codex/kuzdag-survey-map` dalındaki köy haritası üretime yayımlandı. Canlı tarayıcıda yeni oturumun açılışı, defter haritası, ilk cenazeyi alma, açık kapıdan gasilhaneye taşıma ve teneşire bırakma gerçek yürüyüşle denendi. Bu akışta tarayıcı konsolunda hata veya uyarı görülmedi.
+- 23 Kasım 2026: Gölge haritası artık Three.js'in desteklenen `PCFShadowMap` türünü kullanıyor. Canlı tarayıcıda asgari, düşük, dengeli, yüksek ve otomatik kalite seçimleri denendi; konsola hata veya uyarı yazılmadı. Test, TypeScript ve üretim derlemesi aynı Vercel derlemesinde başarılı oldu.
 
 ## Kalanlar
-- Baştan sona doğal oyun yürüyüşü, farklı cihazlar ve tam görsel değerlendirme henüz yapılmadı; kullanıcı cihaz/tasarım değerlendirmesini şimdilik erteledi.
-- Son kontroller ve oyun tamamlanmadan production deploy yapma.
+- Önsözden son perona kadar baştan sona doğal oyun yürüyüşü henüz tamamlanmadı; otomatik senaryo daha sonraki vaka, vazife ve finalleri ışınlanmayla kapsıyor.
+- Farklı cihazlarda ve çözünürlüklerde kontrol ile sahnenin tam görsel değerlendirmesi henüz yapılmadı.
