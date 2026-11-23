@@ -58,6 +58,7 @@ const INITIAL_HUD: GameHudState = {
   isNotebookOpen: false,
   isMuted: false,
   isPointerLocked: false,
+  hasLooked: false,
   isHiding: false,
   dangerProximity: 0,
   windowAnomalyActive: false,

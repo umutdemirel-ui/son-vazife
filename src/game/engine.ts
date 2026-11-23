@@ -285,6 +285,7 @@ export class SonVazifeEngine {
   private lastPointerX = 0;
   private lastPointerY = 0;
   private isPointerLocked = false;
+  private hasLooked = false;
   private lastPointerLockExitTime = -2000;
   private controlSettings: ControlSettings = { ...DEFAULT_CONTROL_SETTINGS };
 
@@ -3048,6 +3049,10 @@ export class SonVazifeEngine {
       const dy = e.clientY - this.lastPointerY;
       this.lastPointerX = e.clientX;
       this.lastPointerY = e.clientY;
+      if (!this.hasLooked && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) {
+        this.hasLooked = true;
+        this.pushHudState(true);
+      }
       this.targetYaw -= dx * 0.0035 * sens;
       this.targetPitch = THREE.MathUtils.clamp(
         this.targetPitch - dy * 0.0035 * sens * ySign,
@@ -4511,6 +4516,7 @@ export class SonVazifeEngine {
       isNotebookOpen: this.isNotebookOpen,
       isMuted: this.audio.isMuted(),
       isPointerLocked: this.isPointerLocked,
+      hasLooked: this.hasLooked,
       isHiding,
       dangerProximity,
       windowAnomalyActive: this.windowAnomalyActive,

@@ -224,7 +224,7 @@ export const GameHud: React.FC<GameHudProps> = ({
                 {hud.interactPrompt ? (
                   <p className="interact-label">{hud.interactPrompt}</p>
                 ) : (
-                  !hud.isPointerLocked && !isTouchDevice && <p>Bakış için tıkla veya sürükle</p>
+                  !hud.isPointerLocked && !hud.hasLooked && !isTouchDevice && <p>Bakış için tıkla veya sürükle</p>
                 )}
               </div>
             </div>

@@ -175,6 +175,7 @@ export interface GameHudState {
   isNotebookOpen: boolean;
   isMuted: boolean;
   isPointerLocked: boolean;
+  hasLooked: boolean;
   isHiding: boolean;
   dangerProximity: number;
   windowAnomalyActive: boolean;
