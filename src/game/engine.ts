@@ -887,7 +887,7 @@ export class SonVazifeEngine {
     this.renderer.shadowMap.enabled = !compact;
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.needsUpdate = this.renderer.shadowMap.enabled;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.container.appendChild(this.renderer.domElement);
 
