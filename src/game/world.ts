@@ -1,9 +1,28 @@
+import { buildHome, type Home } from './homes';
+import { CEMETERY, CEMETERY_GRAVES } from './cemetery';
+import { receivingBay, STRETCHERS } from './funerary';
+import { NightArt, watcherFigure } from './nightArt';
+import { CLINIC, MUHTAR, CORE_HOME_CENTRES, OUTER_HOMES, type Outpost } from './valley';
+import { buildOutposts } from './outposts';
+import { bakeStaticChildrenByMaterial } from './meshBatch';
 import * as THREE from 'three';
+import { createModelLoader } from './modelLoader';
+import { houseFootprint, translateColliders, type BoxCollider } from './collision';
+import { ResidentVisual } from './residentVisual';
+import { VillageCraft, type HouseStyle } from './villageCraft';
 import { AutopsyBodyRefs, createAutopsyCadaverOverlay } from './autopsy';
-import { CC0AssetLibrary } from './cc0Assets';
+import {
+  BUILD_KIT,
+  type KitId,
+  type DressingId,
+  type ModelId,
+  type WorkshopAssets,
+} from './workshopAssets';
+import type { Allocation, RenderTier } from './quality';
+import { distantShell, shellMaterial } from './distantShell';
+import { VisibilityCells } from './visibilityCells';
 import {
   AbandonedHouseRefs,
-  BoxCollider,
   CemeteryCryptRefs,
   ClinicRefs,
   createAbandonedHouse,
@@ -13,33 +32,23 @@ import {
   createCopperEwerAndSoap,
   createDistrictSignpost,
   createFirewoodStack,
-  createGraveyardCluster,
   createKaraBasma,
   createMosqueAndGasilhane,
   createMuhtarHouse,
   createSisGozcusu,
-  createStoneCourtyardWall,
-  createStoneFountain,
   createStreetLamp,
   createUtilityPole,
   createVillageBench,
-  createVillageHouse,
   createWatermillAndBridge,
   createWreckedMinibus,
   GasilhaneRefs,
-  KaraBasmaRefs,
   MillAndBridgeRefs,
   MuhtarRefs,
   WreckedMinibusRefs,
 } from './models';
-import {
-  attachCC0RigToNpc,
-  buildProceduralVillagerFallback,
-  NpcRuntimeActor,
-  VILLAGE_NPCS,
-} from './npcs';
-import { buildMountainTerrainAndForest, groundHeightAt } from './terrain';
-import { ProceduralTextureSet } from './textures';
+import { NpcRuntimeActor, VILLAGE_NPCS } from './npcs';
+import { buildMountainTerrainAndForest, exteriorFloorAt, groundHeightAt } from './terrain';
+import { VillageTextures } from './textures';
 import { AutopsyCaseId, NpcId } from './types';
 
 export interface InteractableTarget {
@@ -59,6 +68,8 @@ export interface VirtualPointLight {
 
 export interface WorldHandles {
   colliders: BoxCollider[];
+  homes: Home[];
+  outpostDoors: Record<Outpost, { pivot: THREE.Group; open: boolean; collider: BoxCollider }>;
   interactables: InteractableTarget[];
   interactableMeshes: THREE.Object3D[];
   itemMeshes: Record<string, THREE.Object3D>;
@@ -77,7 +88,13 @@ export interface WorldHandles {
     anchors: Record<AutopsyCaseId, { examAnchor: THREE.Object3D; flashAnchor: THREE.Object3D }>;
   };
   npcs: Record<NpcId, NpcRuntimeActor>;
-  karaBasma: KaraBasmaRefs;
+  karaBasma: ReturnType<typeof watcherFigure>;
+  nightArt: NightArt;
+  receiving: ReturnType<typeof receivingBay>;
+  transportBed: THREE.Group;
+  keeper: ReturnType<typeof buildOutposts>['keeper'];
+  setSignal: (aligned: boolean) => void;
+  poseWatchers: (time: number, karaFollows: boolean, mistFollows: boolean) => void;
   sisGozcusu: THREE.Group;
   streetLights: Array<{
     light: THREE.PointLight;
@@ -86,9 +103,14 @@ export interface WorldHandles {
   }>;
   virtualLights: VirtualPointLight[];
   worldLightPool: THREE.PointLight[];
+  washStations: { soap: THREE.Group; ewer: THREE.Group; camphor: THREE.Group; shroud: THREE.Group };
+  funeralPlot: THREE.Mesh;
+  dutyShelves: THREE.Mesh[];
+  apertureLights: { window: THREE.MeshBasicMaterial; officeDoor: THREE.MeshBasicMaterial };
   sunKeyLight: THREE.DirectionalLight;
   hemiLight: THREE.HemisphereLight;
   moonMesh: THREE.Mesh;
+  horizon: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial>;
   mistSprites: THREE.Sprite[];
   rainPoints: THREE.Points;
   rainGeo: THREE.BufferGeometry;
@@ -98,25 +120,33 @@ export interface WorldHandles {
     uOpacity: { value: number };
     uSpeed: { value: number };
   };
-  applyCC0Assets: (cc0: CC0AssetLibrary) => void;
+  applyModel: (assets: WorkshopAssets, id: ModelId) => void;
+  updateDetail: (eye: THREE.Vector3, tier: RenderTier) => void;
   dispose: () => void;
 }
 
 export function buildVillageWorld(
   scene: THREE.Scene,
-  textures: ProceduralTextureSet,
+  textures: VillageTextures,
   getLabel: (id: string) => string | null,
+  allocation: Allocation,
+  residentReady: (root: THREE.Object3D) => void,
 ): WorldHandles {
   const disposables: Array<{ dispose: () => void }> = [];
+  const craft = new VillageCraft(textures);
+  const cells = new VisibilityCells();
+  const nightArt = new NightArt(allocation !== 'full', residentReady);
+  disposables.push(nightArt);
+  disposables.push(craft);
   const colliders: BoxCollider[] = [];
   const interactables: InteractableTarget[] = [];
   const itemMeshes: Record<string, THREE.Object3D> = {};
 
   // 1. Lighting Rig (Warm/Cool contrast + FogExp2)
-  const hemiLight = new THREE.HemisphereLight(0x52657d, 0x262119, 0.72);
+  const hemiLight = new THREE.HemisphereLight(0xb0bac5, 0x796b58, 1.18);
   scene.add(hemiLight);
 
-  const sunKeyLight = new THREE.DirectionalLight(0xc49c74, 1.35);
+  const sunKeyLight = new THREE.DirectionalLight(0xe6c19d, 1.15);
   sunKeyLight.position.set(18, 26, 22);
   sunKeyLight.castShadow = true;
   sunKeyLight.shadow.mapSize.set(1024, 1024);
@@ -128,10 +158,43 @@ export function buildVillageWorld(
   sunKeyLight.shadow.camera.far = 90;
   sunKeyLight.shadow.bias = -0.0005;
   sunKeyLight.shadow.normalBias = 0.02;
-  scene.add(sunKeyLight);
+  scene.add(sunKeyLight, sunKeyLight.target);
 
-  scene.background = new THREE.Color(0x18202b);
-  scene.fog = new THREE.FogExp2(0x18202b, 0.029);
+  scene.background = new THREE.Color(0x59656c);
+  scene.fog = new THREE.FogExp2(0x59656c, 0.023);
+
+  // A camera-centred horizon retains the silhouettes of the surrounding valley,
+  // even on the low tier where distant geometry is clipped. No parallax on walking.
+  const skyMaterial = new THREE.MeshBasicMaterial({
+    side: THREE.BackSide,
+    fog: false,
+    depthWrite: false,
+    toneMapped: false,
+  });
+  // Draw the panorama only into uncovered pixels, including in a window of a walk-in room.
+  skyMaterial.onBeforeCompile = (s) => {
+    s.vertexShader = s.vertexShader.replace(
+      '#include <project_vertex>',
+      '#include <project_vertex>\n gl_Position.z=gl_Position.w;',
+    );
+  };
+  const horizon = new THREE.Mesh(
+    new THREE.SphereGeometry(59, allocation === 'minimum' ? 24 : 48, allocation === 'minimum' ? 8 : 18),
+    skyMaterial,
+  );
+  horizon.renderOrder = 1000;
+  horizon.frustumCulled = false;
+  horizon.visible = false;
+  const skyPhoto = new THREE.TextureLoader().load('/assets/archive/horizon.jpg', () => {
+    horizon.visible = true;
+  });
+  skyPhoto.colorSpace = THREE.SRGBColorSpace;
+  skyPhoto.wrapS = THREE.MirroredRepeatWrapping;
+  skyPhoto.repeat.x = 2;
+  skyMaterial.map = skyPhoto;
+  skyMaterial.color.setScalar(0.65);
+  scene.add(horizon);
+  disposables.push(horizon.geometry, skyMaterial, skyPhoto);
 
   // Subtle distant Moon in sky
   const moonGeo = new THREE.CircleGeometry(2.8, 24);
@@ -150,91 +213,138 @@ export function buildVillageWorld(
   disposables.push(moonGeo, moonMat);
 
   // 2. Expanded 5-District Terrain & Instanced Pine Forest
-  const terrainHandle = buildMountainTerrainAndForest(scene, textures);
+  const terrainHandle = buildMountainTerrainAndForest(scene, textures, craft.limestone, allocation);
   disposables.push(terrainHandle);
+  colliders.push(...terrainHandle.colliders);
 
   // 3. Mosque & Gasilhane Complex at (-10.5, y, 6.0)
   const gasilPos = new THREE.Vector3(-10.5, groundHeightAt(-10.5, 6.0), 6.0);
-  const gasil = createMosqueAndGasilhane(textures);
+  const gasil = createMosqueAndGasilhane(textures, craft, nightArt);
   gasil.group.position.copy(gasilPos);
-  scene.add(gasil.group);
+  cells.add(scene, gasil.group, 34, 55);
 
   // Case I Forensic Overlay aligned directly onto Gasilhane Tenesir Slab
-  const gasilAutopsy = createAutopsyCadaverOverlay('case_arif', 0xa69c90, 0x3b362e, -0.885);
-  gasilAutopsy.group.position.set(0, 0.015, 0);
-  gasilAutopsy.group.visible = false;
+  const gasilAutopsy = createAutopsyCadaverOverlay('case_arif', nightArt, -0.862);
   gasil.deceasedGroup.add(gasilAutopsy.group);
+  nightArt.near('arif', gasilPos.x, gasilPos.z, 22);
+  nightArt.near('mahmut', CLINIC.x, CLINIC.z, 23);
+  nightArt.near('yolcu', -34, -36, 22);
+  const receiving = receivingBay(gasil.group, nightArt, craft);
+  for (const { x, z } of Object.values(STRETCHERS))
+    colliders.push({
+      minX: gasilPos.x + x - 1.08,
+      maxX: gasilPos.x + x + 1.08,
+      minZ: gasilPos.z + z - 0.36,
+      maxZ: gasilPos.z + z + 0.36,
+    });
 
-  colliders.push(
-    { minX: -14.1, maxX: -6.9, minZ: 2.55, maxZ: 3.05 }, // Gasil North
-    { minX: -14.1, maxX: -6.9, minZ: 8.95, maxZ: 9.45 }, // Gasil South
-    { minX: -14.15, maxX: -13.65, minZ: 2.6, maxZ: 9.4 }, // Gasil West
-    { minX: -7.35, maxX: -6.85, minZ: 2.6, maxZ: 5.2 }, // Gasil East-North
-    { minX: -7.35, maxX: -6.85, minZ: 6.8, maxZ: 9.4 }, // Gasil East-South
-    { minX: -11.75, maxX: -9.25, minZ: 5.35, maxZ: 6.65 }, // Marble Tenesir Slab
-    { minX: -14.1, maxX: -6.9, minZ: -2.0, maxZ: 2.6 }, // Mosque body
-  );
+  // Independent outdoor transfer stretcher, clear of the entrance and village lane.
+  const transportBed = new THREE.Group();
+  transportBed.position.set(-4.4, groundHeightAt(-4.4, 3.7), 3.7);
+  const bedMaterials = [craft.wood, craft.metal];
+  const bedPart = (w: number, h: number, d: number, x: number, y: number, z: number, material: THREE.Material) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    mesh.position.set(x, y, z); transportBed.add(mesh); disposables.push(mesh.geometry);
+  };
+  bedPart(2.05, 0.12, 0.8, 0, 0.72, 0, bedMaterials[0]);
+  for (const x of [-0.8, 0.8]) for (const z of [-0.3, 0.3]) bedPart(0.07, 0.7, 0.07, x, 0.35, z, bedMaterials[1]);
+  cells.add(scene, transportBed, 30, 50);
+  colliders.push({ minX: -5.425, maxX: -3.375, minZ: 3.3, maxZ: 4.1 });
 
-  // Mosque Graveyard beside Mosque
-  const graveyard = createGraveyardCluster(textures);
-  graveyard.position.set(-10.6, groundHeightAt(-10.6, -4.2), -4.2);
-  scene.add(graveyard);
+  colliders.push(...translateColliders(gasilPos, [
+    { minX: -3.6, maxX: 3.6, minZ: -3.45, maxZ: -2.95 }, // Gasil North
+    { minX: -3.6, maxX: 3.6, minZ: 4.15, maxZ: 4.65 }, // Gasil South
+    { minX: -3.65, maxX: -3.15, minZ: -3.4, maxZ: 4.6 }, // Gasil West
+    { minX: 3.15, maxX: 3.65, minZ: -3.4, maxZ: -0.8 }, // Gasil East-North
+    { minX: 3.15, maxX: 3.65, minZ: 0.8, maxZ: 4.6 }, // Gasil East-South
+    { minX: -1.25, maxX: 1.25, minZ: -0.65, maxZ: 0.65 }, // Marble Tenesir Slab
+    { minX: -3.5, maxX: -3.3, minZ: -8.1, maxZ: -3.4 }, // Mosque west
+    { minX: -3.5, maxX: 3.5, minZ: -8.1, maxZ: -7.9 }, // Mosque north
+    { minX: -3.5, maxX: 3.5, minZ: -3.5, maxZ: -3.3 }, // Mosque south
+    { minX: 3.2, maxX: 3.5, minZ: -8.0, maxZ: -6.45 },
+    { minX: 3.2, maxX: 3.5, minZ: -4.95, maxZ: -3.4 },
+  ]));
+  // The only burial ground is the designated cemetery; the square and mosque
+  // forecourt are kept free of graves and their former colliders.
 
   // 4. Walk-in Abandoned Village House (Eski Köy Evi) at (-10.8, y, -10.5)
   const abandonedPos = new THREE.Vector3(-10.8, groundHeightAt(-10.8, -10.5), -10.5);
-  const abandoned = createAbandonedHouse(textures);
+  const abandoned = createAbandonedHouse(textures, craft);
   abandoned.group.position.copy(abandonedPos);
-  scene.add(abandoned.group);
+  cells.add(scene, abandoned.group, 28, 49);
 
-  colliders.push(
-    { minX: -13.95, maxX: -7.65, minZ: -13.5, maxZ: -13.0 },
-    { minX: -13.95, maxX: -7.65, minZ: -8.0, maxZ: -7.5 },
-    { minX: -14.0, maxX: -13.5, minZ: -13.5, maxZ: -7.5 },
-    { minX: -8.05, maxX: -7.55, minZ: -13.5, maxZ: -11.3 },
-    { minX: -8.05, maxX: -7.55, minZ: -9.7, maxZ: -7.5 },
-    { minX: -12.7, maxX: -11.5, minZ: -10.9, maxZ: -9.3 },
-  );
-
-  // 5. Muhtar's House at (10.5, y, -18.0)
-  const muhtarPos = new THREE.Vector3(10.5, groundHeightAt(10.5, -18.0), -18.0);
-  const muhtar = createMuhtarHouse(textures);
+  colliders.push(...translateColliders(abandonedPos, [
+    { minX: -3.15, maxX: 3.15, minZ: -3.0, maxZ: -2.5 },
+    { minX: -3.15, maxX: 3.15, minZ: 2.5, maxZ: 3.0 },
+    { minX: -3.2, maxX: -2.7, minZ: -3.0, maxZ: 3.0 },
+    { minX: 2.75, maxX: 3.25, minZ: -3.0, maxZ: -0.8 },
+    { minX: 2.75, maxX: 3.25, minZ: 0.8, maxZ: 3.0 },
+    { minX: -1.9, maxX: -0.7, minZ: -0.4, maxZ: 1.2 },
+  ]));
+  // 5. Muhtar's office on the upper village slope.
+  const muhtarPos = new THREE.Vector3(MUHTAR.x, groundHeightAt(MUHTAR.x, MUHTAR.z), MUHTAR.z);
+  const muhtar = createMuhtarHouse(textures, craft);
   muhtar.group.position.copy(muhtarPos);
-  scene.add(muhtar.group);
+  cells.add(scene, muhtar.group, 28, 49);
 
-  colliders.push(
-    { minX: 7.1, maxX: 13.9, minZ: -21.25, maxZ: -20.75 },
-    { minX: 7.1, maxX: 13.9, minZ: -15.25, maxZ: -14.75 },
-    { minX: 13.45, maxX: 13.95, minZ: -21.2, maxZ: -14.8 },
-    { minX: 7.05, maxX: 7.55, minZ: -21.2, maxZ: -18.8 },
-    { minX: 7.05, maxX: 7.55, minZ: -17.2, maxZ: -14.8 },
-    { minX: 11.1, maxX: 12.4, minZ: -19.3, maxZ: -17.1 },
-  );
+  // Two inexpensive floor projections suggest light entering actual openings.
+  // They cast no light or shadows, and never add another real-time light source.
+  const apertureGeometry = new THREE.PlaneGeometry(1.8, 1.25);
+  const pixels = new Uint8Array(32 * 32 * 4);
+  for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+    const edge = Math.min(x, y, 31 - x, 31 - y) / 6;
+    const i = (y * 32 + x) * 4;
+    pixels[i] = pixels[i + 1] = pixels[i + 2] = 255;
+    pixels[i + 3] = Math.round(255 * Math.min(1, edge));
+  }
+  const apertureTexture = new THREE.DataTexture(pixels, 32, 32, THREE.RGBAFormat);
+  apertureTexture.magFilter = THREE.LinearFilter;
+  apertureTexture.minFilter = THREE.LinearFilter;
+  apertureTexture.needsUpdate = true;
+  const windowLight = new THREE.MeshBasicMaterial({ map: apertureTexture, color: 0x9daab0, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+  const doorLight = new THREE.MeshBasicMaterial({ map: apertureTexture, color: 0xb6ad97, transparent: true, opacity: 0, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+  const windowPatch = new THREE.Mesh(apertureGeometry, windowLight);
+  windowPatch.rotation.x = -Math.PI / 2;
+  windowPatch.position.set(-2.25, 0.166, 0);
+  gasil.group.add(windowPatch);
+  const doorPatch = new THREE.Mesh(apertureGeometry, doorLight);
+  doorPatch.rotation.x = -Math.PI / 2;
+  doorPatch.position.set(-2.35, 0.18, 0);
+  muhtar.group.add(doorPatch);
+  disposables.push(apertureGeometry, apertureTexture, windowLight, doorLight);
 
-  // 5b. Sağlık Ocağı (District II: East Clinic) at (26.0, y, -28.0)
-  const clinicPos = new THREE.Vector3(26.0, groundHeightAt(26.0, -28.0), -28.0);
-  const clinic = createClinicBuilding(textures);
+  colliders.push(...translateColliders(muhtarPos, [
+    { minX: -3.4, maxX: 3.4, minZ: -3.25, maxZ: -2.75 },
+    { minX: -3.4, maxX: 3.4, minZ: 2.75, maxZ: 3.25 },
+    { minX: 2.95, maxX: 3.45, minZ: -3.2, maxZ: 3.2 },
+    { minX: -3.45, maxX: -2.95, minZ: -3.2, maxZ: -0.8 },
+    { minX: -3.45, maxX: -2.95, minZ: 0.8, maxZ: 3.2 },
+    { minX: 0.6, maxX: 1.9, minZ: -1.3, maxZ: 0.9 },
+  ]));
+  // 5b. Sağlık Ocağı, on the east hillside.
+  const clinicPos = new THREE.Vector3(CLINIC.x, groundHeightAt(CLINIC.x, CLINIC.z), CLINIC.z);
+  const clinic = createClinicBuilding(textures, craft, nightArt);
   clinic.group.position.copy(clinicPos);
-  scene.add(clinic.group);
+  cells.add(scene, clinic.group, 26, 48);
 
-  colliders.push(
-    { minX: 22.1, maxX: 29.9, minZ: -31.5, maxZ: -31.05 }, // Clinic North
-    { minX: 22.1, maxX: 29.9, minZ: -24.95, maxZ: -24.5 }, // Clinic South
-    { minX: 29.45, maxX: 29.95, minZ: -31.4, maxZ: -24.6 }, // Clinic East
-    { minX: 22.05, maxX: 22.55, minZ: -31.4, maxZ: -28.8 }, // Clinic West-North
-    { minX: 22.05, maxX: 22.55, minZ: -27.2, maxZ: -24.6 }, // Clinic West-South
-    { minX: 25.25, maxX: 27.55, minZ: -28.55, maxZ: -27.45 }, // Autopsy table
-    { minX: 25.4, maxX: 27.6, minZ: -31.1, maxZ: -30.5 }, // Medical shelf
-  );
-
+  colliders.push(...translateColliders(clinicPos, [
+    { minX: -3.9, maxX: 3.9, minZ: -3.5, maxZ: -3.05 }, // Clinic North
+    { minX: -3.9, maxX: 3.9, minZ: 3.05, maxZ: 3.5 }, // Clinic South
+    { minX: 3.45, maxX: 3.95, minZ: -3.4, maxZ: 3.4 }, // Clinic East
+    { minX: -3.95, maxX: -3.45, minZ: -3.4, maxZ: -0.8 }, // Clinic West-North
+    { minX: -3.95, maxX: -3.45, minZ: 0.8, maxZ: 3.4 }, // Clinic West-South
+    { minX: -0.75, maxX: 1.55, minZ: -0.55, maxZ: 0.55 }, // Autopsy table
+    { minX: -0.6, maxX: 1.6, minZ: -3.1, maxZ: -2.5 }, // Medical shelf
+  ]));
   // 5c. Dere Köprüsü & Eski Su Değirmeni (District III: West Stream & Mill)
   const millAndBridge = createWatermillAndBridge(textures);
   const bridgePos = new THREE.Vector3(-24.0, 0.05, 8.0);
   millAndBridge.bridgeGroup.position.copy(bridgePos);
-  scene.add(millAndBridge.bridgeGroup);
+  cells.add(scene, millAndBridge.bridgeGroup, 28, 51);
 
   const millPos = new THREE.Vector3(-36.0, groundHeightAt(-36.0, 8.0), 8.0);
   millAndBridge.millGroup.position.copy(millPos);
-  scene.add(millAndBridge.millGroup);
+  cells.add(scene, millAndBridge.millGroup, 28, 51);
 
   colliders.push(
     // Bridge railings (North & South)
@@ -252,53 +362,76 @@ export function buildVillageWorld(
 
   // 5d. Mezarlık Tepesi & Taş Mahzen (District IV: Northwest Cemetery Hill) at (-34.0, y, -36.0)
   const cemPos = new THREE.Vector3(-34.0, groundHeightAt(-34.0, -36.0), -36.0);
-  const cemetery = createCemeteryHillAndCrypt(textures);
+  const cemetery = createCemeteryHillAndCrypt(textures, nightArt);
   cemetery.group.position.copy(cemPos);
-  scene.add(cemetery.group);
+  cells.add(scene, cemetery.group, 26, 50);
+
+  // Match the physical grave plinths; leave the paths and crypt doorway clear.
+  for (const [x, z] of CEMETERY_GRAVES) {
+    colliders.push(houseFootprint(CEMETERY.x + x, CEMETERY.z + z, 0.52, 1.35, 0));
+  }
 
   // Crypt local center (1.6, 0, -3.2) => world (-32.4, y, -39.2), cw=4.6, cd=4.8
-  colliders.push(
-    { minX: -40.35, maxX: -27.7, minZ: -42.75, maxZ: -42.25 }, // Outer North fence
-    { minX: -40.45, maxX: -39.95, minZ: -42.5, maxZ: -29.5 }, // Outer West fence
-    { minX: -34.8, maxX: -30.0, minZ: -41.8, maxZ: -41.4 }, // Crypt Back North
-    { minX: -34.9, maxX: -34.5, minZ: -41.65, maxZ: -36.75 }, // Crypt West
-    { minX: -30.3, maxX: -29.9, minZ: -41.65, maxZ: -36.75 }, // Crypt East
-    { minX: -34.8, maxX: -33.15, minZ: -37.0, maxZ: -36.6 }, // Crypt South-West
-    { minX: -31.65, maxX: -30.0, minZ: -37.0, maxZ: -36.6 }, // Crypt South-East
-    { minX: -33.55, maxX: -31.25, minZ: -40.08, maxZ: -39.02 }, // Basalt slab
-  );
-
+  colliders.push(...translateColliders(cemPos, [
+    { minX: -6.35, maxX: 6.3, minZ: -6.75, maxZ: -6.25 }, // Outer North fence
+    { minX: -6.45, maxX: -5.95, minZ: -6.5, maxZ: 6.5 }, // Outer West fence
+    { minX: -0.8, maxX: 4.0, minZ: -5.8, maxZ: -5.4 }, // Crypt Back North
+    { minX: -0.9, maxX: -0.5, minZ: -5.65, maxZ: -0.75 }, // Crypt West
+    { minX: 3.7, maxX: 4.1, minZ: -5.65, maxZ: -0.75 }, // Crypt East
+    { minX: -0.8, maxX: 0.85, minZ: -1.0, maxZ: -0.6 }, // Crypt South-West
+    { minX: 2.35, maxX: 4.0, minZ: -1.0, maxZ: -0.6 }, // Crypt South-East
+    { minX: 0.45, maxX: 2.75, minZ: -4.08, maxZ: -3.02 }, // Basalt slab
+  ]));
   // 5e. Viraj Kaza Alanı (District V: Southeast Wrecked Minibus) at (28.0, y, 20.0)
   const crashPos = new THREE.Vector3(28.0, groundHeightAt(28.0, 20.0), 20.0);
   const crashSite = createWreckedMinibus(textures);
   crashSite.group.position.copy(crashPos);
-  scene.add(crashSite.group);
+  cells.add(scene, crashSite.group, 24, 43);
   colliders.push({ minX: 26.2, maxX: 30.6, minZ: 18.8, maxZ: 22.4 });
 
   // 6. Flanking & Perimeter Village Houses + Stone Courtyard Walls
-  const houseConfigs = [
-    { x: 10.6, z: 2.0, rotY: -Math.PI / 2, w: 6.2, d: 5.4, h: 4.3, collide: true },
-    { x: -11.2, z: 18.0, rotY: Math.PI / 2, w: 5.6, d: 4.8, h: 3.9, collide: true },
-    { x: 11.4, z: -8.6, rotY: -Math.PI / 2 + 0.08, w: 5.8, d: 5.0, h: 4.0, collide: true },
-    { x: -13.0, z: -20.5, rotY: Math.PI / 2 - 0.12, w: 6.0, d: 5.2, h: 4.1, collide: true },
-    { x: 19.5, z: 13.0, rotY: -Math.PI * 0.6, w: 6.4, d: 5.4, h: 4.2, collide: false },
-    { x: -19.2, z: -3.5, rotY: Math.PI * 0.45, w: 5.8, d: 5.0, h: 4.0, collide: false },
-    { x: 18.2, z: -34.5, rotY: -Math.PI * 0.25, w: 6.0, d: 5.2, h: 4.1, collide: false },
-    { x: -16.8, z: -35.5, rotY: Math.PI * 0.35, w: 5.8, d: 5.0, h: 4.0, collide: false },
+  const houseConfigs: {
+    x: number;
+    z: number;
+    rotY: number;
+    w: number;
+    d: number;
+    h: number;
+    style: HouseStyle;
+  }[] = [
+    { x: CORE_HOME_CENTRES[0][0], z: CORE_HOME_CENTRES[0][1], rotY: -Math.PI / 2, w: 6.2, d: 5.4, h: 4.3, style: 'cumba' },
+    { x: CORE_HOME_CENTRES[1][0], z: CORE_HOME_CENTRES[1][1], rotY: Math.PI / 2, w: 5.6, d: 4.8, h: 3.9, style: 'himis' },
+    { x: CORE_HOME_CENTRES[2][0], z: CORE_HOME_CENTRES[2][1], rotY: -Math.PI / 2 + 0.08, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
+    { x: CORE_HOME_CENTRES[3][0], z: CORE_HOME_CENTRES[3][1], rotY: Math.PI / 2 - 0.12, w: 6.0, d: 5.2, h: 4.1, style: 'cumba' },
+    { x: CORE_HOME_CENTRES[4][0], z: CORE_HOME_CENTRES[4][1], rotY: -Math.PI * 0.6, w: 6.4, d: 5.4, h: 4.2, style: 'tas' },
+    { x: CORE_HOME_CENTRES[5][0], z: CORE_HOME_CENTRES[5][1], rotY: Math.PI * 0.45, w: 5.8, d: 5.0, h: 4.0, style: 'himis' },
+    { x: CORE_HOME_CENTRES[6][0], z: CORE_HOME_CENTRES[6][1], rotY: -Math.PI * 0.25, w: 6.0, d: 5.2, h: 4.1, style: 'himis' },
+    { x: CORE_HOME_CENTRES[7][0], z: CORE_HOME_CENTRES[7][1], rotY: Math.PI * 0.35, w: 5.8, d: 5.0, h: 4.0, style: 'tas' },
   ];
-  houseConfigs.forEach((hc) => {
-    const house = createVillageHouse(textures, hc.w, hc.d, hc.h);
-    house.position.set(hc.x, groundHeightAt(hc.x, hc.z), hc.z);
-    house.rotation.y = hc.rotY;
-    scene.add(house);
-    if (hc.collide) {
-      colliders.push({
-        minX: hc.x - hc.d * 0.52,
-        maxX: hc.x + hc.d * 0.52,
-        minZ: hc.z - hc.w * 0.52,
-        maxZ: hc.z + hc.w * 0.52,
-      });
-    }
+  OUTER_HOMES.forEach(([x, z, rotY], i) =>
+    houseConfigs.push({
+      x,
+      z,
+      rotY,
+      w: 5.2 + (i % 3) * 0.4,
+      d: 4.3 + (i % 2) * 0.3,
+      h: 3.7 + (i % 3) * 0.25,
+      style: (['himis', 'tas', 'cumba'] as const)[i % 3],
+    }),
+  );
+  const homes: Home[] = [];
+  houseConfigs.forEach((hc, i) => {
+    const { home, walls } = buildHome(hc, i + 1, groundHeightAt(hc.x, hc.z), craft);
+    homes.push(home);
+    const houseGeometries = new Set<THREE.BufferGeometry>();
+    const collectHouse = (node: THREE.Object3D) => {
+      if (node instanceof THREE.Mesh) houseGeometries.add(node.geometry);
+      node.children.forEach(collectHouse);
+    };
+    collectHouse(home.root);
+    disposables.push({ dispose: () => houseGeometries.forEach(g => g.dispose()) });
+    cells.add(scene, home.root, 34, 58);
+    colliders.push(...walls);
   });
 
   const stoneWallMat = new THREE.MeshStandardMaterial({
@@ -308,30 +441,6 @@ export function buildVillageWorld(
     roughness: 0.9,
   });
   disposables.push(stoneWallMat);
-  [
-    { x: -4.4, z: 14.8, len: 7.4, rot: 0, gate: false },
-    { x: 4.6, z: -5.5, len: 8.6, rot: 0, gate: true },
-    { x: 5.2, z: 4.8, len: 4.2, rot: 0, gate: false },
-  ].forEach((sw) => {
-    const wallGroup = createStoneCourtyardWall(textures, sw.len, sw.gate);
-    wallGroup.position.set(sw.x, groundHeightAt(sw.x, sw.z), sw.z);
-    wallGroup.rotation.y = sw.rot;
-    scene.add(wallGroup);
-    if (!sw.gate) {
-      colliders.push({
-        minX: sw.x - 0.35,
-        maxX: sw.x + 0.35,
-        minZ: sw.z - sw.len / 2,
-        maxZ: sw.z + sw.len / 2,
-      });
-    } else {
-      colliders.push(
-        { minX: sw.x - 0.35, maxX: sw.x + 0.35, minZ: sw.z - sw.len / 2, maxZ: sw.z - 0.7 },
-        { minX: sw.x - 0.35, maxX: sw.x + 0.35, minZ: sw.z + 0.7, maxZ: sw.z + sw.len / 2 },
-      );
-    }
-  });
-
   // Village Storytelling Micro-Props & District Signposts
   [
     { x: -10.4, z: 9.65, rot: 0 },
@@ -341,38 +450,42 @@ export function buildVillageWorld(
     const stack = createFirewoodStack(textures);
     stack.position.set(fw.x, groundHeightAt(fw.x, fw.z), fw.z);
     stack.rotation.y = fw.rot;
-    scene.add(stack);
+    cells.add(scene, stack, 14, 25);
   });
 
-  [
-    { x: -2.2, z: 6.2, rot: 0.3 },
-    { x: 2.8, z: -23.0, rot: -0.4 },
-    { x: -2.6, z: -28.0, rot: 0.45 },
-    { x: 3.1, z: 15.2, rot: -0.35 },
-  ].forEach((sp) => {
-    const post = createDistrictSignpost(textures);
+  (
+    [
+      { x: 1.5, z: -49, rot: 0.2, text: 'MUHTARLIK' },
+      { x: -3.1, z: 10.5, rot: 0.3, text: '←  DEĞİRMEN' },
+      { x: 2.8, z: -23.0, rot: -0.4, text: 'SAĞLIK OCAĞI' },
+      { x: -2.6, z: -28.0, rot: 0.45, text: 'MEZARLIK  ←' },
+      { x: 3.1, z: 15.2, rot: -0.35, text: 'ÇEŞME  →' },
+    ] as const
+  ).forEach((sp) => {
+    const post = createDistrictSignpost(craft, sp.text);
     post.position.set(sp.x, groundHeightAt(sp.x, sp.z), sp.z);
     post.rotation.y = sp.rot;
-    scene.add(post);
+    cells.add(scene, post, 19, 33);
   });
 
-  const mosqueBench = createVillageBench(textures);
+  const mosqueBench = createVillageBench(craft);
   mosqueBench.position.set(-4.35, groundHeightAt(-4.35, 1.8), 1.8);
   mosqueBench.rotation.y = Math.PI / 2;
-  scene.add(mosqueBench);
+  cells.add(scene, mosqueBench, 19, 30);
   colliders.push({ minX: -4.7, maxX: -4.0, minZ: 0.9, maxZ: 2.7 });
 
-  const fountainBench = createVillageBench(textures);
+  const fountainBench = createVillageBench(craft);
   fountainBench.position.set(4.5, groundHeightAt(4.5, 15.1), 15.1);
   fountainBench.rotation.y = -Math.PI / 2;
-  scene.add(fountainBench);
+  cells.add(scene, fountainBench, 19, 30);
   colliders.push({ minX: 4.15, maxX: 4.85, minZ: 14.2, maxZ: 16.0 });
 
-  const jug1 = createClayJug();
-  jug1.position.set(4.1, groundHeightAt(4.1, 13.45), 13.45);
-  const jug2 = createClayJug();
+  const jug1 = createClayJug(textures);
+  jug1.position.set(4.06, groundHeightAt(4.06, 13.7), 13.7);
+  const jug2 = createClayJug(textures);
   jug2.position.set(abandonedPos.x + 3.55, abandonedPos.y + 0.14, abandonedPos.z + 1.15);
-  scene.add(jug1, jug2);
+  cells.add(scene, jug1, 13, 24);
+  cells.add(scene, jug2, 13, 24);
 
   // 7. Village Entrance Sign ("KUZDAĞ KÖYÜ - RAKIM 1480 m")
   const signGroup = new THREE.Group();
@@ -398,13 +511,34 @@ export function buildVillageWorld(
 
   // 8. Stone Village Fountain (Çeşme) at (4.8, y, 12.5)
   const fountainPos = new THREE.Vector3(4.8, groundHeightAt(4.8, 12.5), 12.5);
-  const fountain = createStoneFountain(textures);
+  const fountain = craft.fountain();
   fountain.position.copy(fountainPos);
   fountain.rotation.y = -Math.PI / 2;
   fountain.updateMatrix();
   fountain.matrixAutoUpdate = false;
-  scene.add(fountain);
+  cells.add(scene, fountain, 32, 55);
   colliders.push({ minX: 4.0, maxX: 5.6, minZ: 11.2, maxZ: 13.8 });
+
+  // A low open stone well, separate from the usable fountain and its evidence.
+  const well = new THREE.Group();
+  const wellX = -3.1, wellZ = -10.5;
+  well.position.set(wellX, groundHeightAt(wellX, wellZ), wellZ);
+  const wellGeo = new THREE.CylinderGeometry(0.92, 0.97, 0.82, 12, 1, true);
+  const wellTopGeo = new THREE.TorusGeometry(0.77, 0.17, 8, 12);
+  const wellDarkGeo = new THREE.CircleGeometry(0.68, 12);
+  const wellWood = new THREE.MeshStandardMaterial({ color: 0x4e3e2e, roughness: 0.98 });
+  const wellDark = new THREE.MeshBasicMaterial({ color: 0x151713 });
+  const wall = new THREE.Mesh(wellGeo, stoneWallMat); wall.position.y = 0.41;
+  const rim = new THREE.Mesh(wellTopGeo, stoneWallMat); rim.rotation.x = Math.PI / 2; rim.position.y = 0.83;
+  const hole = new THREE.Mesh(wellDarkGeo, wellDark); hole.rotation.x = -Math.PI / 2; hole.position.y = 0.67;
+  well.add(wall, rim, hole);
+  const postGeo = new THREE.BoxGeometry(0.12, 1.45, 0.12);
+  for (const x of [-0.85, 0.85]) { const post = new THREE.Mesh(postGeo, wellWood); post.position.set(x, 1.1, 0); well.add(post); }
+  const crossGeo = new THREE.CylinderGeometry(0.09, 0.09, 1.85, 8);
+  const cross = new THREE.Mesh(crossGeo, wellWood); cross.rotation.z = Math.PI / 2; cross.position.y = 1.75; well.add(cross);
+  cells.add(scene, well, 28, 45);
+  colliders.push({ minX: wellX - 0.94, maxX: wellX + 0.94, minZ: wellZ - 0.94, maxZ: wellZ + 0.94 });
+  disposables.push(wellGeo, wellTopGeo, wellDarkGeo, postGeo, crossGeo, wellWood, wellDark);
 
   // 9. Exterior Yard Drain near Gasilhane (Rule 2 Trap)
   const yardDrainGroup = new THREE.Group();
@@ -421,7 +555,7 @@ export function buildVillageWorld(
   yardDrainGroup.traverse((o) => {
     o.matrixAutoUpdate = false;
   });
-  scene.add(yardDrainGroup);
+  cells.add(scene, yardDrainGroup, 16, 24);
 
   // 10. Street Lamps across all 5 Districts + Overhead Utility Poles
   const streetLights: WorldHandles['streetLights'] = [];
@@ -431,37 +565,37 @@ export function buildVillageWorld(
     { x: 3.9, z: 17.5, rot: Math.PI, base: 5.4 },
     { x: -4.0, z: -17.5, rot: 0, base: 5.2 },
     { x: 13.5, z: -24.5, rot: -Math.PI / 2, base: 5.6 }, // Clinic road
-    { x: 20.8, z: -29.5, rot: 0, base: 6.0 }, // Clinic courtyard
+    { x: CLINIC.x - 5.2, z: CLINIC.z - 1.5, rot: 0, base: 6.0 }, // Clinic courtyard
     { x: -19.5, z: 6.0, rot: Math.PI / 2, base: 5.2 }, // Bridge head
     { x: -26.5, z: -33.2, rot: 0.3, base: 4.8 }, // Cemetery hill approach
+    { x: 46.7, z: -54.2, rot: 0, base: 4.5 }, // Mektep yard
+    { x: 54.1, z: 32.3, rot: 1.15, base: 5.4 }, // Last platform
+    { x: -50.7, z: 46.8, rot: -0.52, base: 4.1 }, // Reach of the switchboard lamp
     { x: 22.0, z: 18.2, rot: -0.4, base: 5.0 }, // Crash bend approach
   ].forEach((lp) => {
     const sl = createStreetLamp();
     sl.group.position.set(lp.x, groundHeightAt(lp.x, lp.z), lp.z);
     sl.group.rotation.y = lp.rot;
     sl.light.intensity = lp.base;
-    scene.add(sl.group);
+    cells.add(scene, sl.group, 28, 47);
     streetLights.push({ light: sl.light, bulbMat: sl.bulbMat, baseIntensity: lp.base });
   });
 
-  const poleCoords = [
-    { x: -4.15, z: 21.5, rot: 0.1 },
-    { x: -4.3, z: 9.6, rot: -0.05 },
-    { x: -4.3, z: -2.8, rot: 0.08 },
-    { x: 4.25, z: -11.2, rot: -0.1 },
-    { x: 4.3, z: -22.2, rot: 0.05 },
-  ];
+  // The square is an older hamlet, not a modern avenue of utility poles.
+  // Wires remain available at the distant exchange, not across the central view.
+  const poleCoords: { x: number; z: number; rot: number }[] = [];
   const poleTops: THREE.Vector3[] = [];
   poleCoords.forEach((pc) => {
     const { group, wireAttachY } = createUtilityPole(textures);
     const py = groundHeightAt(pc.x, pc.z);
     group.position.set(pc.x, py, pc.z);
     group.rotation.y = pc.rot;
-    scene.add(group);
+    cells.add(scene, group, 23, 39);
     poleTops.push(new THREE.Vector3(pc.x, py + wireAttachY, pc.z));
     colliders.push({ minX: pc.x - 0.25, maxX: pc.x + 0.25, minZ: pc.z - 0.25, maxZ: pc.z + 0.25 });
   });
 
+  const wiring = new THREE.Group();
   const cableMat = new THREE.MeshStandardMaterial({ color: 0x111317, roughness: 0.7, metalness: 0.3 });
   disposables.push(cableMat);
   for (let i = 0; i < poleTops.length - 1; i++) {
@@ -472,55 +606,75 @@ export function buildVillageWorld(
       const p2 = new THREE.Vector3(b.x + offset, b.y, b.z);
       const mid = p0.clone().lerp(p2, 0.5);
       mid.y -= 0.78;
-      const cableGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([p0, mid, p2]), 14, 0.016, 4, false);
+      const cableGeo = new THREE.TubeGeometry(
+        new THREE.CatmullRomCurve3([p0, mid, p2]),
+        14,
+        0.016,
+        4,
+        false,
+      );
       const cable = new THREE.Mesh(cableGeo, cableMat);
       cable.updateMatrix();
       cable.matrixAutoUpdate = false;
-      scene.add(cable);
+      wiring.add(cable);
       disposables.push(cableGeo);
     });
   }
 
+  bakeStaticChildrenByMaterial(wiring);
+  scene.add(wiring);
   // 11. Wooden Crate beside Gasilhane entrance
-  const crateMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(0.75, 0.65, 0.75),
-    new THREE.MeshStandardMaterial({
-      map: textures.timber,
-      normalMap: textures.timberNormal,
-      roughness: 0.8,
-    }),
-  );
-  crateMesh.position.set(-6.1, groundHeightAt(-6.1, 4.4) + 0.325, 4.4);
-  crateMesh.castShadow = true;
-  crateMesh.updateMatrix();
-  crateMesh.matrixAutoUpdate = false;
-  scene.add(crateMesh);
+  const crateMesh = craft.chest(0.75, 0.65, 0.75);
+  crateMesh.position.set(-6.1, groundHeightAt(-6.1, 4.4), 4.4);
+  cells.add(scene, crateMesh, 18, 28);
 
   // 12. Collectible Supplies
-  const defterMesh = createCopperEwerAndSoap('defter');
+  const defterMesh = craft.mount('emanet', 'defter', createCopperEwerAndSoap('defter'), true);
   defterMesh.position.set(-6.1, groundHeightAt(-6.1, 4.4) + 0.66, 4.4);
   defterMesh.rotation.y = 0.4;
   scene.add(defterMesh);
   itemMeshes['item_defter'] = defterMesh;
 
-  const kefenMesh = createCopperEwerAndSoap('kefen');
+  const kefenMesh = craft.mount('emanet', 'kefen', createCopperEwerAndSoap('kefen'), true);
   kefenMesh.position.set(gasilPos.x + 4.2, gasilPos.y + 0.81, gasilPos.z - 6.2);
   scene.add(kefenMesh);
   itemMeshes['item_kefen'] = kefenMesh;
 
-  const sabunMesh = createCopperEwerAndSoap('sabun');
+  const sabunMesh = craft.mount('emanet', 'sabun', createCopperEwerAndSoap('sabun'), true);
   sabunMesh.position.set(fountainPos.x - 0.1, fountainPos.y + 1.2, fountainPos.z + 0.72);
   scene.add(sabunMesh);
   itemMeshes['item_sabun'] = sabunMesh;
 
-  const ibrikMesh = createCopperEwerAndSoap('ibrik');
+  const ibrikMesh = craft.mount('emanet', 'ibrik', createCopperEwerAndSoap('ibrik'), true);
   ibrikMesh.position.set(fountainPos.x - 0.68, fountainPos.y + 0.56, fountainPos.z - 0.25);
+  ibrikMesh.rotation.y = -Math.PI * 0.39; // handle and pouring lip read in profile from the lane
   scene.add(ibrikMesh);
   itemMeshes['item_ibrik'] = ibrikMesh;
 
   itemMeshes['item_gulsuyu'] = abandoned.gulsuyuProp;
   itemMeshes['item_kafur'] = muhtar.camphorJar;
   itemMeshes['item_mill_toxin'] = millAndBridge.herbPatch;
+
+  // Supplies placed in the washing room after collection, with separate E targets.
+  const washSoap = createCopperEwerAndSoap('sabun');
+  const washEwer = createCopperEwerAndSoap('ibrik');
+  const washCamphor = createCopperEwerAndSoap('kafur');
+  const washShroud = createCopperEwerAndSoap('kefen');
+  washSoap.position.set(-2.75, 0.85, -2.35); washEwer.position.set(-2.75, 0.85, 2.3);
+  washCamphor.position.set(-2.75,0.85,-1.3);washShroud.position.set(-2.75,0.85,1.2);
+  washCamphor.visible=washShroud.visible=false;
+  gasil.group.add(washSoap, washEwer, washCamphor, washShroud);
+  const washShelfGeo = new THREE.BoxGeometry(0.7, 0.09, 0.65), dutyShelves:THREE.Mesh[]=[];
+  for (const z of [-2.35, -1.3, 1.2, 2.3]) {
+    const shelf = new THREE.Mesh(washShelfGeo, craft.wood); shelf.position.set(-2.75, 0.8, z); gasil.group.add(shelf);
+    if(z===-1.3||z===1.2){shelf.visible=false;dutyShelves.push(shelf);}
+  }
+  disposables.push(washShelfGeo);
+  const supplyResources = new Set<THREE.BufferGeometry | THREE.Material>();
+  for (const prop of [washSoap, washEwer, washCamphor, washShroud]) prop.traverse(o => {
+    if (o instanceof THREE.Mesh) { supplyResources.add(o.geometry); for (const m of Array.isArray(o.material) ? o.material : [o.material]) supplyResources.add(m); }
+  });
+  disposables.push({ dispose: () => supplyResources.forEach(resource => resource.dispose()) });
 
   // 13. Register Interactables
   const registerTarget = (
@@ -535,6 +689,7 @@ export function buildVillageWorld(
     const proxy = new THREE.Mesh(hitGeo, hitMat);
     proxy.position.copy(worldPos);
     proxy.userData.interactId = id;
+    proxy.userData.targetIndex = interactables.length;
     proxy.layers.set(1);
     (parent ?? scene).add(proxy);
     disposables.push(hitGeo, hitMat);
@@ -547,63 +702,253 @@ export function buildVillageWorld(
     });
   };
 
-  registerTarget('item_defter', defterMesh.position.clone().add(new THREE.Vector3(0, 0.12, 0)), [0.6, 0.5, 0.6]);
-  registerTarget('item_kefen', kefenMesh.position.clone().add(new THREE.Vector3(0, 0.15, 0)), [0.7, 0.55, 0.6]);
-  registerTarget('item_sabun', sabunMesh.position.clone().add(new THREE.Vector3(0, 0.12, 0)), [0.55, 0.45, 0.55]);
-  registerTarget('item_ibrik', ibrikMesh.position.clone().add(new THREE.Vector3(0, 0.22, 0)), [0.55, 0.6, 0.55]);
-  registerTarget('item_mill_toxin', new THREE.Vector3(millPos.x + 4.9, millPos.y + 0.32, millPos.z - 1.8), [0.9, 0.7, 0.9], 3.3);
+  homes.forEach((home, i) => {
+    registerTarget(`home_door_${i}`, new THREE.Vector3(0.72, 1.05, 0), [1.4, 2.1, 0.3], 2.7, home.door);
+  });
 
-  registerTarget('gasil_door', new THREE.Vector3(gasilPos.x + 3.4, gasilPos.y + 1.25, gasilPos.z), [0.6, 2.2, 1.5], 3.1);
-  registerTarget('tenesir_slab', new THREE.Vector3(gasilPos.x, gasilPos.y + 1.05, gasilPos.z), [2.4, 0.9, 1.2], 3.4);
-  registerTarget('gasil_shutter', new THREE.Vector3(gasilPos.x - 3.25, gasilPos.y + 2.0, gasilPos.z), [0.6, 1.3, 1.9], 4.2);
-  registerTarget('gasil_drain', new THREE.Vector3(gasilPos.x - 1.9, gasilPos.y + 0.35, gasilPos.z + 2.0), [0.9, 0.7, 0.9], 3.2);
-  registerTarget('vigil_candle', new THREE.Vector3(gasilPos.x - 1.35, gasilPos.y + 1.1, gasilPos.z - 0.75), [0.6, 1.2, 0.6], 3.2);
-  registerTarget('yard_drain', new THREE.Vector3(ydX, groundHeightAt(ydX, ydZ) + 0.35, ydZ), [1.0, 0.8, 1.0], 3.2);
+  registerTarget(
+    'item_defter',
+    defterMesh.position.clone().add(new THREE.Vector3(0, 0.12, 0)),
+    [0.6, 0.5, 0.6],
+  );
+  registerTarget(
+    'item_kefen',
+    kefenMesh.position.clone().add(new THREE.Vector3(0, 0.15, 0)),
+    [0.7, 0.55, 0.6],
+  );
+  registerTarget(
+    'item_sabun',
+    sabunMesh.position.clone().add(new THREE.Vector3(0, 0.12, 0)),
+    [0.55, 0.45, 0.55],
+  );
+  registerTarget(
+    'item_ibrik',
+    ibrikMesh.position.clone().add(new THREE.Vector3(0, 0.22, 0)),
+    [0.55, 0.6, 0.55],
+  );
+  registerTarget(
+    'item_mill_toxin',
+    new THREE.Vector3(millPos.x + 4.9, millPos.y + 0.32, millPos.z - 1.8),
+    [0.9, 0.7, 0.9],
+    3.3,
+  );
+
+  registerTarget('mosque_door', new THREE.Vector3(-7.1, gasilPos.y + 1.2, 0.3), [0.4, 2.2, 1.5], 3.0);
+  registerTarget(
+    'gasil_door',
+    new THREE.Vector3(gasilPos.x + 3.4, gasilPos.y + 1.25, gasilPos.z),
+    [0.6, 2.2, 1.5],
+    3.1,
+  );
+  registerTarget('transport_bed', new THREE.Vector3(-4.4, transportBed.position.y + 0.8, 3.7), [2.05, 0.5, 0.8], 2.8);
+  registerTarget(
+    'tenesir_slab',
+    new THREE.Vector3(gasilPos.x, gasilPos.y + 1.05, gasilPos.z),
+    [2.4, 0.9, 1.2],
+    3.4,
+  );
+  registerTarget('wash_soap', new THREE.Vector3(gasilPos.x - 2.75, gasilPos.y + 0.92, gasilPos.z - 2.35), [0.55, 0.45, 0.55], 2.7);
+  registerTarget('wash_ewer', new THREE.Vector3(gasilPos.x - 2.75, gasilPos.y + 1.05, gasilPos.z + 2.3), [0.55, 0.6, 0.55], 2.7);
+  registerTarget('duty_camphor', new THREE.Vector3(gasilPos.x - 2.75, gasilPos.y + 1.0, gasilPos.z - 1.3), [0.48, 0.5, 0.48], 2.7);
+  registerTarget('duty_shroud', new THREE.Vector3(gasilPos.x - 2.75, gasilPos.y + 1.0, gasilPos.z + 1.2), [0.5, 0.45, 0.5], 2.7);
+  registerTarget('dirty_bucket', new THREE.Vector3(gasilPos.x + 0.25, gasilPos.y + 0.68, gasilPos.z + 1.05), [0.52, 0.52, 0.52], 2.7);
+  registerTarget(
+    'gasil_shutter',
+    new THREE.Vector3(gasilPos.x - 3.25, gasilPos.y + 2.0, gasilPos.z),
+    [0.6, 1.3, 1.9],
+    4.2,
+  );
+  registerTarget(
+    'gasil_drain',
+    new THREE.Vector3(gasilPos.x - 1.9, gasilPos.y + 0.35, gasilPos.z + 2.0),
+    [0.9, 0.7, 0.9],
+    3.2,
+  );
+  registerTarget(
+    'vigil_candle',
+    new THREE.Vector3(gasilPos.x - 1.35, gasilPos.y + 1.1, gasilPos.z - 0.75),
+    [0.6, 1.2, 0.6],
+    3.2,
+  );
+  registerTarget(
+    'yard_drain',
+    new THREE.Vector3(ydX, groundHeightAt(ydX, ydZ) + 0.35, ydZ),
+    [1.0, 0.8, 1.0],
+    3.2,
+  );
 
   // Eski Köy Evi targets
-  registerTarget('abandoned_door', new THREE.Vector3(abandonedPos.x + 3.0, abandonedPos.y + 1.2, abandonedPos.z), [0.6, 2.2, 1.5], 3.1);
-  registerTarget('clue_serife_letter', new THREE.Vector3(abandonedPos.x - 1.15, abandonedPos.y + 1.0, abandonedPos.z + 0.52), [0.6, 0.4, 0.6], 3.0);
-  registerTarget('item_gulsuyu', new THREE.Vector3(abandonedPos.x + 0.6, abandonedPos.y + 0.85, abandonedPos.z - 2.15), [0.65, 0.6, 0.65], 3.1);
+  registerTarget(
+    'abandoned_door',
+    new THREE.Vector3(abandonedPos.x + 3.0, abandonedPos.y + 1.2, abandonedPos.z),
+    [0.6, 2.2, 1.5],
+    3.1,
+  );
+  registerTarget(
+    'clue_serife_letter',
+    new THREE.Vector3(abandonedPos.x - 1.15, abandonedPos.y + 1.0, abandonedPos.z + 0.52),
+    [0.6, 0.4, 0.6],
+    3.0,
+  );
+  registerTarget(
+    'item_gulsuyu',
+    new THREE.Vector3(abandonedPos.x + 0.6, abandonedPos.y + 0.85, abandonedPos.z - 2.15),
+    [0.65, 0.6, 0.65],
+    3.1,
+  );
 
   // Muhtar targets
-  registerTarget('muhtar_door', new THREE.Vector3(muhtarPos.x - 3.2, muhtarPos.y + 1.2, muhtarPos.z), [0.6, 2.2, 1.5], 3.1);
-  registerTarget('clue_muhtar_note', new THREE.Vector3(muhtarPos.x + 0.98, muhtarPos.y + 1.05, muhtarPos.z + 0.12), [0.6, 0.4, 0.6], 3.0);
-  registerTarget('clue_crash_report', new THREE.Vector3(muhtarPos.x + 1.02, muhtarPos.y + 1.05, muhtarPos.z + 0.62), [0.6, 0.4, 0.6], 3.0);
-  registerTarget('item_kafur', new THREE.Vector3(muhtarPos.x + 1.05, muhtarPos.y + 1.1, muhtarPos.z - 0.45), [0.55, 0.5, 0.55], 3.0);
-  registerTarget('clue_photo', new THREE.Vector3(muhtarPos.x + 0.4, muhtarPos.y + 1.85, muhtarPos.z - 2.8), [1.0, 1.0, 0.4], 3.4);
+  registerTarget(
+    'muhtar_door',
+    new THREE.Vector3(muhtarPos.x - 3.2, muhtarPos.y + 1.2, muhtarPos.z),
+    [0.6, 2.2, 1.5],
+    3.1,
+  );
+  registerTarget(
+    'clue_muhtar_note',
+    new THREE.Vector3(muhtarPos.x + 0.98, muhtarPos.y + 1.05, muhtarPos.z + 0.12),
+    [0.6, 0.4, 0.6],
+    3.0,
+  );
+  registerTarget(
+    'clue_crash_report',
+    new THREE.Vector3(muhtarPos.x + 1.02, muhtarPos.y + 1.05, muhtarPos.z + 0.62),
+    [0.6, 0.4, 0.6],
+    3.0,
+  );
+  registerTarget(
+    'item_kafur',
+    new THREE.Vector3(muhtarPos.x + 1.05, muhtarPos.y + 1.1, muhtarPos.z - 0.45),
+    [0.55, 0.5, 0.55],
+    3.0,
+  );
+  registerTarget(
+    'clue_photo',
+    new THREE.Vector3(muhtarPos.x + 0.4, muhtarPos.y + 1.85, muhtarPos.z - 2.8),
+    [1.0, 1.0, 0.4],
+    3.4,
+  );
 
   // Sağlık Ocağı targets
-  registerTarget('clinic_door', new THREE.Vector3(clinicPos.x - 3.7, clinicPos.y + 1.2, clinicPos.z), [0.6, 2.2, 1.5], 3.2);
-  registerTarget('autopsy_case_mahmut', new THREE.Vector3(clinicPos.x + 0.4, clinicPos.y + 1.1, clinicPos.z), [2.3, 0.8, 1.1], 3.4);
+  registerTarget(
+    'clinic_door',
+    new THREE.Vector3(clinicPos.x - 3.7, clinicPos.y + 1.2, clinicPos.z),
+    [0.6, 2.2, 1.5],
+    3.2,
+  );
+  registerTarget(
+    'autopsy_case_mahmut',
+    new THREE.Vector3(clinicPos.x + 0.4, clinicPos.y + 1.1, clinicPos.z),
+    [2.3, 0.8, 1.1],
+    3.4,
+  );
 
   // Eski Su Değirmeni targets
-  registerTarget('mill_door', new THREE.Vector3(millPos.x + 3.1, millPos.y + 1.2, millPos.z), [0.6, 2.2, 1.5], 3.2);
-  registerTarget('clue_mill_ledger', new THREE.Vector3(millPos.x - 1.5, millPos.y + 1.0, millPos.z + 1.1), [0.7, 0.45, 0.7], 3.1);
+  registerTarget(
+    'mill_door',
+    new THREE.Vector3(millPos.x + 3.1, millPos.y + 1.2, millPos.z),
+    [0.6, 2.2, 1.5],
+    3.2,
+  );
+  registerTarget(
+    'clue_mill_ledger',
+    new THREE.Vector3(millPos.x - 1.5, millPos.y + 1.0, millPos.z + 1.1),
+    [0.7, 0.45, 0.7],
+    3.1,
+  );
 
   // Mezarlık Taş Mahzen targets (Crypt local center +1.6, 0, -3.2)
-  registerTarget('crypt_door', new THREE.Vector3(cemPos.x + 1.6, cemPos.y + 1.15, cemPos.z - 0.8), [1.5, 2.2, 0.6], 3.2);
-  registerTarget('autopsy_case_unknown', new THREE.Vector3(cemPos.x + 1.6, cemPos.y + 1.05, cemPos.z - 3.55), [2.2, 0.85, 1.05], 3.4);
+  registerTarget(
+    'crypt_door',
+    new THREE.Vector3(cemPos.x + 1.6, cemPos.y + 1.15, cemPos.z - 0.8),
+    [1.5, 2.2, 0.6],
+    3.2,
+  );
+  registerTarget(
+    'autopsy_case_unknown',
+    new THREE.Vector3(cemPos.x + 1.6, cemPos.y + 1.05, cemPos.z - 3.55),
+    [2.2, 0.85, 1.05],
+    3.4,
+  );
+
+  // A low, nonblocking earth marker for the profession's eventual burial target.
+  const plotGeometry=new THREE.SphereGeometry(1,16,8);
+  const plotMaterial=new THREE.MeshStandardMaterial({color:0x493a2c,roughness:1});
+  const funeralPlot=new THREE.Mesh(plotGeometry,plotMaterial);
+  funeralPlot.position.set(-29.5,groundHeightAt(-29.5,-28.5)+.04,-28.5);
+  funeralPlot.scale.set(.9,.16,1.2);funeralPlot.visible=false;scene.add(funeralPlot);
+  disposables.push(plotGeometry,plotMaterial);
+  registerTarget('duty_burial',funeralPlot.position.clone().add(new THREE.Vector3(0,.3,0)),[1.6,.7,2],3);
+
+  // İdris's weathered maintenance book, on its own low stone stand in the cemetery.
+  const memorialBook = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.42), craft.wood);
+  memorialBook.position.set(-30.8, cemPos.y + 0.65, -31.1);
+  const memorialStand = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.61, 0.55), craft.masonry);
+  memorialStand.position.set(-30.8, cemPos.y + 0.305, -31.1);
+  scene.add(memorialStand, memorialBook);
+  disposables.push(memorialBook.geometry, memorialStand.geometry);
+  registerTarget('night_memorial', memorialBook.position.clone(), [0.7, 0.45, 0.55], 2.8);
+  const sealBox = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.42, 0.5), craft.wood);
+  sealBox.position.set(-28.9, cemPos.y + 0.21, -31.1);
+  scene.add(sealBox); disposables.push(sealBox.geometry);
+  registerTarget('night_seal', sealBox.position.clone(), [0.7, 0.6, 0.6], 2.8);
 
   // Viraj Kaza Alanı targets
-  registerTarget('clue_crash_manifest', new THREE.Vector3(crashPos.x - 2.2, crashPos.y + 0.25, crashPos.z + 1.35), [0.8, 0.45, 0.8], 3.3);
+  registerTarget(
+    'clue_crash_manifest',
+    new THREE.Vector3(crashPos.x - 2.2, crashPos.y + 0.25, crashPos.z + 1.35),
+    [0.8, 0.45, 0.8],
+    3.3,
+  );
 
+  const { setSignal, keeper, doors: outpostDoors } = buildOutposts(
+    scene,
+    craft,
+    nightArt,
+    cells,
+    colliders,
+    registerTarget,
+    disposables,
+  );
+  for (const [id, at] of Object.entries(STRETCHERS))
+    registerTarget(
+      id === 'yolcu' ? 'night_tag' : 'receiving_mahmut',
+      new THREE.Vector3(gasilPos.x + at.x, gasilPos.y + 0.97, gasilPos.z + at.z),
+      [1.98, 0.52, 0.72],
+      2.65,
+    );
+
+  // The wash interaction sits at the head end, separate from the transport tag.
+  for (const [id, at] of Object.entries(STRETCHERS))
+    registerTarget(`wash_${id}`, new THREE.Vector3(gasilPos.x + at.x - 1.05, gasilPos.y + 1.05, gasilPos.z + at.z), [0.38, 0.45, 0.62], 2.65);
+
+  // A swung-open door must not leave its E hitbox in the middle of an empty doorway.
+  for (const [id, hinge] of [
+    ['gasil_door', gasil.doorPivot],
+    ['mosque_door', gasil.mosqueDoorPivot],
+    ['clinic_door', clinic.doorPivot],
+    ['abandoned_door', abandoned.doorPivot],
+    ['muhtar_door', muhtar.doorPivot],
+    ['mill_door', millAndBridge.doorPivot],
+    ['crypt_door', cemetery.doorPivot],
+  ] as const) {
+    const target = interactables.find((t) => t.id === id)!;
+    hinge.attach(target.mesh);
+  }
   // 14. Villager NPCs (4 interactive patrolling/standing residents)
+  const residentLoader = createModelLoader();
   const npcs = {} as Record<NpcId, NpcRuntimeActor>;
   (Object.keys(VILLAGE_NPCS) as NpcId[]).forEach((npcId) => {
     const def = VILLAGE_NPCS[npcId];
     const startWp = def.waypoints[0];
-    const startPos = new THREE.Vector3(startWp.x, groundHeightAt(startWp.x, startWp.z), startWp.z);
+    const startPos = new THREE.Vector3(startWp.x, exteriorFloorAt(startWp.x, startWp.z), startWp.z);
     const root = new THREE.Group();
     root.position.copy(startPos);
 
-    const fallbackGroup = buildProceduralVillagerFallback(
-      def.coatTint,
-      def.hasLantern,
-      def.hasShovel,
-      def.headscarf,
-    );
-    root.add(fallbackGroup);
-    scene.add(root);
+    const visual = new ResidentVisual(npcId, residentLoader, residentReady, allocation !== 'full');
+    root.add(visual.group);
+    disposables.push(visual);
+    cells.add(scene, root, 22, 36, true);
 
     // Attach raycast proxy directly to NPC root so it follows patrol movement automatically
     registerTarget(`npc_${npcId}`, new THREE.Vector3(0, 1.05, 0), [0.85, 1.9, 0.85], 3.8, root);
@@ -611,29 +956,24 @@ export function buildVillageWorld(
     npcs[npcId] = {
       def,
       root,
-      mixer: null,
-      idleAction: null,
-      walkAction: null,
-      currentMode: 'idle',
+      visual,
       waypointIndex: 0,
       pauseTimer: 2.0,
       pos: startPos,
       yaw: 0,
-      talkCooldown: 0,
       spokenNodes: new Set<string>(),
       trust: 50,
-      cc0Attached: false,
-      fallbackGroup,
     };
   });
 
   // 15. Night Threats: Kara Basma & Sis Gözcüsü
-  const karaBasma = createKaraBasma();
+  const karaBasma = watcherFigure(nightArt, 'karabasma', createKaraBasma().root);
   karaBasma.root.position.set(1.5, groundHeightAt(1.5, -6), -6);
   karaBasma.root.visible = false;
   scene.add(karaBasma.root);
 
-  const sisGozcusu = createSisGozcusu();
+  const mistWatcher = watcherFigure(nightArt, 'sis-gozcusu', createSisGozcusu());
+  const sisGozcusu = mistWatcher.root;
   sisGozcusu.position.set(-22, groundHeightAt(-22, -16), -16);
   sisGozcusu.visible = false;
   scene.add(sisGozcusu);
@@ -739,7 +1079,10 @@ export function buildVillageWorld(
     return anchor;
   };
 
-  const autopsyAnchors: Record<AutopsyCaseId, { examAnchor: THREE.Object3D; flashAnchor: THREE.Object3D }> = {
+  const autopsyAnchors: Record<
+    AutopsyCaseId,
+    { examAnchor: THREE.Object3D; flashAnchor: THREE.Object3D }
+  > = {
     case_arif: {
       examAnchor: detachToAnchor(gasilAutopsy.examLight),
       flashAnchor: detachToAnchor(gasilAutopsy.flashLight),
@@ -791,36 +1134,50 @@ export function buildVillageWorld(
     worldLightPool.push(poolLight);
   }
 
+  let shellFinish: THREE.MeshBasicMaterial | undefined;
+  if (allocation !== 'full') {
+    const atlas = new THREE.TextureLoader().load('/assets/village/compact/dis-kabuk.webp');
+    atlas.colorSpace = THREE.SRGBColorSpace;
+    shellFinish = shellMaterial(atlas);
+    disposables.push(atlas, shellFinish);
+    const skip = new Set<THREE.Object3D>([
+      gasil.deceasedGroup,
+      clinic.autopsyBody.group,
+      cemetery.autopsyBody.group,
+      gasil.windowShadowFigure,
+    ]);
+    for (const root of [
+      gasil.group,
+      abandoned.group,
+      muhtar.group,
+      clinic.group,
+      millAndBridge.millGroup,
+      cemetery.group,
+    ]) {
+      const shell = distantShell(root, shellFinish, skip);
+      cells.addShell(root, shell);
+      disposables.push(shell.geometry);
+    }
+  }
   const interactableMeshes = interactables.map((item) => item.mesh);
 
-  // 18. CC0 Asset Attachment Helper (runs cleanly after non-blocking preload finishes)
-  let cc0Applied = false;
-  const applyCC0Assets = (cc0: CC0AssetLibrary) => {
-    if (cc0Applied) return;
-    cc0Applied = true;
-
-    // A. PBR Terrain & Cobblestone Road textures
-    const mudPack = cc0.getTexturePack('mud_leaves');
-    if (mudPack) terrainHandle.applyCC0Ground(mudPack);
-    const cobblePack = cc0.getTexturePack('cobblestone');
-    if (cobblePack) terrainHandle.applyCC0Road(cobblePack);
-
-    // B. Attach rigged CC0 Soldier.glb to all 4 NPCs
-    (Object.keys(npcs) as NpcId[]).forEach((npcId) => {
-      attachCC0RigToNpc(npcs[npcId], cc0);
-    });
-
-    // C. Place CC0 3D Props across the 5 districts
+  // Optional dressing has no collision or narrative authority. Only load the chosen manifest.
+  const applyModel = (assets: WorkshopAssets, loaded: ModelId) => {
+    if ((BUILD_KIT as readonly string[]).includes(loaded)) {
+      craft.install(assets, loaded as KitId);
+      return;
+    }
     const placeProp = (
-      id: Parameters<CC0AssetLibrary['cloneModel']>[0],
-      height: number,
+      id: DressingId,
+      size: number,
       x: number,
       y: number,
       z: number,
       rotY = 0,
       castShadow = true,
     ) => {
-      const m = cc0.cloneModel(id, height, castShadow);
+      if (id !== loaded) return;
+      const m = assets.dressing(id, size, castShadow);
       if (!m) return;
       m.position.set(x, y, z);
       m.rotation.y = rotY;
@@ -828,7 +1185,14 @@ export function buildVillageWorld(
       m.traverse((obj) => {
         obj.matrixAutoUpdate = false;
       });
-      scene.add(m);
+      cells.add(scene, m, 14, 25);
+      // Only load-bearing ground objects block movement; small handheld props
+      // remain reachable and do not become invisible walls.
+      if (id === 'dead_tree' || id === 'rock') {
+        const radius = id === 'dead_tree' ? 0.22 : size * 0.30;
+        colliders.push({ minX: x - radius, maxX: x + radius, minZ: z - radius, maxZ: z + radius });
+      }
+      return m;
     };
 
     // Lanterns on porches & bridge posts
@@ -839,26 +1203,53 @@ export function buildVillageWorld(
 
     // Muhtar & Abandoned House interior furniture props
     placeProp('cabinet', 1.95, muhtarPos.x - 1.6, muhtarPos.y + 0.16, muhtarPos.z - 2.35, 0, true);
-    placeProp('desk_lamp', 0.46, muhtarPos.x + 1.45, muhtarPos.y + 0.99, muhtarPos.z - 0.85, -0.6, false);
-    placeProp('binder', 0.08, muhtarPos.x + 0.85, muhtarPos.y + 0.99, muhtarPos.z - 0.15, 0.2, false);
-    placeProp('chair', 0.88, abandonedPos.x - 0.45, abandonedPos.y + 0.16, abandonedPos.z + 0.45, -1.3, false);
-    placeProp('candleholders', 0.34, gasilPos.x - 2.5, gasilPos.y + 1.08, gasilPos.z - 2.75, 0.2, false);
+    const scannedLamp = placeProp(
+      'desk_lamp',
+      0.46,
+      muhtarPos.x + 1.45,
+      muhtarPos.y + 0.99,
+      muhtarPos.z - 0.85,
+      -0.6,
+      false,
+    );
+    if (scannedLamp) muhtar.deskLampFallback.visible = false;
+    placeProp('binder', 0.34, muhtarPos.x + 1.51, muhtarPos.y + 0.986, muhtarPos.z + 0.17, 0.2, false);
+    placeProp(
+      'chair',
+      0.88,
+      abandonedPos.x - 0.45,
+      abandonedPos.y + 0.16,
+      abandonedPos.z + 0.45,
+      -1.3,
+      false,
+    );
+    placeProp('candleholders', 0.26, gasilPos.x + 1.5, gasilPos.y + 1.06, gasilPos.z - 2.8, 0.2, false);
 
     // Barrels & Crates around Mill & Courtyard
     placeProp('barrel', 0.92, millPos.x - 2.2, millPos.y + 0.16, millPos.z - 2.1, 0.3, true);
     placeProp('barrel', 0.92, millPos.x - 1.2, millPos.y + 0.16, millPos.z - 2.2, 1.1, true);
-    placeProp('crate', 0.72, millPos.x + 4.2, groundHeightAt(millPos.x + 4.2, millPos.z + 2.4), millPos.z + 2.4, 0.5, true);
-    placeProp('crate', 0.72, -5.8, groundHeightAt(-5.8, 7.2), 7.2, 0.2, true);
+    placeProp(
+      'crate',
+      0.72,
+      millPos.x + 4.2,
+      groundHeightAt(millPos.x + 4.2, millPos.z + 2.4),
+      millPos.z + 2.4,
+      0.5,
+      true,
+    );
+    placeProp('crate', 0.67, -6.37, groundHeightAt(-6.37, 8.15), 8.15, Math.PI / 2, true);
 
     // Dead tree trunks & boulders around Cemetery & Crash Bend
     placeProp('dead_tree', 4.6, -28.0, groundHeightAt(-28.0, -39.5), -39.5, 0.4, true);
     placeProp('dead_tree', 4.2, -38.5, groundHeightAt(-38.5, -31.0), -31.0, 1.7, true);
-    placeProp('rock', 1.1, 25.0, groundHeightAt(25.0, 23.0), 23.0, 0.8, false);
-    placeProp('rock', 0.9, -20.5, groundHeightAt(-20.5, 4.5), 4.5, 1.9, false);
+    placeProp('rock', 0.65, 25.0, groundHeightAt(25.0, 23.0), 23.0, 0.8, false);
+    placeProp('rock', 0.55, -20.5, groundHeightAt(-20.5, 4.5), 4.5, 1.9, false);
   };
 
   return {
     colliders,
+    homes,
+    outpostDoors,
     interactables,
     interactableMeshes,
     itemMeshes,
@@ -870,6 +1261,7 @@ export function buildVillageWorld(
     cemetery,
     crashSite,
     gasilAutopsy,
+    transportBed,
     autopsyBodies: {
       case_arif: gasilAutopsy,
       case_mahmut: clinic.autopsyBody,
@@ -882,18 +1274,35 @@ export function buildVillageWorld(
     },
     npcs,
     karaBasma,
+    nightArt,
+    receiving,
+    setSignal,
+    keeper,
+    poseWatchers: (t, kara, mist) => {
+      karaBasma.pose(t, kara);
+      mistWatcher.pose(t + 0.8, mist);
+    },
     sisGozcusu,
     streetLights,
     virtualLights,
     worldLightPool,
+    washStations: { soap: washSoap, ewer: washEwer, camphor: washCamphor, shroud: washShroud },
+    funeralPlot, dutyShelves,
+    apertureLights: { window: windowLight, officeDoor: doorLight },
     sunKeyLight,
     hemiLight,
     moonMesh,
+    horizon,
     mistSprites,
     rainPoints,
     rainGeo,
     rainUniforms,
-    applyCC0Assets,
+    applyModel,
+    updateDetail: (eye, tier) => {
+      cells.update(eye, tier);
+      nightArt.approach(eye);
+      shellFinish?.color.setScalar(0.64 * hemiLight.intensity + 0.22 * sunKeyLight.intensity);
+    },
     dispose: () => {
       disposables.forEach((d) => d.dispose());
     },

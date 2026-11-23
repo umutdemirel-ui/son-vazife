@@ -1,3 +1,4 @@
+import { FIELD_CLUES, NIGHT_CLUES, type NightId } from './nightWatch';
 import {
   GlossaryCategory,
   GlossaryEntry,
@@ -17,20 +18,22 @@ export type GameScreen =
   | 'ending_twist'
   | 'game_over';
 
-export type GameAct = 1 | 2 | 3 | 4 | 5;
+export type GameAct = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 // Bölüm 1: Kuzdağ'a Geliş, İlk İnceleme & Vaka I (Hacı Arif Efendi)
 // Bölüm 2: Sağlık Ocağı, İkinci Ceset (Şoför Mahmut) & Katip Kenan Yüzleşmesi
 // Bölüm 3: Dere Köprüsü, Eski Su Değirmeni & Viraj Kaza Alanı
 // Bölüm 4: Mezarlık Tepesi, Üçüncü Ceset (İsimsiz Yolcu) & Taş Mahzen
-// Bölüm 5: Muhtarlık Sırları, Şafak Öncesi Son Vazife & Final
+// Bölüm 5: Muhtarlık Sırları ve Kefen
+// Bölüm 6–8: Sarı Mektep, Son Peron ve Kapanmayan Hat
 
-export type DistrictId = 'square' | 'clinic' | 'mill' | 'cemetery' | 'crash_site';
+export type DistrictId =
+  'square' | 'clinic' | 'mill' | 'cemetery' | 'crash_site' | 'school' | 'station' | 'exchange';
 
 export type AutopsyCaseId = 'case_arif' | 'case_mahmut' | 'case_unknown';
 export type AutopsyTool = 'magnifier' | 'scalpel' | 'forceps' | 'camera';
 export type AutopsyCameraAngle = 'overview' | 'floor' | 'perimeter';
 export type AutopsyZoneId = 'head' | 'neck' | 'chest' | 'hands' | 'pocket';
-export type GraphicsQualityPreset = 'auto' | 'high' | 'medium' | 'low';
+export type GraphicsQualityPreset = 'minimum' | 'auto' | 'high' | 'medium' | 'low';
 
 export type NpcId = 'bekci' | 'serife' | 'kenan' | 'idris';
 
@@ -89,6 +92,7 @@ export interface AutopsyCaseState {
   locationLabel: string;
   unlocked: boolean;
   completed: boolean;
+  completionMethod?: 'registry' | 'forensic';
   selectedCause: string;
   selectedTime: string;
   diagnosisError: string | null;
@@ -144,6 +148,9 @@ export interface SaveSummary {
 }
 
 export interface GameHudState {
+  survivalDay: number;
+  isEvening: boolean;
+  survivalHits: number;
   screen: GameScreen;
   act: GameAct;
   actTitle: string;
@@ -178,7 +185,7 @@ export interface GameHudState {
   ritualProgress: number; // 0-8
   endingReason: string;
   controlSettings: ControlSettings;
-  resolvedQualityTier: 'high' | 'medium' | 'low';
+  resolvedQualityTier: Exclude<GraphicsQualityPreset, 'auto'>;
   // New extended systems
   assetLoadPercent: number;
   assetsReady: boolean;
@@ -186,6 +193,9 @@ export interface GameHudState {
   saveSummary: SaveSummary | null;
   saveNoticeText: string | null;
   activeDialogue: ActiveDialogueState | null;
+  nightPage: NightId | null;
+  puzzleSeed: number;
+  registryCaseId: AutopsyCaseId | null;
   activeAutopsyCaseId: AutopsyCaseId | null;
   activeAutopsyTool: AutopsyTool;
   activeAutopsyCameraAngle: AutopsyCameraAngle;
@@ -229,7 +239,7 @@ export const INITIAL_RULES: FolkloreRule[] = [
     id: 'rule_ritual',
     number: 'V',
     title: 'Son Vazife Saygı ve Sırayla Yapılır',
-    text: 'Adli otopsi bulguları mühürlendikten sonra setr-i avret örtüsü, sağdan sola ılık su ve sabunla yıkama, kafurlu durulama, gülsuyu ve kefenleme sırayla yapılır.',
+    text: 'Cenaze teslim kaydı mühürlendikten sonra setr-i avret örtüsü, sağdan sola ılık su ve sabunla yıkama, kafurlu durulama, gülsuyu ve kefenleme sırayla yapılır.',
     violated: false,
   },
 ];
@@ -293,6 +303,13 @@ export const INITIAL_INVENTORY: InventoryItem[] = [
 
 export const INITIAL_CLUES: ClueDocument[] = [
   {
+    id: 'clue_first_ledger',
+    title: 'İki Tarih, Tek İsim',
+    subtitle: 'İlk Nöbet · 071 Numaralı Teslim Fişi',
+    body: 'Hacı Arif Efendi, hane 06. Aynı isim hem 16 Kasım 1973’te hem 16 Kasım 1993’te cenaze defterine işlenmiş. Bugünkü fişte teslim edenin adı yazmıyor.',
+    discovered: false,
+  },
+  {
     id: 'clue_arif_autopsy',
     title: 'Vaka I Ön Raporu: Hacı Arif',
     subtitle: 'Gasilhane Teneşir İncelemesi',
@@ -315,9 +332,9 @@ export const INITIAL_CLUES: ClueDocument[] = [
   },
   {
     id: 'clue_mill_ledger',
-    title: 'Değirmenci Zehir Kaydı & Bilet',
+    title: 'Değirmenin Kazınmış Kaydı',
     subtitle: 'Eski Su Değirmeni · Un Sandığı',
-    body: 'Kayıt defterinde Katip Kenan’ın el yazısı: "Saat 21:00’de Şoför Mahmut’a demlenen çay içine iki tutam Boğanak katılacak; kaza raporu 22:40’a yazılacak."',
+    body: 'Sayfanın altında Katip Kenan’ın parafı var. “Mahmut — 21.15” satırını kazıyıp kenara “Viraj — 22.40” yazmış. Sayfanın arasından bir minibüs bileti düştü.',
     discovered: false,
   },
   {
@@ -362,4 +379,13 @@ export const INITIAL_CLUES: ClueDocument[] = [
     body: '"Eğer kuralları bozar ve kendi hikâyeni reddedersen, sabah ezanı bu köye doğmaz. Hakikati mühürleyip son vazifeyi tamamlarsan hem Arif’in hem senin ruhun huzura erer."',
     discovered: false,
   },
+  {
+    id: 'clue_kenan_confession',
+    title: 'Katibin itirafı',
+    subtitle: 'Muhtarlık yolu · Tanık beyanı',
+    body: 'Kenan üçüncü yolcunun taş mahzene götürüldüğünü söyledi. Anahtar Mezarcı İdris’te.',
+    discovered: false,
+  },
+  ...FIELD_CLUES,
+  ...NIGHT_CLUES,
 ];

@@ -1,5 +1,28 @@
+import { armSwing, createWorkHands } from './handRig';
+import { createHorrorFigures, disposeHorrorFigures } from './horrorFigures';
+import { requiredWashTool, washInstruction, type WashPerson, type WashTool } from './washing';
+import {newScrub,scrubStroke,SCRUB_STROKES,type ScrubProgress} from './scrubbing';
+import {newRitual,interactRitual,ritualObjective,workProblem,leaveUnwatched,type RitualState as FuneralDutyState} from './funeralDuty';
+import { atmosphereTargets } from './atmosphere';
+import { positionSunLight } from './sunLight';
+import { insideHome } from './homes';
+import { migrateOldHomePosition, migrateOutpostPosition, migrateClinicPosition, migrateMuhtarPosition } from './homeMigration';
+import { atEscapePoint, isEvening, survivalDay, SECONDS_PER_DAY } from './survival';
+import {
+  FIELD_NOTES,
+  nightStealthPrompt,
+  correctPage,
+  nightPageFor,
+  isNightId,
+  nextNightPage,
+  nightAct,
+  NIGHT_TITLES,
+  PAGES,
+  type NightId,
+} from './nightWatch';
+import { CLINIC, MUHTAR, districtAt, insideOutpost, OUTPOSTS, OUTPOST_IDS, VALLEY, type Outpost } from './valley';
+import { NightPatrol } from './nightPatrol';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { HorrorAudioEngine } from './audio';
 import {
   AUTOPSY_ANOMALY_LAYER,
@@ -7,23 +30,27 @@ import {
   AUTOPSY_LAYER,
   createInitialAutopsyCases,
 } from './autopsy';
-import { CC0AssetLibrary } from './cc0Assets';
+import { WorkshopAssets } from './workshopAssets';
+import { VertexLight } from './vertexLight';
+import {
+  deviceClass,
+  adaptiveTier,
+  capTier,
+  startingTier,
+  allocationFor,
+  rasterRatio,
+  SoftwareRasterBudget,
+  type RenderTier,
+} from './quality';
 import { DreadLevelListener, SpatialDreadTrigger } from './dreadListener';
-import { createHandCandle, HandCandleRefs } from './models';
-import {
-  filterDialogueOptions,
-  updateNpcActorPatrol,
-  VILLAGE_NPCS,
-} from './npcs';
-import { createPostProcessing, PostProcessingRig } from './postprocessing';
-import {
-  getAutoSaveSummary,
-  readAutoSave,
-  SaveGamePayload,
-  writeAutoSave,
-} from './saveSystem';
-import { groundHeightAt } from './terrain';
-import { createProceduralTextures, ProceduralTextureSet } from './textures';
+import { createHandCandle, createCopperEwerAndSoap, HandCandleRefs } from './models';
+import { filterDialogueOptions, updateNpcActorPatrol, VILLAGE_NPCS } from './npcs';
+import type { PostProcessingRig } from './postprocessing';
+import { getAutoSaveSummary, readAutoSave, SaveGamePayload, writeAutoSave } from './saveSystem';
+import { exteriorFloorAt, groundHeightAt } from './terrain';
+import { DELIVERY_FILES, validDelivery } from './registry';
+import { readControls, readMuted, storeControls, storeMuted } from './preferences';
+import { loadVillageTextures, VillageTextures } from './textures';
 import {
   ActiveDialogueState,
   AutopsyCameraAngle,
@@ -41,7 +68,6 @@ import {
   GameScreen,
   GlossaryCategory,
   GlossaryEntry,
-  GraphicsQualityPreset,
   INITIAL_CLUES,
   INITIAL_GLOSSARY_ENTRIES,
   INITIAL_INVENTORY,
@@ -51,6 +77,7 @@ import {
   PlayerGlossaryNote,
   SaveSummary,
 } from './types';
+import { pushOutsideBox } from './collision';
 import { buildVillageWorld, VirtualPointLight, WorldHandles } from './world';
 
 // Module-scope reusable math objects (Zero GC inside render loop)
@@ -66,6 +93,13 @@ const _whisperBaseEmissive = new THREE.Color(0x1a2634);
 const _whisperAnomalyEmissive = new THREE.Color(0x3b6678);
 const _autopsyCamPos = new THREE.Vector3();
 const _autopsyLookPos = new THREE.Vector3();
+
+const _duskFog = new THREE.Color(0x59656c);
+const _nightFog = new THREE.Color(0x263137);
+const _weatherFog = new THREE.Color(0x404c51);
+const _dayKey = new THREE.Color(0xe6c9ac);
+const _nightKey = new THREE.Color(0x8da6ba);
+const _atmosphereColor = new THREE.Color();
 
 const PLAYER_EYE_HEIGHT = 1.66;
 const PLAYER_RADIUS = 0.42;
@@ -87,9 +121,7 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
         'Gasilhanenin soğuk duvarlarından fısıltılar yükseliyor...',
         'Mermer taşın arkasından kısık bir nefes duyuldu...',
       ],
-      floorboard_creak: [
-        'Tavandaki eski ahşap kirişler ağır bir yükle inledi...',
-      ],
+      floorboard_creak: ['Tavandaki eski ahşap kirişler ağır bir yükle inledi...'],
     },
   },
   {
@@ -108,38 +140,32 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
         'Çürümüş döşeme tahtaları sanki birinin ağırlığıyla gıcırdadı...',
         'Arka köşedeki bir tahta kendi kendine esnedi...',
       ],
-      whisper: [
-        'Karanlık odanın köşesinden boğuk bir fısıltı yükseldi...',
-      ],
+      whisper: ['Karanlık odanın köşesinden boğuk bir fısıltı yükseldi...'],
     },
   },
   {
     id: 'muhtar_office_boards',
     zoneName: 'Muhtarlık Odası',
-    centerX: 10.5,
-    centerZ: -18.0,
+    centerX: MUHTAR.x,
+    centerZ: MUHTAR.z,
     radius: 4.2,
-    bounds: { minX: 7.3, maxX: 13.7, minZ: -21.0, maxZ: -15.0 },
+    bounds: { minX: MUHTAR.x - 3.2, maxX: MUHTAR.x + 3.2, minZ: MUHTAR.z - 3, maxZ: MUHTAR.z + 3 },
     dreadThreshold: 70,
     minStationarySec: 1.8,
     cooldownSec: 18,
     hallucinations: ['floorboard_creak', 'whisper'],
     captions: {
-      floorboard_creak: [
-        'Arka odanın ahşap tabanı yavaşça gıcırdadı...',
-      ],
-      whisper: [
-        'Dolabın ardından adını fısıldayan bir ses duydun...',
-      ],
+      floorboard_creak: ['Arka odanın ahşap tabanı yavaşça gıcırdadı...'],
+      whisper: ['Dolabın ardından adını fısıldayan bir ses duydun...'],
     },
   },
   {
     id: 'clinic_morgue_room',
     zoneName: 'Sağlık Ocağı',
-    centerX: 26.0,
-    centerZ: -28.0,
+    centerX: CLINIC.x,
+    centerZ: CLINIC.z,
     radius: 4.6,
-    bounds: { minX: 22.3, maxX: 29.7, minZ: -31.3, maxZ: -24.7 },
+    bounds: { minX: CLINIC.x - 3.7, maxX: CLINIC.x + 3.7, minZ: CLINIC.z - 3.3, maxZ: CLINIC.z + 3.3 },
     dreadThreshold: 70,
     minStationarySec: 1.8,
     cooldownSec: 19,
@@ -163,12 +189,8 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
     cooldownSec: 16,
     hallucinations: ['floorboard_creak', 'whisper'],
     captions: {
-      floorboard_creak: [
-        'Çark uğultusunun altında tahta kirişler inledi...',
-      ],
-      whisper: [
-        'Su sesinin içine karışan soğuk bir fısıltı duydun...',
-      ],
+      floorboard_creak: ['Çark uğultusunun altında tahta kirişler inledi...'],
+      whisper: ['Su sesinin içine karışan soğuk bir fısıltı duydun...'],
     },
   },
   {
@@ -200,9 +222,7 @@ export const SPATIAL_DREAD_TRIGGERS: SpatialDreadTrigger[] = [
     cooldownSec: 17,
     hallucinations: ['floorboard_creak'],
     captions: {
-      floorboard_creak: [
-        'Köprü kalasları tam arkanda ağır bir adımla gıcırdadı...',
-      ],
+      floorboard_creak: ['Köprü kalasları tam arkanda ağır bir adımla gıcırdadı...'],
     },
   },
 ];
@@ -213,20 +233,24 @@ export class SonVazifeEngine {
   private renderer!: THREE.WebGLRenderer;
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
-  private textures!: ProceduralTextureSet;
-  private cc0 = new CC0AssetLibrary();
+  private textures!: VillageTextures;
+  private assets = new WorkshopAssets();
+  private vertexLight = new VertexLight();
+  private usingVertexLight = false;
+  private effectsPending = false;
+  private effectsFailed = false;
   private world!: WorldHandles;
   private handCandle!: HandCandleRefs;
   private postProcessing: PostProcessingRig | null = null;
   private audio = new HorrorAudioEngine();
 
   private isSoftwareGl = false;
-  private isLowEndHardware = false;
+  private softwareBudget = new SoftwareRasterBudget();
   private isContextLost = false;
-  private envTexture: THREE.Texture | null = null;
+  private envTarget: THREE.WebGLRenderTarget | null = null;
   private frameId = 0;
+  private softwareFence: WebGLSync | null = null;
   private disposed = false;
-  private clock = new THREE.Clock();
   private elapsedTime = 0;
 
   // Asset Loading & Auto-save UI state
@@ -286,6 +310,7 @@ export class SonVazifeEngine {
   private clinicDoorAngle = 0;
   private millDoorOpen = false;
   private millDoorAngle = 0;
+  private mosqueDoorOpen = false;
   private cryptDoorOpen = false;
   private cryptDoorAngle = 0;
   private shutterClosed = false;
@@ -296,21 +321,45 @@ export class SonVazifeEngine {
   private vigilLit = false;
   private vigilTimer = 180;
   private dreadLevel = 8; // 0..100
+  private creatureSoundCooldown = 0;
   private dangerProximity = 0; // 0..1
   private violations = 0;
+
+  // Optional profession progression is separate from the original case checkpoints.
+  private funeralDuty: FuneralDutyState|null = null;
+  private dutyWork: {stage:number;progress:ScrubProgress;seconds:number}|null = null;
 
   // Ritual flags
   private stepPrepDone = false;
   private stepWashDone = false;
+  private washStage = 0;
+  private manualWash: {id:string;stage:number;progress:ScrubProgress;seconds:number}|null = null;
+  private finishingManualWash = false;
+  private rinseStage = 0;
+  private washingHand!: THREE.Group;
+  private washAnim = 0;
+  private washTools!: Record<'cloth' | 'soap' | 'bucket' | 'ewer' | 'camphor' | 'shroud', THREE.Group>;
+  private heldWashTool: WashTool = 'empty';
+  private soapAppliedFor: WashPerson | null = null;
+  private extraWashes = { mahmut: 0, yolcu: 0 };
+  private scareFigure: THREE.Object3D | null = null;
+  private readonly horrorFigures = createHorrorFigures();
+  private scareTime = 0;
+  private scareFatal = false;
+  private nextScareTime = 45 + Math.random() * 45;
   private dirtyBasinReady = false;
   private dirtyBasinDrained = false;
   private gasilBulbOut = false;
   private stepFinalCamphorDone = false;
   private stepDryDone = false;
   private stepShroudDone = false;
+  private bodyTransport: 'slab' | 'carried' | 'delivered' = 'slab';
+  private initialBody: 'bed' | 'carried' | 'slab' = 'bed';
+  private bodyRisen = false;
 
   // Autopsy Workbench State
   private autopsyCases: Record<AutopsyCaseId, AutopsyCaseState> = createInitialAutopsyCases();
+  private registryCaseId: AutopsyCaseId | null = null;
   private activeAutopsyCaseId: AutopsyCaseId | null = null;
   private activeAutopsyTool: AutopsyTool = 'magnifier';
   private activeAutopsyCameraAngle: AutopsyCameraAngle = 'overview';
@@ -323,9 +372,11 @@ export class SonVazifeEngine {
   private snapshotCanvas: HTMLCanvasElement | null = null;
 
   // Dynamic Adaptive FPS & Quality Controller
-  private resolvedQualityTier: 'high' | 'medium' | 'low' = 'medium';
+  private resolvedQualityTier: RenderTier = 'medium';
   private emaFrameMs = 16.7;
   private qualityEvalTimer = 0;
+  private fastWindows = 0;
+  private autoCeiling: RenderTier = 'high';
   private shadowFrameCounter = 0;
   private shadowRefreshStride = 3;
   private lightCullDistSq = 21 * 21;
@@ -358,10 +409,16 @@ export class SonVazifeEngine {
   private leftGasilWithoutVigilFlagged = false;
   private stormFlashIntensity = 0;
   private nextThunderTime = 14;
-  private karaPatrolT = 0;
-  private sisPatrolT = 0;
+  private readonly karaPatrol = new NightPatrol(0);
+  private readonly mistPatrol = new NightPatrol(1);
+  private nightPage: NightId | null = null;
+  private puzzleSeed = 0;
+  private finalCall: 'report' | 'farewell' | undefined;
   private karaCatchCooldown = 0;
   private caughtCount = 0;
+  private survivalSeconds = 0;
+  private storyEventsSeen = new Set<string>();
+  private survivalSaveClock = 0;
   private endingReason = '';
 
   // UI Sync
@@ -376,7 +433,8 @@ export class SonVazifeEngine {
     this.container = container;
     this.onHudUpdate = onHudUpdate;
     this.setupDreadListener();
-    this.loadControlSettings();
+    this.controlSettings = readControls();
+    this.audio.setMuted(readMuted());
     this.refreshSaveMeta();
     this.resetStoryState();
     this.initThree();
@@ -385,11 +443,38 @@ export class SonVazifeEngine {
   }
 
   private setupDreadListener(): void {
-    this.dreadListener.registerTriggers(SPATIAL_DREAD_TRIGGERS);
+    const traces: SpatialDreadTrigger[] = (['school', 'station', 'exchange'] as const).map((id, i) => {
+      const b = OUTPOSTS[id];
+      return {
+        id: `outer_${id}`,
+        zoneName: b.name,
+        centerX: b.x,
+        centerZ: b.z,
+        radius: b.w / 2,
+        bounds: { minX: b.x - b.w / 2, maxX: b.x + b.w / 2, minZ: b.z - b.d / 2, maxZ: b.z + b.d / 2 },
+        hallucinations: i === 0 ? ['floorboard_creak'] : ['whisper'],
+        dreadThreshold: 45,
+        minStationarySec: 2.5,
+        cooldownSec: 26,
+        captions:
+          i === 0
+            ? {
+                floorboard_creak: ['Arka sıradan bir sandalye çekildi. Sınıfta senden başka kimse yok.'],
+              }
+            : {
+                whisper: [
+                  i === 1
+                    ? 'Hat boş. Yine de hoparlörden bir sonraki yolcunun adı okunuyor.'
+                    : 'Sökülmüş abone kordonundan bir kadın “buradayım” dedi.',
+                ],
+              },
+      };
+    });
+    this.dreadListener.registerTriggers([...SPATIAL_DREAD_TRIGGERS, ...traces]);
     this.dreadListener.subscribe((event) => {
       if (event.type === 'whisper') {
         this.audio.playWhisper(0.85);
-        this.unlockGlossaryEntry('anom_window');
+        if (event.triggerId === 'gasilhane_hall') this.unlockGlossaryEntry('anom_window');
       } else {
         this.audio.playFloorboardCreak(0.95);
       }
@@ -413,38 +498,6 @@ export class SonVazifeEngine {
     this.hasSavedGame = this.saveSummary !== null;
   }
 
-  private loadControlSettings(): void {
-    try {
-      const raw = window.localStorage.getItem('son_vazife_controls_v1');
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<ControlSettings>;
-        const q = parsed.graphicsQuality;
-        const validQuality: GraphicsQualityPreset =
-          q === 'auto' || q === 'high' || q === 'medium' || q === 'low'
-            ? q
-            : DEFAULT_CONTROL_SETTINGS.graphicsQuality;
-        this.controlSettings = {
-          mouseSensitivity:
-            typeof parsed.mouseSensitivity === 'number'
-              ? THREE.MathUtils.clamp(parsed.mouseSensitivity, 0.4, 2.4)
-              : DEFAULT_CONTROL_SETTINGS.mouseSensitivity,
-          invertY: Boolean(parsed.invertY),
-          lookSmoothing:
-            typeof parsed.lookSmoothing === 'boolean'
-              ? parsed.lookSmoothing
-              : DEFAULT_CONTROL_SETTINGS.lookSmoothing,
-          crouchToggle:
-            typeof parsed.crouchToggle === 'boolean'
-              ? parsed.crouchToggle
-              : DEFAULT_CONTROL_SETTINGS.crouchToggle,
-          graphicsQuality: validQuality,
-        };
-      }
-    } catch {
-      this.controlSettings = { ...DEFAULT_CONTROL_SETTINGS };
-    }
-  }
-
   public updateControlSettings(patch: Partial<ControlSettings>): void {
     this.controlSettings = {
       ...this.controlSettings,
@@ -453,76 +506,114 @@ export class SonVazifeEngine {
     if (!this.controlSettings.crouchToggle) {
       this.crouchToggled = false;
     }
-    try {
-      window.localStorage.setItem('son_vazife_controls_v1', JSON.stringify(this.controlSettings));
-    } catch {
-      // Ignore storage restrictions
-    }
+    storeControls(this.controlSettings);
     this.syncQualityTierFromSettings();
     this.pushHudState(true);
   }
 
   private syncQualityTierFromSettings(): void {
     if (this.isSoftwareGl) {
-      this.applyGraphicsQuality('low');
+      this.applyGraphicsQuality('minimum');
       return;
     }
     const preset = this.controlSettings.graphicsQuality;
     if (preset === 'auto') {
       this.qualityEvalTimer = 0;
-      this.applyGraphicsQuality(this.resolvedQualityTier);
+      this.applyGraphicsQuality(capTier(this.resolvedQualityTier, this.autoCeiling));
     } else {
       this.applyGraphicsQuality(preset);
     }
   }
 
-  private applyGraphicsQuality(tier: 'high' | 'medium' | 'low'): void {
+  private applyGraphicsQuality(tier: RenderTier): void {
     if (!this.renderer || !this.container) return;
-    const effectiveTier = this.isSoftwareGl ? 'low' : tier;
+    const effectiveTier = this.isSoftwareGl ? 'minimum' : tier;
+    const minimal = effectiveTier === 'minimum',
+      effects = effectiveTier === 'medium' || effectiveTier === 'high';
     this.resolvedQualityTier = effectiveTier;
 
     const width = this.container.clientWidth || window.innerWidth;
     const height = this.container.clientHeight || window.innerHeight;
     const nativeDpr = window.devicePixelRatio || 1;
-    const targetDpr = this.isSoftwareGl
-      ? 1
-      : effectiveTier === 'high'
-        ? Math.min(nativeDpr, 1.4)
-        : effectiveTier === 'medium'
-          ? Math.min(nativeDpr, 1.0)
-          : Math.min(nativeDpr, 0.78);
-
+    const targetDpr = rasterRatio(
+      effectiveTier,
+      width,
+      height,
+      nativeDpr,
+      this.isSoftwareGl,
+      this.softwareBudget.side,
+    );
+    // Allocate the offscreen pipeline only when it will be used. Free it on a downshift.
+    if (effects && !this.postProcessing && !this.effectsPending && !this.effectsFailed) {
+      this.effectsPending = true;
+      void import('./postprocessing')
+        .then(({ createPostProcessing, createRoomLight }) => {
+          if (this.disposed || !['medium', 'high'].includes(this.resolvedQualityTier)) return;
+          this.envTarget = createRoomLight(this.renderer);
+          this.scene.environment = this.envTarget.texture;
+          this.scene.environmentIntensity = 0.16;
+          this.postProcessing = createPostProcessing(
+            this.renderer,
+            this.scene,
+            this.camera,
+            this.container.clientWidth,
+            this.container.clientHeight,
+          );
+          this.lastAppliedQualityKey = '';
+          this.applyGraphicsQuality(this.resolvedQualityTier);
+        })
+        .catch(() => {
+          this.effectsFailed = true;
+          this.scene.environment = null;
+          this.envTarget?.dispose();
+          this.envTarget = null;
+        })
+        .finally(() => {
+          this.effectsPending = false;
+        });
+    } else if (!effects && this.postProcessing) {
+      this.scene.environment = null;
+      this.envTarget?.dispose();
+      this.envTarget = null;
+      this.postProcessing.dispose();
+      this.postProcessing = null;
+    }
+    if (minimal !== this.usingVertexLight) {
+      this.usingVertexLight = minimal;
+      if (minimal) this.vertexLight.include(this.scene);
+      else this.vertexLight.restore();
+    }
     const key = `${effectiveTier}:${targetDpr.toFixed(2)}:${width}x${height}`;
     if (key !== this.lastAppliedQualityKey) {
       this.lastAppliedQualityKey = key;
       this.renderer.setPixelRatio(targetDpr);
       this.renderer.setSize(width, height);
-      this.postProcessing?.setSize(width, height);
+      this.postProcessing?.setSize(width, height, targetDpr);
     }
 
     if (this.camera) {
-      const targetFar = effectiveTier === 'high' ? 165 : effectiveTier === 'medium' ? 125 : 92;
+      const targetFar =
+        effectiveTier === 'high' ? 165 : effectiveTier === 'medium' ? 125 : minimal ? 48 : 86;
       if (this.camera.far !== targetFar) {
         this.camera.far = targetFar;
         this.camera.updateProjectionMatrix();
       }
     }
 
-    if (this.scene && this.envTexture) {
-      const useIbl = !this.isSoftwareGl && effectiveTier !== 'low';
-      this.scene.environment = useIbl ? this.envTexture : null;
-    }
-
     if (this.world) {
-      this.world.rainGeo.setDrawRange(0, effectiveTier === 'high' ? 1450 : effectiveTier === 'medium' ? 750 : 320);
+      this.world.horizon.scale.setScalar(minimal ? 0.64 : 1);
+      this.world.rainGeo.setDrawRange(
+        0,
+        effectiveTier === 'high' ? 1450 : effectiveTier === 'medium' ? 750 : minimal ? 96 : 320,
+      );
       for (let i = 0; i < this.world.mistSprites.length; i++) {
-        this.world.mistSprites[i].visible = effectiveTier !== 'low' || i % 2 === 0;
+        this.world.mistSprites[i].visible = !minimal && (effects || i % 2 === 0);
       }
     }
 
     this.postProcessing?.setBloomEnabled(!this.isSoftwareGl && effectiveTier === 'high');
 
-    const shadowsOn = !this.isSoftwareGl && effectiveTier !== 'low';
+    const shadowsOn = effects;
     if (this.renderer.shadowMap.enabled !== shadowsOn) {
       this.renderer.shadowMap.enabled = shadowsOn;
       if (shadowsOn) {
@@ -540,7 +631,11 @@ export class SonVazifeEngine {
       }
     }
     this.shadowRefreshStride = effectiveTier === 'high' ? 3 : effectiveTier === 'medium' ? 6 : 0;
-    this.maxPoolLights = effectiveTier === 'low' ? 2 : 4;
+    this.maxPoolLights = minimal ? 1 : effectiveTier === 'low' ? 2 : 4;
+    if (this.world)
+      this.world.worldLightPool.forEach((light, i) => {
+        light.visible = i < this.maxPoolLights;
+      });
 
     const cullDist = effectiveTier === 'high' ? 28 : effectiveTier === 'medium' ? 21 : 15;
     this.lightCullDistSq = cullDist * cullDist;
@@ -566,11 +661,7 @@ export class SonVazifeEngine {
     const sens = this.controlSettings.mouseSensitivity * (this.isZooming ? 0.55 : 1.0);
     const ySign = this.controlSettings.invertY ? -1 : 1;
     this.targetYaw -= dx * 0.0042 * sens;
-    this.targetPitch = THREE.MathUtils.clamp(
-      this.targetPitch - dy * 0.0042 * sens * ySign,
-      -1.28,
-      1.28,
-    );
+    this.targetPitch = THREE.MathUtils.clamp(this.targetPitch - dy * 0.0042 * sens * ySign, -1.28, 1.28);
   }
 
   public setVirtualSprint(active: boolean): void {
@@ -578,14 +669,29 @@ export class SonVazifeEngine {
   }
 
   private isOverlayBlockingMove(): boolean {
-    return this.isNotebookOpen || this.activeDialogueNpcId !== null || this.activeAutopsyCaseId !== null;
+    return (
+      this.isNotebookOpen ||
+      this.activeDialogueNpcId !== null ||
+      this.activeAutopsyCaseId !== null ||
+      this.registryCaseId !== null ||
+      this.nightPage !== null
+    );
+  }
+
+  private updatePuzzleClues() {
+    for (const id of ['night_tag', 'night_roll', 'night_spool'] as const) {
+      const clue = this.clues.find(c => c.id === id);
+      if (clue) clue.body = nightPageFor(id, this.puzzleSeed).entry;
+    }
   }
 
   private resetStoryState(): void {
     this.act = 1;
     this.inventory = INITIAL_INVENTORY.map((i) => ({ ...i }));
     this.rules = INITIAL_RULES.map((r) => ({ ...r }));
+    this.puzzleSeed = Math.floor(Math.random() * 4);
     this.clues = INITIAL_CLUES.map((c) => ({ ...c }));
+    this.updatePuzzleClues();
     this.glossaryEntries = INITIAL_GLOSSARY_ENTRIES.map((g) => ({ ...g }));
     this.playerGlossaryNotes = [];
     this.autopsyCases = createInitialAutopsyCases();
@@ -621,7 +727,14 @@ export class SonVazifeEngine {
     this.millDoorOpen = false;
     this.millDoorAngle = 0;
     this.cryptDoorOpen = false;
+    this.mosqueDoorOpen = false;
+    if (this.world) this.world.gasil.mosqueDoorPivot.rotation.y = 0;
     this.cryptDoorAngle = 0;
+    this.world?.homes.forEach(home => { home.open = false; home.door.rotation.y = 0; });
+    if (this.world) for (const id of OUTPOST_IDS) {
+      this.world.outpostDoors[id].open = true;
+      this.world.outpostDoors[id].pivot.rotation.y = -Math.PI * 0.52;
+    }
     this.shutterClosed = false;
     this.shutterAngle = Math.PI * 0.62;
 
@@ -633,15 +746,28 @@ export class SonVazifeEngine {
     this.dangerProximity = 0;
     this.violations = 0;
 
+    this.funeralDuty = null;this.dutyWork=null;
     this.stepPrepDone = false;
     this.stepWashDone = false;
+    this.washStage = 0;
+    this.rinseStage = 0;
+    this.washAnim = 0;
+    this.heldWashTool = 'empty'; this.soapAppliedFor = null;
+    this.extraWashes = { mahmut: 0, yolcu: 0 };
+    if (this.scareFigure) { this.camera.remove(this.scareFigure); this.scareFigure = null; }
+    this.scareTime = 0; this.scareFatal = false; this.nextScareTime = this.elapsedTime + 45 + Math.random() * 45;
+    if (this.washingHand) this.washingHand.visible = false;
     this.dirtyBasinReady = false;
     this.dirtyBasinDrained = false;
     this.gasilBulbOut = false;
     this.stepFinalCamphorDone = false;
     this.stepDryDone = false;
     this.stepShroudDone = false;
+    this.bodyTransport = 'slab';
+    this.initialBody = 'bed';
+    this.bodyRisen = false;
 
+    this.registryCaseId = null;
     this.activeAutopsyCaseId = null;
     this.activeAutopsyTool = 'magnifier';
     this.activeAutopsyCameraAngle = 'overview';
@@ -663,10 +789,15 @@ export class SonVazifeEngine {
     this.leftGasilWithoutVigilFlagged = false;
     this.stormFlashIntensity = 0;
     this.nextThunderTime = 12;
-    this.karaPatrolT = 0;
-    this.sisPatrolT = 0;
+    this.karaPatrol.reset();
+    this.mistPatrol.reset();
+    this.nightPage = null;
+    this.finalCall = undefined;
     this.karaCatchCooldown = 0;
     this.caughtCount = 0;
+    this.survivalSeconds = 0;
+    this.storyEventsSeen.clear();
+    this.survivalSaveClock = 0;
     this.endingReason = '';
     this.isNotebookOpen = false;
     this.captionText = null;
@@ -681,6 +812,7 @@ export class SonVazifeEngine {
       this.world.autopsyLights.flashLight.intensity = 0;
     }
     if (this.handCandle?.light) {
+      this.handCandle.root.visible = false;
       this.handCandle.light.intensity = 0;
     }
 
@@ -691,54 +823,68 @@ export class SonVazifeEngine {
         actor.trust = 50;
         actor.waypointIndex = 0;
         const wp = actor.def.waypoints[0];
-        actor.pos.set(wp.x, groundHeightAt(wp.x, wp.z), wp.z);
+        actor.pos.set(wp.x, exteriorFloorAt(wp.x, wp.z), wp.z);
         actor.root.position.copy(actor.pos);
       });
     }
   }
 
   private initThree(): void {
+    // Probe and render on one context: creating a disposable second GL context can
+    // exhaust the browser's context limit on older phones.
+    const canvas = document.createElement('canvas');
+    const cores = navigator.hardwareConcurrency || 4;
+    const devMem = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
+    const coarsePointer = window.matchMedia('(pointer:coarse)').matches;
+    const powerSaver =
+      cores <= 4 ||
+      devMem <= 4 ||
+      coarsePointer ||
+      ['low', 'minimum'].includes(this.controlSettings.graphicsQuality);
+    const gl = canvas.getContext('webgl2', {
+      alpha: false,
+      stencil: false,
+      antialias: !powerSaver && this.controlSettings.graphicsQuality === 'high',
+      powerPreference: powerSaver ? 'low-power' : 'high-performance',
+    });
+    if (!gl) throw new Error('3B köy için WebGL 2 gerekiyor.');
     const hardwareProfile = (() => {
-      const gl = document.createElement('canvas').getContext('webgl2');
-      const cores = navigator.hardwareConcurrency || 4;
-      const devMem = (navigator as unknown as { deviceMemory?: number }).deviceMemory ?? 8;
-      const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
-      if (!gl) {
-        return { softwareGl: true, lowEnd: true, veryWeak: true };
-      }
       const ext = gl.getExtension('WEBGL_debug_renderer_info');
       const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER;
       const gpu = String(gl.getParameter(param));
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
-      const softwareGl = /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
-      const lowEndGpu = /Intel.*(UHD|HD|Iris)|Mali|Adreno|PowerVR|Apple GPU/i.test(gpu) && (cores <= 4 || devMem <= 4 || coarsePointer);
-      const lowEnd = softwareGl || lowEndGpu || cores <= 4 || devMem <= 4 || coarsePointer;
-      const veryWeak = softwareGl || cores <= 2 || devMem <= 2;
-      return { softwareGl, lowEnd, veryWeak };
+      return deviceClass(gpu, cores, devMem, coarsePointer);
     })();
 
     this.isSoftwareGl = hardwareProfile.softwareGl;
-    this.isLowEndHardware = hardwareProfile.lowEnd;
+    this.autoCeiling = hardwareProfile.veryWeak ? 'minimum' : hardwareProfile.lowEnd ? 'low' : 'high';
 
-    if (this.controlSettings.graphicsQuality === 'auto') {
-      this.resolvedQualityTier = hardwareProfile.veryWeak ? 'low' : 'medium';
-    }
+    this.resolvedQualityTier = startingTier(
+      this.controlSettings.graphicsQuality,
+      this.isSoftwareGl,
+      hardwareProfile.veryWeak,
+      hardwareProfile.lowEnd,
+    );
+    const allocation = allocationFor(this.resolvedQualityTier),
+      compact = allocation !== 'full';
 
     const width = this.container.clientWidth || window.innerWidth;
     const height = this.container.clientHeight || window.innerHeight;
 
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: !this.isSoftwareGl && !this.isLowEndHardware,
-      powerPreference: 'high-performance',
-    });
+    this.renderer = new THREE.WebGLRenderer({ canvas, context: gl });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.12;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.setPixelRatio(
-      this.isSoftwareGl ? 1 : this.isLowEndHardware ? 1 : Math.min(window.devicePixelRatio || 1, 1.4),
+      rasterRatio(
+        this.resolvedQualityTier,
+        width,
+        height,
+        window.devicePixelRatio || 1,
+        this.isSoftwareGl,
+      ),
     );
     this.renderer.setSize(width, height);
-    this.renderer.shadowMap.enabled = !this.isSoftwareGl && !hardwareProfile.veryWeak;
+    this.renderer.shadowMap.enabled = !compact;
     this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.needsUpdate = this.renderer.shadowMap.enabled;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -750,32 +896,27 @@ export class SonVazifeEngine {
     this.camera.rotation.order = 'YXZ';
     this.scene.add(this.camera);
 
-    const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
-    this.envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-    this.scene.environment = this.envTexture;
-    pmremGenerator.dispose();
-
-    const rawAniso = this.renderer.capabilities.getMaxAnisotropy();
-    const maxAnisotropy = this.isSoftwareGl || this.isLowEndHardware ? Math.min(2, rawAniso) : Math.min(4, rawAniso);
-    this.textures = createProceduralTextures(maxAnisotropy);
-    this.world = buildVillageWorld(this.scene, this.textures, (id) => this.getInteractLabel(id));
+    const maxAnisotropy = Math.min(compact ? 1 : 4, this.renderer.capabilities.getMaxAnisotropy());
+    this.textures = loadVillageTextures(maxAnisotropy, compact);
+    this.world = buildVillageWorld(
+      this.scene,
+      this.textures,
+      (id) => this.getInteractLabel(id),
+      allocation,
+      (root) => {
+        if (this.usingVertexLight) this.vertexLight.include(root);
+      },
+    );
     this.npcKeys = Object.keys(this.world.npcs) as NpcId[];
-
-    // Preload local CC0 3D models & PBR textures in background without blocking interaction
-    void this.cc0
-      .preloadAll(maxAnisotropy, (percent, ready) => {
-        if (this.disposed) return;
-        this.assetLoadPercent = percent;
-        this.assetsReady = ready;
-        if (ready) {
-          this.world.applyCC0Assets(this.cc0);
-          if (this.renderer.shadowMap.enabled) {
-            this.renderer.shadowMap.needsUpdate = true;
-          }
-          this.syncVisualMeshes();
-        }
-        this.pushHudState(true);
-      });
+    void this.assets.load(allocation, (id, percent) => {
+      if (this.disposed) return;
+      this.world.applyModel(this.assets, id);
+      if (this.usingVertexLight) this.vertexLight.include(this.scene);
+      this.assetLoadPercent = percent;
+      this.assetsReady = percent === 100;
+      if (this.renderer.shadowMap.enabled) this.renderer.shadowMap.needsUpdate = true;
+      this.pushHudState(true);
+    });
 
     // First-person held brass candle (detach light onto camera permanently so NUM_POINT_LIGHTS stays constant)
     this.handCandle = createHandCandle();
@@ -786,23 +927,52 @@ export class SonVazifeEngine {
     this.handCandle.light.position.set(0.32, -0.09, -0.57);
     this.handCandle.light.intensity = 0;
     this.handCandle.light.visible = true;
-    this.camera.add(this.handCandle.root);
     this.camera.add(this.handCandle.light);
-
-    if (!this.isSoftwareGl) {
-      this.postProcessing = createPostProcessing(
-        this.renderer,
-        this.scene,
-        this.camera,
-        width,
-        height,
-      );
-      this.renderer.compile(this.scene, this.camera);
-    }
+    // Anatomical palm, articulated digits and thumb in place of mitten-like spheres.
+    this.washingHand = createWorkHands();
+    const rightHand = this.washingHand.getObjectByName('Sağ el')!;
+    this.handCandle.root.position.set(0.08, 0.08, 0.13);
+    rightHand.add(this.handCandle.root);
+    const clothTool = new THREE.Group();
+    const cloth = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.12), new THREE.MeshStandardMaterial({ color: 0xb9b29e, roughness: 1 }));
+    cloth.position.set(0.2, -0.14, -0.10); clothTool.add(cloth);
+    const soapTool = new THREE.Group();
+    const soap = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.08), new THREE.MeshStandardMaterial({ color: 0xaaa58d, roughness: 0.95 }));
+    soap.position.set(0.24, -0.12, -0.10); soapTool.add(soap);
+    const bucketTool = new THREE.Group();
+    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.105, 0.19, 12), new THREE.MeshStandardMaterial({ color: 0x777b77, roughness: 0.65, metalness: 0.28 }));
+    bucket.position.set(0, -0.25, -0.12); bucketTool.add(bucket);
+    const handle = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.012, 6, 16, Math.PI), new THREE.MeshStandardMaterial({ color: 0x555a58, metalness: 0.35, roughness: 0.6 }));
+    handle.position.set(0, -0.15, -0.12); bucketTool.add(handle);
+    const ewerTool = createCopperEwerAndSoap('ibrik');
+    ewerTool.position.set(0.23, -0.3, -0.1); ewerTool.scale.setScalar(0.7);
+    const camphorTool=createCopperEwerAndSoap('kafur'),shroudTool=createCopperEwerAndSoap('kefen');
+    for(const tool of [camphorTool,shroudTool]){tool.position.set(.23,-.3,-.1);tool.scale.setScalar(.7);}
+    this.washTools = { cloth: clothTool, soap: soapTool, bucket: bucketTool, ewer: ewerTool,camphor:camphorTool,shroud:shroudTool };
+    this.washingHand.add(clothTool, soapTool, bucketTool, ewerTool,camphorTool,shroudTool); this.washingHand.position.set(0, -0.3, -0.65);
+    this.washingHand.visible = false; this.camera.add(this.washingHand);
 
     this.syncQualityTierFromSettings();
     this.syncVisualMeshes();
     this.pushHudState(true);
+  }
+
+  private placeTransportBody() {
+    const body = this.world.gasil.kefenWrapGroup;
+    const duty=this.activeDuty();
+    const initial = !duty && this.initialBody !== 'slab';
+    const carried=duty ? duty.body==='carrying'||duty.body==='burialCarry' : initial ? this.initialBody==='carried' : this.bodyTransport==='carried';
+    const atBed=duty ? duty.body==='arrival' : initial ? this.initialBody==='bed' : this.bodyTransport==='delivered';
+    const parent = carried ? this.camera : atBed ? this.world.transportBed : this.world.gasil.deceasedGroup;
+    if (body.parent !== parent) parent.add(body);
+    body.rotation.set(0, 0, 0);
+    body.scale.setScalar(1);
+    if (carried) {
+      body.position.set(0, -0.55, -1.35);
+      body.rotation.y = Math.PI / 2;
+      body.scale.setScalar(0.78);
+    } else if (atBed) body.position.set(0, 0.78, 0);
+    else body.position.set(0, 0, 0);
   }
 
   private syncVisualMeshes(): void {
@@ -812,31 +982,54 @@ export class SonVazifeEngine {
       mesh.visible = item ? !item.collected : true;
     });
 
+    // Only the active examination aid belongs in the rendered image; ray layers stay separate from E.
+    this.camera.layers.disable(AUTOPSY_LAYER);
+    this.camera.layers.disable(AUTOPSY_ANOMALY_LAYER);
+    if (this.activeAutopsyCaseId)
+      this.camera.layers.enable(
+        this.activeAutopsyTool === 'camera' ? AUTOPSY_ANOMALY_LAYER : AUTOPSY_LAYER,
+      );
     const inspectArif = this.activeAutopsyCaseId === 'case_arif';
-    const showArifForensic = inspectArif || (!this.autopsyCases.case_arif.completed && !this.stepPrepDone);
+    const movedMahmut = this.act >= 4 && this.autopsyCases.case_mahmut.completed;
+    const movedYolcu = this.act >= 6 && this.autopsyCases.case_unknown.completed;
 
-    // Toggle Gasilhane cloth vs forensic overlay cleanly
-    this.world.gasil.deceasedGroup.children.forEach((child) => {
-      if (child === this.world.gasilAutopsy.group) {
-        child.visible = showArifForensic;
-      } else if (child === this.world.gasil.pestemalMesh) {
-        child.visible = !inspectArif && this.stepPrepDone && !this.stepShroudDone;
-      } else if (child === this.world.gasil.kefenWrapGroup) {
-        child.visible = !inspectArif && this.stepShroudDone;
-      } else {
-        child.visible = !showArifForensic;
-      }
-    });
+    this.world.gasil.pestemalMesh.visible = !inspectArif && this.stepPrepDone && !this.stepShroudDone;
+    this.world.gasil.kefenWrapGroup.visible = !inspectArif && this.stepShroudDone;
+    this.placeTransportBody();
+    const duty=this.activeDuty();
+    if(!duty && this.initialBody!=='slab')this.world.gasil.kefenWrapGroup.visible=!inspectArif;
+    if(duty){
+      this.world.gasil.pestemalMesh.visible=!inspectArif&&duty.body==='slab'&&duty.stage<6;
+      this.world.gasil.kefenWrapGroup.visible=!inspectArif&&(duty.body==='carrying'||duty.body==='burialCarry'||(duty.body==='arrival'&&isEvening(this.survivalSeconds))||(duty.body==='slab'&&duty.stage===6));
+    }
+    this.world.receiving.mahmut.visible = movedMahmut;
+    this.world.receiving.yolcu.visible = movedYolcu;
+    if (movedMahmut) void this.world.nightArt.request('mahmut');
+    if (this.stepShroudDone || movedYolcu) void this.world.nightArt.request('yolcu');
+    if (this.act >= 2) void this.world.nightArt.request('sis-gozcusu');
+    if (this.act >= 3) void this.world.nightArt.request('karabasma');
+    const signal = this.hasEntry('night_signal');
+    this.world.setSignal(signal);
+    this.world.keeper.setStage(this.act === 7, signal);
 
-    this.world.gasil.basinWaterMesh.visible = this.stepPrepDone && !this.dirtyBasinDrained;
-    this.world.gasil.vigilFlame.visible = this.vigilLit;
-    this.world.gasil.vigilLight.intensity = this.vigilLit ? 3.4 : 0;
+    this.world.washStations.soap.visible = duty ? duty.body==='slab'&&duty.held!=='soap' : !!this.inventory.find(i => i.id === 'sabun')?.collected && this.heldWashTool !== 'soap';
+    this.world.washStations.ewer.visible = duty ? duty.body==='slab'&&duty.held!=='ewer' : !!this.inventory.find(i => i.id === 'ibrik')?.collected && this.heldWashTool !== 'ewer';
+    this.world.washStations.camphor.visible = !!this.funeralDuty && this.funeralDuty.body==='slab' && this.funeralDuty.held!=='camphor';
+    this.world.washStations.shroud.visible = !!this.funeralDuty && this.funeralDuty.body==='slab' && this.funeralDuty.held!=='shroud';
+    this.world.funeralPlot.visible = this.funeralDuty?.body==='burialCarry';
+    for(const shelf of this.world.dutyShelves)shelf.visible=!!this.funeralDuty && this.funeralDuty.body!=='done';
+    this.world.gasil.basinWall.visible = this.world.gasil.basinBottom.visible = duty ? duty.held!=='bucket' : this.heldWashTool !== 'dirty';
+    this.world.gasil.basinWaterMesh.visible = duty ? duty.dirty&&duty.held!=='bucket' : this.stepPrepDone && !this.dirtyBasinDrained && this.heldWashTool !== 'dirty';
+    this.updateHeldWashVisual();
+    const vigil=duty ? duty.candle : this.vigilLit;
+    this.world.gasil.vigilFlame.visible = vigil;
+    this.world.gasil.vigilLight.intensity = vigil ? 3.4 : 0;
     this.world.gasil.windowShadowFigure.visible = this.windowAnomalyActive;
     this.world.gasil.windowShadowFigure.position.set(-4.25, 1.45, 0);
     const windowGlowMat = this.world.gasil.windowGlowMesh.material as THREE.MeshStandardMaterial;
     windowGlowMat.emissive.copy(_whisperBaseEmissive);
     windowGlowMat.emissiveIntensity = 0.85;
-    this.world.gasil.deceasedGroup.rotation.y = this.leftGasilWithoutVigilFlagged ? 0.14 : 0;
+    this.world.gasil.deceasedGroup.rotation.y = 0;
 
     // Sync all 3 autopsy cadaver visual overlays
     (Object.keys(this.world.autopsyBodies) as AutopsyCaseId[]).forEach((cid) => {
@@ -844,11 +1037,16 @@ export class SonVazifeEngine {
       const st = this.autopsyCases[cid];
       const isInspecting = this.activeAutopsyCaseId === cid;
 
-      body.drapeMesh.visible = !isInspecting && st.completed;
-      body.incisionGroup.visible = st.zones.chest.incised;
-      body.neckIncision.visible = st.zones.neck.incised;
+      // The table at the old scene is empty after transfer. Explicit forensic review is a reconstruction.
+      body.group.visible =
+        isInspecting || (cid==='case_arif' && !!duty && duty.body==='slab' && duty.stage<6) ||
+        !(cid === 'case_arif' ? this.stepShroudDone || this.initialBody!=='slab' : cid === 'case_mahmut' ? movedMahmut : movedYolcu);
+      for (const marker of Object.values(body.anomalyMarkers)) marker.visible = isInspecting;
+      body.incisionGroup.visible = isInspecting && st.zones.chest.incised;
+      body.neckIncision.visible = isInspecting && st.zones.neck.incised;
       if (body.sampleNodes.chest) {
-        body.sampleNodes.chest.visible = isInspecting && st.zones.chest.incised && !st.zones.chest.sampleExtracted;
+        body.sampleNodes.chest.visible =
+          isInspecting && st.zones.chest.incised && !st.zones.chest.sampleExtracted;
       }
       if (body.sampleNodes.pocket) {
         body.sampleNodes.pocket.visible = isInspecting && !st.zones.pocket.sampleExtracted;
@@ -905,13 +1103,19 @@ export class SonVazifeEngine {
     this.world.sisGozcusu.visible = this.act >= 3;
   }
 
-  public startNewGame(): void {
+  public startNewGame(registryFiled = false): void {
     this.audio.init();
     this.resetStoryState();
+    const firstEntry = this.clues.find((clue) => clue.id === 'clue_first_ledger');
+    if (firstEntry) firstEntry.discovered = registryFiled;
     this.syncVisualMeshes();
+    this.camera.position.set(this.playerPos.x, this.playerPos.y + PLAYER_EYE_HEIGHT, this.playerPos.z);
+    this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
     this.screen = 'playing';
     this.showCaption(
-      'Kuzdağ Köyü... Bekçi Hasan ile konuş, malzemeleri topla ve Hacı Arif Efendi üzerinde ilk otopsiyi başlat.',
+      registryFiled
+        ? 'İki tarih, tek isim. Teslim fişi defterinde [Tab]. Önce sedyedeki cenazeyi gasilhaneye taşı.'
+        : 'Kuzdağ Köyü… Cenaze gasilhane önündeki sedyede bekliyor. Onu içeri taşı.',
       6.2,
     );
     this.triggerAutoSave(false);
@@ -921,20 +1125,37 @@ export class SonVazifeEngine {
 
   public continueSavedGame(): void {
     const save = readAutoSave();
-    if (!save) {
-      this.startNewGame();
-      return;
-    }
+    if (!save) throw new Error('Kuzdağ kaydı okunamadı; üzerine yazılmadı.');
     this.audio.init();
     this.resetStoryState();
 
+    this.puzzleSeed = save.puzzleSeed ?? 0;
+    this.updatePuzzleClues();
     this.act = save.act;
-    this.playerPos.set(save.playerPos.x, groundHeightAt(save.playerPos.x, save.playerPos.z), save.playerPos.z);
+    this.survivalSeconds = save.survivalSeconds ?? 0;
+    this.storyEventsSeen = new Set(save.storyEventsSeen ?? []);
+    this.caughtCount = save.caughtCount ?? 0;
+    this.extraWashes = { mahmut: save.additionalWashes?.mahmut ?? 0, yolcu: save.additionalWashes?.yolcu ?? 0 };
+    const homePosition = save.villageRevision === 6
+      ? save.playerPos
+      : migrateOldHomePosition(save.playerPos.x, save.playerPos.z, this.world.homes, save.villageRevision);
+    const outpostPosition = (save.villageRevision ?? 0) >= 3
+      ? homePosition : migrateOutpostPosition(homePosition.x, homePosition.z);
+    const clinicPosition = (save.villageRevision ?? 0) >= 4
+      ? outpostPosition : migrateClinicPosition(outpostPosition.x, outpostPosition.z);
+    const restoredPosition = (save.villageRevision ?? 0) >= 5
+      ? clinicPosition : migrateMuhtarPosition(clinicPosition.x, clinicPosition.z);
+    this.playerPos.set(
+      restoredPosition.x,
+      groundHeightAt(restoredPosition.x, restoredPosition.z),
+      restoredPosition.z,
+    );
     this.yaw = save.playerPos.yaw;
     this.targetYaw = save.playerPos.yaw;
     this.pitch = save.playerPos.pitch;
     this.targetPitch = save.playerPos.pitch;
 
+    this.funeralDuty = save.funeralDuty ? {...save.funeralDuty,clues:[...save.funeralDuty.clues]} : null;
     this.candleLit = save.candleLit;
     this.candleOil = save.candleOil;
     this.handCandle.root.visible = this.candleLit;
@@ -953,11 +1174,31 @@ export class SonVazifeEngine {
       r.violated = ruleSet.has(r.id);
     });
     const clueSet = new Set(save.cluesDiscovered || []);
+    if (clueSet.has('night_call') && (save.finalCall === 'report' || save.finalCall === 'farewell')) {
+      this.finalCall = save.finalCall;
+      // Completed older campaigns keep their ending rather than reopening new records.
+      for (const id of ['night_register', 'night_memorial', 'night_verdict', 'night_drawing', 'night_echo', 'night_seal']) clueSet.add(id);
+    } else {
+      clueSet.delete('night_call'); // An incomplete checkpoint can always reopen the last decision.
+    }
     this.clues.forEach((c) => {
       c.discovered = clueSet.has(c.id);
     });
 
     this.discoveredDistricts = new Set<DistrictId>(save.discoveredDistricts || ['square']);
+    this.mosqueDoorOpen = Boolean(save.mosqueDoorOpen);
+    this.world.gasil.mosqueDoorPivot.rotation.y = this.mosqueDoorOpen ? -Math.PI * 0.52 : 0;
+    const closedOutposts = new Set(save.closedOutposts ?? []);
+    for (const id of OUTPOST_IDS) {
+      const door = this.world.outpostDoors[id];
+      door.open = !closedOutposts.has(id);
+      door.pivot.rotation.y = door.open ? -Math.PI * 0.52 : 0;
+    }
+    const openHomes = new Set(save.openHomes ?? []);
+    this.world.homes.forEach((home, i) => {
+      home.open = openHomes.has(i);
+      home.door.rotation.y = home.open ? -Math.PI * 0.52 : 0;
+    });
     if (save.doors) {
       this.gasilDoorOpen = Boolean(save.doors.gasil);
       this.abandonedDoorOpen = Boolean(save.doors.abandoned);
@@ -967,9 +1208,20 @@ export class SonVazifeEngine {
       this.cryptDoorOpen = Boolean(save.doors.crypt);
       this.shutterClosed = Boolean(save.doors.shutter);
     }
+    // A pre-rebuild outdoor save may now intersect a moved wall or grave. Resolve
+    // after restoring door states, so resuming never traps a player in new geometry.
+    if (save.villageRevision !== 6) {
+      this.resolveCollisions(this.playerPos);
+      this.playerPos.y = groundHeightAt(this.playerPos.x, this.playerPos.z);
+    }
     if (save.ritual) {
       this.stepPrepDone = Boolean(save.ritual.prep);
       this.stepWashDone = Boolean(save.ritual.wash);
+      this.washStage = this.stepWashDone ? 4 : (save.ritual.washStage ?? 0);
+      this.heldWashTool = save.ritual.heldWashTool ?? 'empty';
+      this.soapAppliedFor = save.ritual.soapAppliedFor ?? null;
+      if (this.heldWashTool !== 'empty') this.candleLit = false;
+      this.rinseStage = save.ritual.finalCamphor ? 3 : (save.ritual.rinseStage ?? 0);
       this.dirtyBasinReady = Boolean(save.ritual.dirtyReady);
       this.dirtyBasinDrained = Boolean(save.ritual.dirtyDrained);
       this.gasilBulbOut = Boolean(save.ritual.bulbOut);
@@ -977,6 +1229,16 @@ export class SonVazifeEngine {
       this.stepDryDone = Boolean(save.ritual.dry);
       this.stepShroudDone = Boolean(save.ritual.shroud);
     }
+    this.bodyTransport = save.bodyTransport ?? (this.stepShroudDone ? 'delivered' : 'slab');
+    this.initialBody = save.initialBody ?? 'slab';
+    this.bodyRisen = Boolean(save.bodyRisen) && !this.vigilLit && !this.stepShroudDone;
+    this.windowAnomalyResolved = save.windowResolved ?? (this.shutterClosed && this.stepWashDone);
+    this.windowAnomalyActive =
+      save.windowActive ?? (this.stepWashDone && !this.dirtyBasinDrained && !this.shutterClosed);
+    this.leftGasilWithoutVigilFlagged = this.rules.find((r) => r.id === 'rule_alone')?.violated ?? false;
+    // A v2 save at the old final knot continues at the first unfiled night record, never resets.
+    if (this.bodyTransport === 'delivered' || this.act >= 6) this.act = nightAct((id) => this.hasEntry(id));
+    if (this.act >= 4) this.clues.find((c) => c.id === 'clue_kenan_confession')!.discovered = true;
     if (save.autopsyCases) {
       const defaults = createInitialAutopsyCases();
       (Object.keys(defaults) as AutopsyCaseId[]).forEach((cid) => {
@@ -1023,6 +1285,8 @@ export class SonVazifeEngine {
     }
 
     this.syncVisualMeshes();
+    this.camera.position.set(this.playerPos.x, this.playerPos.y + PLAYER_EYE_HEIGHT, this.playerPos.z);
+    this.camera.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
     this.screen = 'playing';
     this.showCaption('Kaldığın yerden devam ediliyor...', 3.8);
     this.requestPointerLockSafe();
@@ -1040,6 +1304,22 @@ export class SonVazifeEngine {
     const meta = this.getObjectiveText();
     const payload: SaveGamePayload = {
       version: 2,
+      villageRevision: 6,
+      funeralDuty: this.funeralDuty ? {...this.funeralDuty,clues:[...this.funeralDuty.clues]} : undefined,
+      survivalSeconds: this.survivalSeconds,
+      storyEventsSeen: [...this.storyEventsSeen],
+      caughtCount: this.caughtCount,
+      additionalWashes: { ...this.extraWashes },
+      openHomes: this.world.homes.flatMap((home, i) => home.open ? [i] : []),
+      mosqueDoorOpen: this.mosqueDoorOpen,
+      closedOutposts: OUTPOST_IDS.filter(id => !this.world.outpostDoors[id].open),
+      finalCall: this.finalCall,
+      bodyTransport: this.bodyTransport,
+      initialBody: this.initialBody,
+      bodyRisen: this.bodyRisen,
+      puzzleSeed: this.puzzleSeed,
+      windowActive: this.windowAnomalyActive,
+      windowResolved: this.windowAnomalyResolved,
       savedAt: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
       act: this.act,
       actTitle: meta.actTitle,
@@ -1072,6 +1352,10 @@ export class SonVazifeEngine {
       ritual: {
         prep: this.stepPrepDone,
         wash: this.stepWashDone,
+        washStage: this.washStage,
+        heldWashTool: this.heldWashTool,
+        soapAppliedFor: this.soapAppliedFor,
+        rinseStage: this.rinseStage,
         dirtyReady: this.dirtyBasinReady,
         dirtyDrained: this.dirtyBasinDrained,
         bulbOut: this.gasilBulbOut,
@@ -1141,7 +1425,14 @@ export class SonVazifeEngine {
   }
 
   public toggleNotebook(): void {
-    if (this.screen !== 'playing' || this.activeDialogueNpcId || this.activeAutopsyCaseId) return;
+    if (
+      this.screen !== 'playing' ||
+      this.activeDialogueNpcId ||
+      this.activeAutopsyCaseId ||
+      this.registryCaseId ||
+      this.nightPage
+    )
+      return;
     this.isNotebookOpen = !this.isNotebookOpen;
     this.keys = {};
     this.rightMouseDown = false;
@@ -1157,9 +1448,17 @@ export class SonVazifeEngine {
   }
 
   public toggleCandle(): void {
-    if (this.screen !== 'playing' || this.activeAutopsyCaseId) return;
+    if (this.screen !== 'playing' || this.activeAutopsyCaseId || this.registryCaseId || this.nightPage)
+      return;
+    if (!this.candleLit && (this.heldWashTool !== 'empty' || (this.activeDuty()?.held ?? 'empty') !== 'empty' || this.initialBody === 'carried' || this.bodyTransport === 'carried' || ['carrying','burialCarry'].includes(this.activeDuty()?.body ?? '') || this.washAnim > 0)) {
+      this.showCaption('Önce elindeki malzemeyi yerine bırak; yıkama iki el gerektirir.', 3); return;
+    }
     if (!this.inventory.find((i) => i.id === 'defter')?.collected && this.act === 1) {
       this.showCaption('Henüz gassalın mumunu ve defterini almadın.', 2.8);
+      return;
+    }
+    if (!this.candleLit && this.candleOil <= 0) {
+      this.showCaption('Mum yağı bitti. Gasilhanede sabır mumunun yanındaki yağdan doldurabilirsin.', 4);
       return;
     }
     this.candleLit = !this.candleLit;
@@ -1171,11 +1470,15 @@ export class SonVazifeEngine {
   public toggleMute(): void {
     const next = !this.audio.isMuted();
     this.audio.setMuted(next);
+    storeMuted(next);
     this.pushHudState(true);
   }
 
   public returnToTitle(): void {
+    if (this.screen === 'playing' || this.screen === 'paused') this.triggerAutoSave(false);
     this.screen = 'title';
+    this.nightPage = null;
+    this.registryCaseId = null;
     this.isNotebookOpen = false;
     this.activeAutopsyCaseId = null;
     this.activeDialogueNpcId = null;
@@ -1252,7 +1555,12 @@ export class SonVazifeEngine {
     const node = npcDef.nodes[this.activeDialogueNodeId];
     if (!node) return;
 
-    const option = node.options.find((o) => o.id === optionId);
+    const option = filterDialogueOptions(
+      node.options,
+      this.clues,
+      this.autopsyCases,
+      this.inventory,
+    ).find((o) => o.id === optionId);
     if (!option) return;
 
     this.audio.playDialogueBlip();
@@ -1339,6 +1647,42 @@ export class SonVazifeEngine {
     };
   }
 
+  private openDeliveryFile(caseId: AutopsyCaseId): void {
+    if (!this.autopsyCases[caseId].unlocked) {
+      this.showCaption('Bu dosyanın teslim evrakı henüz gelmemiş.', 3);
+      return;
+    }
+    this.registryCaseId = caseId;
+    this.keys = {};
+    this.isDraggingLook = false;
+    this.virtualMoveX = this.virtualMoveY = 0;
+    this.virtualSprint = this.rightMouseDown = false;
+    if (document.pointerLockElement === this.renderer.domElement) document.exitPointerLock();
+    this.audio.playPaperFlip();
+    this.pushHudState(true);
+  }
+
+  public closeDeliveryFile(): void {
+    if (!this.registryCaseId) return;
+    this.registryCaseId = null;
+    this.requestPointerLockSafe();
+    this.pushHudState(true);
+  }
+
+  public inspectDelivery(): void {
+    const caseId = this.registryCaseId;
+    if (!caseId) return;
+    this.registryCaseId = null;
+    this.enterAutopsyMode(caseId);
+  }
+
+  public fileDelivery(answers: string[]): boolean {
+    const caseId = this.registryCaseId;
+    if (!caseId || this.autopsyCases[caseId].completed || !validDelivery(caseId, answers)) return false;
+    this.sealCase(caseId, 'registry');
+    return true;
+  }
+
   // --- Forensic 3D Autopsy Workbench & Crime Scene Investigation Methods ---
   public enterAutopsyMode(caseId: AutopsyCaseId): void {
     const body = this.world.autopsyBodies[caseId];
@@ -1369,7 +1713,10 @@ export class SonVazifeEngine {
     this.pushHudState(true);
   }
 
-  private syncAutopsyCameraTarget(body: WorldHandles['autopsyBodies'][AutopsyCaseId], angle: AutopsyCameraAngle): void {
+  private syncAutopsyCameraTarget(
+    body: WorldHandles['autopsyBodies'][AutopsyCaseId],
+    angle: AutopsyCameraAngle,
+  ): void {
     const preset = body.cameraPresets[angle] ?? body.cameraPresets.overview;
     body.group.updateWorldMatrix(true, false);
     this.autopsyCamPos.copy(preset.pos);
@@ -1397,7 +1744,10 @@ export class SonVazifeEngine {
     this.hoveredAutopsyAnomalyId = null;
     this.audio.playExamineClick();
     if (tool === 'camera' && this.activeAutopsyCameraAngle === 'overview') {
-      this.showCaption('Fotoğraf Makinesi seçildi. "Zemin & İzler" veya "Oda Çevresi" açısına geçip mavi işaretli anomalileri çek.', 4.6);
+      this.showCaption(
+        'Fotoğraf Makinesi seçildi. "Zemin & İzler" veya "Oda Çevresi" açısına geçip mavi işaretli anomalileri çek.',
+        4.6,
+      );
     }
     this.syncVisualMeshes();
     this.pushHudState(true);
@@ -1436,7 +1786,11 @@ export class SonVazifeEngine {
     this.pushHudState(true);
   }
 
-  public linkCrimeSceneAnomaly(caseId: AutopsyCaseId, anomalyId: string, zoneId: AutopsyZoneId | ''): void {
+  public linkCrimeSceneAnomaly(
+    caseId: AutopsyCaseId,
+    anomalyId: string,
+    zoneId: AutopsyZoneId | '',
+  ): void {
     const st = this.autopsyCases[caseId];
     const anom = st?.anomalies?.[anomalyId];
     if (!st || !anom) return;
@@ -1451,12 +1805,13 @@ export class SonVazifeEngine {
     const diag = AUTOPSY_DIAGNOSIS[caseId];
     if (!st || !diag) return;
 
-    const requiredInspected = (Object.values(st.zones) as Array<AutopsyCaseState['zones'][AutopsyZoneId]>).filter(
-      (z) => z.externalFound,
-    ).length;
+    const requiredInspected = (
+      Object.values(st.zones) as Array<AutopsyCaseState['zones'][AutopsyZoneId]>
+    ).filter((z) => z.externalFound).length;
 
     if (requiredInspected < 4 || !st.zones.chest.incised) {
-      st.diagnosisError = 'Mühürlemeden önce en az 4 bölgeyi büyüteçle incele ve göğüs bölgesine neşter uygula.';
+      st.diagnosisError =
+        'Mühürlemeden önce en az 4 bölgeyi büyüteçle incele ve göğüs bölgesine neşter uygula.';
       this.audio.playViolationSting();
       this.pushHudState(true);
       return;
@@ -1464,21 +1819,24 @@ export class SonVazifeEngine {
 
     const anomalies = Object.values(st.anomalies || {});
     if (anomalies.some((a) => !a.photographed)) {
-      st.diagnosisError = 'Mühürlemeden önce [4] Fotoğraf Makinesi ile olay yerindeki tüm çevresel anomalileri fotoğrafla.';
+      st.diagnosisError =
+        'Mühürlemeden önce [4] Fotoğraf Makinesi ile olay yerindeki tüm çevresel anomalileri fotoğrafla.';
       this.audio.playViolationSting();
       this.pushHudState(true);
       return;
     }
 
     if (anomalies.some((a) => !a.selectedTag || a.selectedTag !== a.correctTag)) {
-      st.diagnosisError = 'Fotoğraflanan olay yeri anomalilerinden biri eksik veya yanlış etiketlenmiş. Kanıt etiketlerini kontrol et.';
+      st.diagnosisError =
+        'Fotoğraflanan olay yeri anomalilerinden biri eksik veya yanlış etiketlenmiş. Kanıt etiketlerini kontrol et.';
       this.audio.playViolationSting();
       this.pushHudState(true);
       return;
     }
 
     if (anomalies.some((a) => !a.linkedZone || a.linkedZone !== a.correctZone)) {
-      st.diagnosisError = 'Olay yeri fotoğrafı yanlış otopsi bulgusuyla eşleştirilmiş. Anatomik bulguyla çapraz referansını düzelt.';
+      st.diagnosisError =
+        'Olay yeri fotoğrafı yanlış otopsi bulgusuyla eşleştirilmiş. Anatomik bulguyla çapraz referansını düzelt.';
       this.audio.playViolationSting();
       this.pushHudState(true);
       return;
@@ -1492,14 +1850,25 @@ export class SonVazifeEngine {
     }
 
     if (st.selectedCause !== diag.correctCause || st.selectedTime !== diag.correctTime) {
-      st.diagnosisError = 'Ölüm nedeni veya ölüm saati adli bulgularla örtüşmüyor. Bölge notlarını tekrar oku.';
+      st.diagnosisError =
+        'Ölüm nedeni veya ölüm saati adli bulgularla örtüşmüyor. Bölge notlarını tekrar oku.';
       this.audio.playViolationSting();
       this.pushHudState(true);
       return;
     }
 
+    this.sealCase(caseId, 'forensic');
+  }
+
+  private sealCase(caseId: AutopsyCaseId, method: 'registry' | 'forensic'): void {
+    const st = this.autopsyCases[caseId];
+    const diag = AUTOPSY_DIAGNOSIS[caseId];
     st.completed = true;
+    st.completionMethod = method;
+    st.selectedCause = diag.correctCause;
+    st.selectedTime = diag.correctTime;
     st.diagnosisError = null;
+    this.registryCaseId = null;
     const clue = this.clues.find((c) => c.id === diag.unlockClueId);
     if (clue) clue.discovered = true;
 
@@ -1518,7 +1887,7 @@ export class SonVazifeEngine {
     this.cameraFlashAlpha = 0;
     this.syncVisualMeshes();
     this.triggerAutoSave(true);
-    this.showCaption(diag.summaryText, 6.8);
+    this.showCaption(method === 'registry' ? DELIVERY_FILES[caseId].note : diag.summaryText, 6.8);
     this.requestPointerLockSafe();
     this.pushHudState(true);
   }
@@ -1574,7 +1943,10 @@ export class SonVazifeEngine {
       _raycaster.far = 8.0;
       const hits = _raycaster.intersectObjects(Object.values(body.anomalyMeshes), false);
       if (hits.length === 0) {
-        this.showCaption('Kadrajda çevresel anomali yok. Kamera açısını değiştirip (Zemin & İzler / Oda Çevresi) tekrar dene.', 3.4);
+        this.showCaption(
+          'Kadrajda çevresel anomali yok. Kamera açısını değiştirip (Zemin & İzler / Oda Çevresi) tekrar dene.',
+          3.4,
+        );
         return;
       }
 
@@ -1593,7 +1965,10 @@ export class SonVazifeEngine {
       if (photoUrl) anomaly.photoDataUrl = photoUrl;
       st.diagnosisError = null;
 
-      this.showCaption(`Olay yeri fotoğrafı çekildi: ${anomaly.label}. Sağdan etiketleyip otopsi bulgusuyla eşleştir.`, 4.8);
+      this.showCaption(
+        `Olay yeri fotoğrafı çekildi: ${anomaly.label}. Sağdan etiketleyip otopsi bulgusuyla eşleştir.`,
+        4.8,
+      );
       this.syncVisualMeshes();
       this.pushHudState(true);
       return;
@@ -1646,8 +2021,7 @@ export class SonVazifeEngine {
 
     try {
       const maybePromise = this.renderer.domElement.requestPointerLock?.() as unknown as
-        | Promise<void>
-        | undefined;
+        Promise<void> | undefined;
       if (maybePromise && typeof maybePromise.catch === 'function') {
         maybePromise.catch(() => {
           // Fallback drag-look & arrow keys remain active
@@ -1676,7 +2050,177 @@ export class SonVazifeEngine {
     this.pushHudState(true);
   }
 
+  private hasEntry(id: string) {
+    return this.clues.some((c) => c.id === id && c.discovered);
+  }
+  private nextNight() {
+    return nextNightPage((id) => this.hasEntry(id));
+  }
+  private accessFromHere(id: string) {
+    const p = this.playerPos;
+    if (
+      [
+        'tenesir_slab',
+        'vigil_candle',
+        'gasil_drain',
+        'gasil_shutter',
+        'receiving_mahmut',
+        'wash_mahmut',
+        'wash_yolcu',
+        'wash_soap',
+        'wash_ewer',
+        'duty_camphor',
+        'duty_shroud',
+        'dirty_bucket',
+        'night_call',
+        'night_tag',
+      ].includes(id)
+    )
+      return this.isInsideGasilhane(p);
+    if (id === 'autopsy_case_unknown') return this.isInsideCrypt(p);
+    if (id === 'autopsy_case_mahmut') return this.isInsideClinic(p);
+    if (id === 'clue_mill_ledger') return this.isInsideMill(p);
+    if (id === 'item_gulsuyu' || id === 'clue_serife_letter') return this.isInsideAbandoned(p);
+    if (['item_kafur', 'clue_muhtar_note', 'clue_crash_report', 'clue_photo'].includes(id))
+      return this.isInsideMuhtar(p);
+    const room = insideOutpost(p.x, p.z);
+    if (id === 'night_drawing' || id === 'night_register' || id === 'night_bag' || id === 'night_roll' || id === 'seyir_tahta') return room === 'school';
+    if (id === 'night_verdict' || id === 'night_ticket' || id === 'night_spool') return room === 'station';
+    if (id === 'night_line' || id === 'night_echo') return room === 'exchange';
+    if (id === 'seyir_sef') return !room && this.world.keeper.root.visible;
+    if (id === 'night_bell' || id === 'night_signal' || id === 'seyir_peron' || id === 'seyir_abone')
+      return !room;
+    return true;
+  }
+  public closeNightPage() {
+    if (!this.nightPage) return;
+    this.nightPage = null;
+    this.requestPointerLockSafe();
+    this.pushHudState(true);
+  }
+  public soundNightKey(value: number) {
+    if (this.nightPage === 'night_bell') this.audio.playSchoolBell(value === 1);
+    else if (this.nightPage === 'night_line') this.audio.playExamineClick();
+  }
+  public fileNightPage(input: number[]) {
+    const id = this.nightPage;
+    if (
+      this.screen !== 'playing' ||
+      this.act < 6 ||
+      !id ||
+      id !== this.nextNight() ||
+      !correctPage(id, input, this.puzzleSeed)
+    )
+      return false;
+    this.clues.find((c) => c.id === id)!.discovered = true;
+    this.nightPage = null;
+    this.activeInteractId = null;
+    this.activeInteractLabel = null;
+    this.act = nightAct((k) => this.hasEntry(k));
+    if (id === 'night_call') this.finalCall = input[0] === 0 ? 'report' : 'farewell';
+    this.syncVisualMeshes();
+    this.triggerAutoSave(true);
+    if (id === 'night_call') {
+      this.showCaption('Hat açıldı. İstasyondaki son perona ulaş ve köyden kaç.', 7);
+      this.requestPointerLockSafe();
+      this.pushHudState(true);
+      return true;
+    }
+    if (id === 'night_line') this.audio.playTelephone();
+    else if (id === 'night_bell') this.audio.playFloorboardCreak(0.85);
+    else if (id === 'night_spool') this.audio.playWhisper(0.8);
+    else this.audio.playPaperFlip();
+    this.showCaption(nightPageFor(id, this.puzzleSeed).entry, 6);
+    this.requestPointerLockSafe();
+    this.pushHudState(true);
+    return true;
+  }
+
+  private activeDuty(): FuneralDutyState|null {
+    return this.funeralDuty && this.funeralDuty.body!=='done' ? this.funeralDuty : null;
+  }
+
+  private dutyTarget(id:string):string|null {
+    return ({transport_bed:'arrival',tenesir_slab:'slab',vigil_candle:'candle',wash_soap:'soap',wash_ewer:'ewer',dirty_bucket:'bucket',gasil_drain:'drain',yard_drain:'discard',duty_camphor:'camphor',duty_shroud:'shroud',duty_burial:'cemetery'} as Record<string,string>)[id] ?? null;
+  }
+
+  private performDuty(id:string,work=false):void {
+    const duty=this.activeDuty();if(!duty)return;
+    const before=duty.night, result=interactRitual(duty,id,isEvening(this.survivalSeconds),work);
+    if(duty.held!=='empty'||duty.body==='carrying'||duty.body==='burialCarry')this.putAwayCandle();
+    if(duty.night>before)this.survivalSeconds=(Math.floor(this.survivalSeconds/SECONDS_PER_DAY)+1)*SECONDS_PER_DAY;
+    if(id==='slab'&&work){
+      const tool=duty.held;
+      this.startWashAnimation(tool==='soap'?'soap':tool==='ewer'?'ewer':tool==='camphor'?'camphor':tool==='shroud'?'shroud':'cloth');
+    }else if(id==='drain'||id==='discard')this.startWashAnimation('bucket');
+    if(id==='slab'||id==='drain'||id==='discard')this.audio.playWaterPour();else this.audio.playPickup();
+    this.showCaption(result,5);this.syncVisualMeshes();this.triggerAutoSave(false);this.pushHudState(true);
+  }
+
+  private finishDutyWork():void {
+    if(!this.dutyWork || !this.activeDuty() || this.activeInteractId!=='tenesir_slab')return;
+    this.dutyWork=null;this.performDuty('slab',true);
+  }
+
   private getInteractLabel(id: string): string | null {
+    if (!this.accessFromHere(id)) return null;
+    const duty=this.activeDuty();
+    if(duty){
+      if(id==='wash_mahmut'||id==='wash_yolcu'||id==='night_tag')return null;
+      const target=this.dutyTarget(id);
+      if(target){
+        if(target==='arrival')return duty.body==='arrival'?(isEvening(this.survivalSeconds)?'[E] Cenazeyi sedyeden al':'Cenaze gece gelecek'):null;
+        if(target==='cemetery')return duty.body==='burialCarry'?'[E] Cenazeyi defnet':null;
+        if(target==='slab')return duty.body==='carrying'?'[E] Cenazeyi teneşire yerleştir':duty.body!=='slab'?null:duty.stage===6?'[E] Kefenli cenazeyi kaldır':`[F] ${ritualObjective(duty)}${duty.stage<3?' · A / D':''}`;
+        if(target==='candle')return duty.body==='slab'&&!duty.candle?'[E] Sabır mumunu yak':null;
+        if(target==='bucket')return duty.body==='slab'&&duty.dirty?'[E] Kirli su kovasını al / bırak':null;
+        if(target==='drain'||target==='discard')return duty.dirty&&duty.held==='bucket'?(target==='drain'?'[E] Kirli suyu gidere dök':'[E] Kirli suyu dışarı dök'):null;
+        if(duty.body!=='slab')return null;
+        const names:Record<string,string>={soap:'Sabun',ewer:'İbrik',camphor:'Kâfur',shroud:'Kefen'};
+        return names[target]?`[E] ${names[target]} ${duty.held===target?'yerine bırak':'al'}`:null;
+      }
+    }
+    if(id==='duty_camphor'||id==='duty_shroud'||id==='duty_burial')return null;
+    if(id==='transport_bed'&&!this.funeralDuty&&this.act>=6&&this.bodyTransport==='delivered')return '[E] Gassallık vazifesine başla';
+    if (id === 'mosque_door') return `[E] Cami kapısını ${this.mosqueDoorOpen ? 'kapat' : 'aç'}`;
+    if (id === 'transport_bed') {
+      if(this.initialBody==='bed')return '[E] Cenazeyi sedyeden al';
+      if(this.initialBody==='carried')return '[E] Cenazeyi sedyeye geri bırak';
+      return this.bodyTransport === 'carried' ? '[E] Cenazeyi nakil sedyesine yerleştir' : null;
+    }
+    if (id.startsWith('outpost_door_')) {
+      const name = id.slice('outpost_door_'.length) as Outpost;
+      const door = this.world.outpostDoors[name];
+      return door ? `[E] ${OUTPOSTS[name].name} kapısını ${door.open ? 'kapat' : 'aç'}` : null;
+    }
+    if (id.startsWith('home_door_')) {
+      const home = this.world.homes[Number(id.slice('home_door_'.length))];
+      return home ? `[E] Ev kapısını ${home.open ? 'kapat' : 'aç'}` : null;
+    }
+    if (isNightId(id)) {
+      if (this.act < 6 || (id !== this.nextNight() && !this.hasEntry(id))) return null;
+      const quiet = nightStealthPrompt(id, this.isCrouching, this.candleLit);
+      if (quiet && !this.hasEntry(id)) return quiet;
+      return `[E] ${this.hasEntry(id) ? 'Kaydı yeniden oku' : PAGES[id].prompt}`;
+    }
+    if (Object.hasOwn(FIELD_NOTES, id))
+      return `[E] ${FIELD_NOTES[id as keyof typeof FIELD_NOTES].title} · İncele`;
+    if (id === 'wash_soap' || id === 'wash_ewer') {
+      const tool = id === 'wash_soap' ? 'soap' : 'ewer';
+      const collected = this.inventory.find(i => i.id === (tool === 'soap' ? 'sabun' : 'ibrik'))?.collected;
+      if (!collected || this.act < 2) return null;
+      const name = tool === 'soap' ? 'sabunu' : 'temiz su ibriğini';
+      return this.heldWashTool === tool ? `[E] ${name} yerine bırak` : this.heldWashTool === 'empty' ? `[E] ${name} eline al` : 'Önce elindeki malzemeyi bırak';
+    }
+    if (id === 'dirty_bucket') return this.dirtyBasinReady && !this.dirtyBasinDrained ? this.heldWashTool === 'empty' ? '[E] Kirli su kovasını iki elinle al' : this.heldWashTool === 'dirty' ? '[E] Kirli su kovasını yerine bırak' : 'Önce elindeki malzemeyi bırak' : null;
+    if (id === 'receiving_mahmut')
+      return this.world.receiving.mahmut.visible ? '[E] Şoför Mahmut’un nakil fişini oku' : null;
+    if (id === 'wash_mahmut' || id === 'wash_yolcu') {
+      const who = id === 'wash_mahmut' ? 'mahmut' : 'yolcu';
+      if (!this.world.receiving[who].visible || (who === 'yolcu' && !this.hasEntry('night_tag'))) return null;
+      const stage = this.extraWashes[who];
+      return stage < 4 ? `[F] ${who === 'mahmut' ? 'Mahmut' : 'Yolcu'} · ${washInstruction(stage, this.soapAppliedFor === who)}${stage<3?' · A / D':''}` : null;
+    }
     if (id.startsWith('npc_')) {
       const npcId = id.replace('npc_', '') as NpcId;
       const def = VILLAGE_NPCS[npcId];
@@ -1725,15 +2269,17 @@ export class SonVazifeEngine {
         if (this.autopsyCases.case_mahmut.completed) {
           return '[E] Şoför Mahmut Dosyasını Tekrar İncele';
         }
-        return '[E] Otopsi Başlat · Şoför Mahmut (Vaka II)';
+        return '[E] Şoför Mahmut’un Teslim Dosyasını Aç';
       case 'autopsy_case_unknown':
         if (this.autopsyCases.case_unknown.completed) {
           return '[E] İsimsiz Yolcu Dosyasını Tekrar İncele';
         }
-        return '[E] Otopsi Başlat · İsimsiz Yolcu (Vaka III)';
+        return '[E] İsimsiz Yolcunun Dosyasını Aç';
       case 'tenesir_slab': {
+        if(this.initialBody==='bed')return null;
+        if(this.initialBody==='carried')return '[E] Cenazeyi teneşire yerleştir';
         if (!this.autopsyCases.case_arif.completed) {
-          return '[E] Mermer Teneşir · Hacı Arif Adli Otopsisi (Vaka I)';
+          return '[E] Hacı Arif Efendi’nin Teslim Dosyasını Aç';
         }
         if (this.act === 1) {
           const ready = ['defter', 'kefen', 'sabun', 'ibrik'].every(
@@ -1741,9 +2287,10 @@ export class SonVazifeEngine {
           );
           return ready ? '[E] Gusül Hazırlığına Başla' : 'Önce köydeki 4 malzemeyi topla';
         }
+        if (this.bodyRisen) return 'Sabır mumunu yak; cenaze teneşire geri uzansın';
         if (this.act === 2) {
           if (!this.stepPrepDone) return '[E] Örtüyü (Setr-i Avret) Ser ve Suyu Hazırla';
-          if (!this.stepWashDone) return '[E] Sabunlu Ilık Suyla Yıka (Sağdan Sola)';
+          if (!this.stepWashDone) return `[F] ${washInstruction(this.washStage, this.soapAppliedFor === 'arif')}${this.washStage<3?' · A / D':''}`;
           if (this.windowAnomalyActive && !this.shutterClosed) return 'Önce pencere kepengini kapat!';
           if (!this.dirtyBasinDrained) return 'Önce kirli su leğenini iç gidere boşalt';
           return 'Bekçi Hasan’dan Sağlık Ocağı Anahtarını alıp Şoför Mahmut’u incele';
@@ -1762,25 +2309,25 @@ export class SonVazifeEngine {
           if (!this.stepFinalCamphorDone) return '[E] Kafurlu Su ile Üç Kez Son Durulamayı Yap';
           if (!this.stepDryDone) return '[E] Temiz Havlu ve Gülsuyu ile Kurula';
           if (!this.stepShroudDone) return '[E] Kefenle ve Baş-Bel-Ayak Bağlarını Bağla';
+          if (this.bodyTransport === 'slab') return '[E] Kefenli cenazeyi dikkatle kaldır';
+          if (this.bodyTransport === 'carried') return '[E] Cenazeyi teneşire geri bırak';
         }
         return null;
       }
       case 'gasil_drain':
         return this.dirtyBasinReady && !this.dirtyBasinDrained
-          ? '[E] Kirli Suyu Taş Gidere Boşalt'
+          ? this.heldWashTool === 'dirty' ? '[E] Kirli Suyu Taş Gidere Boşalt' : 'Önce kirli su kovasını al'
           : null;
       case 'yard_drain':
         return this.dirtyBasinReady && !this.dirtyBasinDrained
-          ? '[E] Kirli Suyu Avlu Oluğuna Dök'
+          ? this.heldWashTool === 'dirty' ? '[E] Kirli Suyu Avlu Oluğuna Dök' : 'Önce kirli su kovasını al'
           : null;
       case 'vigil_candle':
-        return this.act >= 2 && !this.vigilLit
-          ? '[E] Başucunda Sabır Mumunu Yak'
-          : null;
+        return this.act < 2 ? null : !this.vigilLit ? '[E] Başucunda Sabır Mumunu Yak' : this.candleOil < 100 ? '[E] Gaz lambası haznesinden mum yağını doldur' : null;
       case 'clue_serife_letter':
         return this.act >= 3 ? '[E] Şerife Nine’nin Mektubunu Oku' : null;
       case 'clue_mill_ledger':
-        return '[E] Değirmenci Zehir Kaydını Oku';
+        return '[E] Değirmenin Eski Defterini Oku';
       case 'clue_crash_manifest':
         return '[E] Minibüs Enkazındaki Yolcu Listesini Al';
       case 'clue_muhtar_note':
@@ -1794,10 +2341,145 @@ export class SonVazifeEngine {
     }
   }
 
+  private manualWashTarget(): {id:string;who:WashPerson;stage:number}|null {
+    const id=this.activeInteractId;
+    if(this.activeDuty())return null;
+    if(id==='tenesir_slab'&&this.act===2&&this.stepPrepDone&&!this.stepWashDone&&!this.bodyRisen)
+      return {id,who:'arif',stage:this.washStage};
+    if(id==='wash_mahmut'||id==='wash_yolcu'){
+      const who=id==='wash_mahmut'?'mahmut':'yolcu';
+      if(this.world.receiving[who].visible&&(who!=='yolcu'||this.hasEntry('night_tag'))&&this.extraWashes[who]<4)
+        return {id,who,stage:this.extraWashes[who]};
+    }
+    return null;
+  }
+
+  private finishManualWash(): void {
+    if(!this.manualWash || this.manualWashTarget()?.id!==this.manualWash.id)return;
+    this.manualWash=null;this.finishingManualWash=true;
+    try {this.handleInteract();} finally {this.finishingManualWash=false;}
+  }
+
   private handleInteract(): void {
-    if (this.screen !== 'playing' || this.isOverlayBlockingMove() || !this.activeInteractId) return;
+    if (!this.activeDuty() && !this.finishingManualWash && this.manualWashTarget()) {
+      this.showCaption('F tuşunu basılı tut; yıkarken A ve D tuşlarına sırayla bas.',3.5);return;
+    }
+    if (this.screen !== 'playing' || this.isOverlayBlockingMove() || this.scareFigure || !this.activeInteractId) return;
     const id = this.activeInteractId;
 
+    if (!this.getInteractLabel(id)) return;
+    if(id==='transport_bed'&&!this.funeralDuty&&this.act>=6&&this.bodyTransport==='delivered'){
+      if(this.heldWashTool!=='empty'){this.showCaption('Vazifeye başlamadan önce elindeki malzemeyi yerine bırak.',4);return;}
+      this.putAwayCandle();
+      this.funeralDuty=newRitual();this.syncVisualMeshes();this.triggerAutoSave(false);
+      this.showCaption(ritualObjective(this.funeralDuty,isEvening(this.survivalSeconds)),6);this.pushHudState(true);return;
+    }
+    const duty=this.activeDuty(), dutyTarget=this.dutyTarget(id);
+    if(duty&&dutyTarget){this.performDuty(dutyTarget);return;}
+    if (id === 'mosque_door') {
+      this.mosqueDoorOpen = !this.mosqueDoorOpen;
+      this.audio.playDoorCreak();
+      this.triggerAutoSave(false);
+      this.pushHudState(true);
+      return;
+    }
+    if(id==='transport_bed' && this.initialBody!=='slab'){
+      if(this.heldWashTool!=='empty'){this.showCaption('Önce elindeki malzemeyi yerine bırak.',4);return;}
+      this.putAwayCandle();this.initialBody=this.initialBody==='bed'?'carried':'bed';
+      this.showCaption(this.initialBody==='carried'?'Cenazeyi gasilhaneye götür ve teneşire yerleştir.':'Cenaze sedyeye geri bırakıldı.',5);
+      this.audio.playPickup();this.syncVisualMeshes();this.triggerAutoSave(false);this.pushHudState(true);return;
+    }
+    if(id==='tenesir_slab' && this.initialBody==='carried'){
+      this.initialBody='slab';this.audio.playPickup();this.syncVisualMeshes();
+      this.showCaption('Cenaze teneşire yerleştirildi. Teslim dosyasını inceleyebilirsin.',5);
+      this.triggerAutoSave(false);this.pushHudState(true);return;
+    }
+    if (id === 'transport_bed' && this.bodyTransport === 'carried') {
+      this.bodyTransport = 'delivered';
+      this.act = 6;
+      this.audio.playTelephone();
+      this.syncVisualMeshes();
+      this.showCaption('Cenaze teslim edildi. Yeni gassallık vazifesine bu sedyeden başlayabilir veya Kuzdağ kayıtlarını incelemeye devam edebilirsin.', 8);
+      this.triggerAutoSave(true); this.pushHudState(true);
+      return;
+    }
+    if (id.startsWith('outpost_door_')) {
+      const door = this.world.outpostDoors[id.slice('outpost_door_'.length) as Outpost];
+      if (!door) return;
+      door.open = !door.open;
+      this.audio.playDoorCreak();
+      this.triggerAutoSave(false);
+      this.pushHudState(true);
+      return;
+    }
+    if (id.startsWith('home_door_')) {
+      const home = this.world.homes[Number(id.slice('home_door_'.length))];
+      if (!home) return;
+      home.open = !home.open;
+      this.triggerAutoSave(false);
+      this.audio.playDoorCreak();
+      this.pushHudState(true);
+      return;
+    }
+    if (isNightId(id)) {
+      const quiet = nightStealthPrompt(id, this.isCrouching, this.candleLit);
+      if (quiet && !this.hasEntry(id)) {
+        this.showCaption(quiet, 3.5);
+        return;
+      }
+      this.nightPage = id;
+      this.keys = {};
+      this.virtualMoveX = this.virtualMoveY = 0;
+      this.virtualSprint = this.rightMouseDown = this.isDraggingLook = false;
+      if (document.pointerLockElement === this.renderer.domElement) document.exitPointerLock();
+      if (id === 'night_call') this.audio.playTelephone();
+      else this.audio.playPaperFlip();
+      this.pushHudState(true);
+      return;
+    }
+    if (Object.hasOwn(FIELD_NOTES, id)) {
+      const c = this.clues.find((c) => c.id === id)!;
+      if (!c.discovered) {
+        c.discovered = true;
+        this.triggerAutoSave(true);
+      }
+      if (id === 'seyir_sef') this.audio.playWhisper(0.85);
+      else this.audio.playPaperFlip();
+      this.showCaption(c.body, 6);
+      return;
+    }
+    if (id === 'wash_soap' || id === 'wash_ewer') {
+      const tool = id === 'wash_soap' ? 'soap' : 'ewer';
+      if (this.heldWashTool !== 'empty' && this.heldWashTool !== tool) { this.showCaption('Önce elindeki malzemeyi yerine bırak.', 3); return; }
+      this.heldWashTool = this.heldWashTool === tool ? 'empty' : tool;
+      if (this.heldWashTool !== 'empty') this.putAwayCandle();
+      this.washAnim = 0; this.syncVisualMeshes();
+      this.audio.playPickup(); this.triggerAutoSave(false); this.pushHudState(true); return;
+    }
+    if (id === 'dirty_bucket') {
+      if (!this.dirtyBasinReady || this.dirtyBasinDrained || !['empty', 'dirty'].includes(this.heldWashTool)) return;
+      const taking = this.heldWashTool === 'empty';
+      this.putAwayCandle(); this.heldWashTool = taking ? 'dirty' : 'empty'; this.washAnim = 0;
+      this.syncVisualMeshes(); this.audio.playPickup(); this.showCaption(taking ? 'Kirli suyu aldın. İçerideki taş gidere taşı.' : 'Kirli su kovasını yerine bıraktın.', 4);
+      this.triggerAutoSave(false); this.pushHudState(true); return;
+    }
+    if (id === 'wash_mahmut' || id === 'wash_yolcu') {
+      const who = id === 'wash_mahmut' ? 'mahmut' : 'yolcu';
+      if (!this.world.receiving[who].visible || (who === 'yolcu' && !this.hasEntry('night_tag')) || this.extraWashes[who] >= 4) return;
+      const stage = this.extraWashes[who];
+      if (!this.performWashStep(who, stage)) return;
+      this.extraWashes[who]++;
+      this.audio.playWaterPour();
+      this.showCaption(this.extraWashes[who] === 4 ? `${who === 'mahmut' ? 'Mahmut' : 'Yolcu'} için yıkama tamamlandı.` : 'Yıkama sürüyor; sıradaki adımı uygulamak için yeniden etkileşime gir.', 4);
+      this.triggerAutoSave(false); this.pushHudState(true); return;
+    }
+    if (id === 'receiving_mahmut') {
+      this.showCaption(
+        '072 · Şoför Mahmut. Sağlık ocağından mühürlü olarak alındı. Teslim alan: Bekçi Hasan.',
+        5,
+      );
+      return;
+    }
     // 0. NPCs
     if (id.startsWith('npc_')) {
       const npcId = id.replace('npc_', '') as NpcId;
@@ -1810,10 +2492,12 @@ export class SonVazifeEngine {
       const invId = id.replace('item_', '');
       const item = this.inventory.find((i) => i.id === invId);
       if (!item || item.collected) return;
+      if (this.heldWashTool !== 'empty') { this.showCaption('Önce elindeki malzemeyi yerine bırak.', 3); return; }
       if (invId === 'gulsuyu' && this.act < 3) return;
       if (invId === 'kafur' && this.act < 4) return;
 
       item.collected = true;
+      if (invId === 'sabun' || invId === 'ibrik' || invId === 'gulsuyu') { this.putAwayCandle(); this.startWashAnimation(invId === 'sabun' ? 'soap' : invId === 'ibrik' ? 'ewer' : 'cloth'); }
       this.audio.playPickup();
       this.syncVisualMeshes();
 
@@ -1831,19 +2515,27 @@ export class SonVazifeEngine {
       } else if (invId === 'kafur') {
         const torn = this.clues.find((c) => c.id === 'clue_torn_page');
         if (torn) torn.discovered = true;
-        if (this.autopsyCases.case_unknown.completed) {
+        if (this.autopsyCases.case_unknown.completed && this.act < 5) {
           this.act = 5;
         }
-        this.showCaption('Kafur kavanozu ve yırtık sayfa alındı! Gasilhanede Son Vazifeyi tamamla.', 5.6);
+        this.showCaption(
+          'Kafur kavanozu ve yırtık sayfa alındı! Gasilhanede Son Vazifeyi tamamla.',
+          5.6,
+        );
       } else {
         this.showCaption(`${item.name} alındı.`, 3.0);
       }
 
       if (
         this.act === 1 &&
-        ['defter', 'kefen', 'sabun', 'ibrik'].every((r) => this.inventory.find((i) => i.id === r)?.collected)
+        ['defter', 'kefen', 'sabun', 'ibrik'].every(
+          (r) => this.inventory.find((i) => i.id === r)?.collected,
+        )
       ) {
-        this.showCaption('Hazırlık malzemeleri tamam. Gasilhanede Vaka I otopsisini ve guslü yürüt.', 5.0);
+        this.showCaption(
+          'Hazırlık malzemeleri tamam. Gasilhanede teslim dosyasını mühürle ve gusle başla.',
+          5.0,
+        );
       }
       this.triggerAutoSave(true);
       this.pushHudState(true);
@@ -1928,34 +2620,44 @@ export class SonVazifeEngine {
     if (id === 'vigil_candle') {
       if (this.act >= 2 && !this.vigilLit) {
         this.vigilLit = true;
+        if (this.vigilTimer <= 0) this.vigilTimer = 180;
+        const wasRisen = this.bodyRisen;
+        this.bodyRisen = false;
         this.audio.playCandleToggle(true);
         this.syncVisualMeshes();
-        this.showCaption('Başucunda Sabır Mumu yakıldı. Şimdi gecikmeden köye çıkabilirsin.', 4.5);
+        this.showCaption(wasRisen ? 'Mum yanınca cenaze yavaşça teneşire geri uzandı.' : 'Başucunda Sabır Mumu yakıldı. Şimdi gecikmeden köye çıkabilirsin.', 5);
+        this.triggerAutoSave(false);
+        this.pushHudState(true);
+      } else if (this.act >= 2 && this.candleOil < 100) {
+        this.candleOil = 100;
+        this.audio.playPickup();
+        this.showCaption('Gasilhanedeki yedek yağla mumunu doldurdun.', 3.5);
+        this.triggerAutoSave(false);
         this.pushHudState(true);
       }
       return;
     }
 
     // 4. Drains (Rule 2)
-    if (id === 'gasil_drain' && this.dirtyBasinReady && !this.dirtyBasinDrained) {
+    if (id === 'gasil_drain' && this.dirtyBasinReady && !this.dirtyBasinDrained && this.heldWashTool === 'dirty') {
       this.dirtyBasinDrained = true;
-      this.dirtyBasinReady = false;
-      this.gasilBulbOut = true;
-      this.unlockGlossaryEntry('anom_bulb');
+      this.dirtyBasinReady = false; this.heldWashTool = 'empty';
+      this.startWashAnimation('bucket');
       this.audio.playWaterPour();
       this.syncVisualMeshes();
       this.triggerAutoSave(true);
       this.showCaption(
-        'Suyu iç gidere boşalttın... Tavan ampulü patladı! Sabır Mumunu yak, Bekçi Hasan’dan Sağlık Ocağı Anahtarını al.',
+        'Kirli suyu güvenle iç gidere boşalttın. Sabır Mumunu yak, sonra Bekçi Hasan’la görüş.',
         6.2,
       );
       this.pushHudState(true);
       return;
     }
 
-    if (id === 'yard_drain' && this.dirtyBasinReady && !this.dirtyBasinDrained) {
+    if (id === 'yard_drain' && this.dirtyBasinReady && !this.dirtyBasinDrained && this.heldWashTool === 'dirty') {
       this.dirtyBasinDrained = true;
-      this.dirtyBasinReady = false;
+      this.dirtyBasinReady = false; this.heldWashTool = 'empty';
+      this.startWashAnimation('bucket');
       this.gasilBulbOut = true;
       this.unlockGlossaryEntry('anom_bulb');
       this.unlockGlossaryEntry('anom_drain');
@@ -1965,6 +2667,9 @@ export class SonVazifeEngine {
         'rule_water',
         'KURAL İHLALİ: Gece dışarıya kirli su döktün! Ampul patladı, yağmurun içinden soğuk bir uğultu yükseldi.',
       );
+      // The rule violation has a visible consequence as well as the broken bulb.
+      this.startCreatureScare(this.world.sisGozcusu);
+      this.nextScareTime = this.elapsedTime + 45 + Math.random() * 45;
       this.triggerAutoSave(false);
       this.pushHudState(true);
       return;
@@ -1999,18 +2704,19 @@ export class SonVazifeEngine {
 
     // 6. Forensic Autopsy Tables (Cases II & III)
     if (id === 'autopsy_case_mahmut') {
-      this.enterAutopsyMode('case_mahmut');
+      this.openDeliveryFile('case_mahmut');
       return;
     }
     if (id === 'autopsy_case_unknown') {
-      this.enterAutopsyMode('case_unknown');
+      this.openDeliveryFile('case_unknown');
       return;
     }
 
     // 7. Marble Tenesir (Case I Autopsy -> Respectful Gusül Steps)
     if (id === 'tenesir_slab') {
+      if (this.bodyRisen) { this.showCaption('Önce başucundaki Sabır Mumunu yak.', 3.5); return; }
       if (!this.autopsyCases.case_arif.completed) {
-        this.enterAutopsyMode('case_arif');
+        this.openDeliveryFile('case_arif');
         return;
       }
 
@@ -2032,6 +2738,15 @@ export class SonVazifeEngine {
           this.syncVisualMeshes();
           this.showCaption('Setr-i avret örtüsü serildi, ılık su hazırlandı.', 3.6);
         } else if (!this.stepWashDone) {
+          if (!this.performWashStep('arif', this.washStage)) return;
+          this.washStage++;
+          this.audio.playWaterPour();
+          if (this.washStage < 4) {
+            this.showCaption(['Yüz ve eller özenle temizlendi.', 'Sağ taraf yıkandı; şimdi sol tarafa geç.', 'Sol taraf yıkandı; temiz suyla durula.'][this.washStage - 1], 3.5);
+            this.triggerAutoSave(false);
+            this.pushHudState(true);
+            return;
+          }
           this.stepWashDone = true;
           this.dirtyBasinReady = true;
           this.audio.playWaterPour();
@@ -2042,7 +2757,10 @@ export class SonVazifeEngine {
           this.dreadLevel = Math.min(100, this.dreadLevel + 18);
           this.syncVisualMeshes();
           this.audio.playWindowKnock();
-          this.showCaption('Sabunlu yıkama tamamlandı... Pencereye bir şey vurdu! Bakma, kepengi kapat!', 5.6);
+          this.showCaption(
+            'Sabunlu yıkama tamamlandı... Pencereye bir şey vurdu! Bakma, kepengi kapat!',
+            5.6,
+          );
         } else if (this.windowAnomalyActive && !this.shutterClosed) {
           this.showCaption('Önce sol duvardaki ahşap kepengi kapat!', 3.2);
         } else if (!this.dirtyBasinDrained) {
@@ -2050,6 +2768,7 @@ export class SonVazifeEngine {
         } else {
           this.showCaption('Şimdi Sabır Mumunu yakıp Bekçi Hasan’dan Sağlık Ocağı Anahtarını al.', 4.4);
         }
+        this.triggerAutoSave(false);
         this.pushHudState(true);
         return;
       }
@@ -2067,19 +2786,41 @@ export class SonVazifeEngine {
         }
 
         if (!this.stepFinalCamphorDone) {
-          this.stepFinalCamphorDone = true;
+          if (this.heldWashTool !== 'ewer') { this.showCaption('Önce temiz su ibriğini eline al.', 3); return; }
+          this.rinseStage++;
+          this.startWashAnimation('ewer');
           this.audio.playWaterPour();
-          this.showCaption('Kafurlu suyla üç kez son durulama yapıldı. Şimdi havlu ve gülsuyu ile kurula.', 4.2);
+          if (this.rinseStage < 3) {
+            this.showCaption(`${this.rinseStage}. durulama tamamlandı; devam etmek için yeniden uygula.`, 3.5);
+            this.triggerAutoSave(false);
+            this.pushHudState(true);
+            return;
+          }
+          this.stepFinalCamphorDone = true;
+          this.showCaption(
+            'Kafurlu suyla üç kez son durulama yapıldı. Şimdi havlu ve gülsuyu ile kurula.',
+            4.2,
+          );
         } else if (!this.stepDryDone) {
-          this.stepDryDone = true;
+          if (this.heldWashTool !== 'empty') { this.showCaption('Önce ibriği yerine bırak ve ellerinle havluyu al.', 3); return; }
+          this.putAwayCandle(); this.stepDryDone = true;
+          this.startWashAnimation('cloth');
           this.audio.playPickup();
           this.showCaption('Kurulama ve gülsuyu tamamlandı. Son adım: kefenle ve bağları bağla.', 4.2);
         } else if (!this.stepShroudDone) {
-          this.stepShroudDone = true;
-          this.audio.playPickup();
+          if (this.heldWashTool !== 'empty') { this.showCaption('Kefen için iki elini de boşalt.', 3); return; }
+          this.putAwayCandle(); this.stepShroudDone = true;
+          this.bodyRisen = false;
           this.syncVisualMeshes();
-          this.triggerEnding();
+          this.showCaption('Kefen bağlandı. Cenazeyi kaldırıp kapı dışındaki nakil sedyesine taşı.', 6.5);
+        } else if (this.bodyTransport !== 'delivered') {
+          if (this.heldWashTool !== 'empty') { this.showCaption('Cenazeyi taşımadan önce malzemeyi bırak.', 3); return; }
+          this.putAwayCandle();
+          this.bodyTransport = this.bodyTransport === 'slab' ? 'carried' : 'slab';
+          this.syncVisualMeshes();
+          this.showCaption(this.bodyTransport === 'carried' ? 'Cenazeyi taşıyorsun. Dışarıdaki sedyeye götür.' : 'Cenaze teneşire geri bırakıldı.', 4);
         }
+        this.triggerAutoSave(true);
         this.pushHudState(true);
       }
     }
@@ -2092,12 +2833,19 @@ export class SonVazifeEngine {
     const completedCases = (Object.values(this.autopsyCases) as AutopsyCaseState[]).filter(
       (c) => c.completed,
     ).length;
-    const discoveredClues = this.clues.filter((c) => c.discovered).length;
+    const discoveredClues = this.clues.filter(
+      (c) => c.discovered && c.id.startsWith('clue_') && c.id !== 'clue_kenan_confession',
+    ).length;
 
-    if (this.violations <= 1 && completedCases === 3 && discoveredClues >= 6) {
+    if (
+      this.finalCall === 'report' &&
+      this.violations <= 1 &&
+      completedCases === 3 &&
+      discoveredClues >= 6
+    ) {
       this.screen = 'ending_truth';
       this.endingReason =
-        'Hem halk inanışlarına sadık kaldın hem de üç otopsiyi mühürleyip Katip Kenan’ın Boğanak komplosunu açığa çıkardın. Şafakta jandarma köye ulaştı; Hacı Arif de, 22:42’de yitip giden ruhun da huzura erdi.';
+        'Hem halk inanışlarına sadık kaldın hem de üç cenaze dosyasını mühürleyip Katip Kenan’ın Boğanak komplosunu açığa çıkardın. Son perondan köyü terk ettin. Şafakta jandarma köye ulaştı; Hacı Arif de, 22:42’de yitip giden ruhun da huzura erdi.';
       this.audio.playDawnSereneChord();
       this.dreadLevel = 0;
       this.scene.background = new THREE.Color(0x2d3a4b);
@@ -2108,7 +2856,7 @@ export class SonVazifeEngine {
     } else if (this.violations <= 1) {
       this.screen = 'ending_peace';
       this.endingReason =
-        'Halk inanışlarına ve son vazifene sadık kaldın. Yağmur dindi, doğudan sabah ezanı yükseldi.';
+        'Son perondan köyü terk ettin. Halk inanışlarına ve son vazifene sadık kaldın. Yağmur dindi, doğudan sabah ezanı yükseldi.';
       this.audio.playDawnSereneChord();
       this.dreadLevel = 0;
       this.scene.background = new THREE.Color(0x2a3544);
@@ -2119,7 +2867,7 @@ export class SonVazifeEngine {
     } else {
       this.screen = 'ending_twist';
       this.endingReason =
-        'Yasakları çiğnedin. Kefeni bağlarken elin bileğindeki saate çarptı — 22:42’de camı kırık durmuş saat. Virajda ölen yolcu sendin.';
+        'Yasakları çiğnedin. Ahizeyi bırakırken elin bileğindeki saate çarptı — 22:42’de camı kırık durmuş saat. Virajda ölen yolcu sendin.';
       this.audio.playViolationSting();
     }
     this.pushHudState(true);
@@ -2145,10 +2893,18 @@ export class SonVazifeEngine {
   private onWebGlContextLost = (e: Event): void => {
     e.preventDefault();
     this.isContextLost = true;
+    this.softwareFence = null;
   };
 
   private onWebGlContextRestored = (): void => {
     this.isContextLost = false;
+    this.postProcessing?.dispose();
+    this.postProcessing = null;
+    this.scene.environment = null;
+    this.envTarget?.dispose();
+    this.envTarget = null;
+    this.effectsFailed = false;
+    this.lastAppliedQualityKey = '';
     if (this.renderer.shadowMap.enabled) {
       this.renderer.shadowMap.needsUpdate = true;
     }
@@ -2182,6 +2938,7 @@ export class SonVazifeEngine {
   private onPointerLockChange = (): void => {
     const locked = document.pointerLockElement === this.renderer.domElement;
     if (this.isPointerLocked && !locked) {
+      this.manualWash=null;this.dutyWork=null;
       this.lastPointerLockExitTime = performance.now();
     }
     this.isPointerLocked = locked;
@@ -2195,7 +2952,14 @@ export class SonVazifeEngine {
   };
 
   private onMouseDown = (e: MouseEvent): void => {
-    if (this.screen !== 'playing' || this.isNotebookOpen || this.activeDialogueNpcId) return;
+    if (
+      this.screen !== 'playing' ||
+      this.isNotebookOpen ||
+      this.activeDialogueNpcId ||
+      this.registryCaseId ||
+      this.nightPage
+    )
+      return;
     this.audio.init();
 
     if (this.activeAutopsyCaseId) {
@@ -2224,7 +2988,14 @@ export class SonVazifeEngine {
   };
 
   private onMouseMove = (e: MouseEvent): void => {
-    if (this.screen !== 'playing' || this.isNotebookOpen || this.activeDialogueNpcId) return;
+    if (
+      this.screen !== 'playing' ||
+      this.isNotebookOpen ||
+      this.activeDialogueNpcId ||
+      this.registryCaseId ||
+      this.nightPage
+    )
+      return;
 
     if (this.activeAutopsyCaseId) {
       const body = this.world.autopsyBodies[this.activeAutopsyCaseId];
@@ -2240,7 +3011,8 @@ export class SonVazifeEngine {
         _raycaster.layers.set(AUTOPSY_ANOMALY_LAYER);
         _raycaster.far = 8.0;
         const hits = _raycaster.intersectObjects(Object.values(body.anomalyMeshes), false);
-        const nextAnomaly = hits.length > 0 ? (hits[0].object.userData.autopsyAnomalyId as string) : null;
+        const nextAnomaly =
+          hits.length > 0 ? (hits[0].object.userData.autopsyAnomalyId as string) : null;
         if (nextAnomaly !== this.hoveredAutopsyAnomalyId || this.hoveredAutopsyZone !== null) {
           this.hoveredAutopsyAnomalyId = nextAnomaly;
           this.hoveredAutopsyZone = null;
@@ -2250,7 +3022,8 @@ export class SonVazifeEngine {
         _raycaster.layers.set(AUTOPSY_LAYER);
         _raycaster.far = 6.0;
         const hits = _raycaster.intersectObjects(Object.values(body.zoneMeshes), false);
-        const nextZone = hits.length > 0 ? (hits[0].object.userData.autopsyZoneId as AutopsyZoneId) : null;
+        const nextZone =
+          hits.length > 0 ? (hits[0].object.userData.autopsyZoneId as AutopsyZoneId) : null;
         if (nextZone !== this.hoveredAutopsyZone || this.hoveredAutopsyAnomalyId !== null) {
           this.hoveredAutopsyZone = nextZone;
           this.hoveredAutopsyAnomalyId = null;
@@ -2294,6 +3067,13 @@ export class SonVazifeEngine {
   };
 
   private onKeyDown = (e: KeyboardEvent): void => {
+    // The modal owns Tab, Escape and form input while filing a record.
+    if (
+      this.nightPage ||
+      this.registryCaseId ||
+      (this.screen === 'paused' && document.querySelector('dialog[open]'))
+    )
+      return;
     const target = e.target as HTMLElement | null;
     const isTypingTarget =
       target instanceof HTMLInputElement ||
@@ -2307,6 +3087,26 @@ export class SonVazifeEngine {
       return;
     }
 
+    // Prevent browser shortcuts such as Ctrl+W where the browser permits it.
+    if (this.screen === 'playing' && (e.ctrlKey || e.code === 'ControlLeft' || e.code === 'ControlRight')) e.preventDefault();
+    if(this.dutyWork && (e.code==='KeyA'||e.code==='KeyD')){
+      if(!e.repeat&&this.activeDuty()&&this.activeInteractId==='tenesir_slab'&&this.dutyWork.stage<3&&!this.isOverlayBlockingMove()){
+        this.dutyWork.progress=scrubStroke(this.dutyWork.progress,e.code==='KeyA'?'left':'right');
+        this.startWashAnimation(this.activeDuty()?.held==='soap'?'soap':'cloth');
+        if(this.dutyWork.progress.strokes>=SCRUB_STROKES)this.finishDutyWork();
+      }
+      return;
+    }
+    if(this.dutyWork && (e.code==='KeyW'||e.code==='KeyS'))this.dutyWork=null;
+    if (this.manualWash && (e.code==='KeyA'||e.code==='KeyD')) {
+      if(!e.repeat && this.screen==='playing' && !this.isOverlayBlockingMove() && this.manualWashTarget()?.id===this.manualWash.id && this.manualWash.stage<3){
+        this.manualWash.progress=scrubStroke(this.manualWash.progress,e.code==='KeyA'?'left':'right');
+        this.startWashAnimation(this.heldWashTool==='soap'?'soap':'cloth');
+        if(this.manualWash.progress.strokes>=SCRUB_STROKES)this.finishManualWash();
+      }
+      return;
+    }
+    if(this.manualWash && (e.code==='KeyW'||e.code==='KeyS'))this.manualWash=null;
     const wasDown = Boolean(this.keys[e.code]);
     this.keys[e.code] = true;
 
@@ -2317,6 +3117,7 @@ export class SonVazifeEngine {
     }
 
     if (e.code === 'Escape') {
+      e.preventDefault();
       if (this.activeDialogueNpcId) {
         this.closeDialogue();
       } else if (this.activeAutopsyCaseId) {
@@ -2354,7 +3155,20 @@ export class SonVazifeEngine {
     if (e.code === 'KeyE' && !wasDown) {
       this.handleInteract();
     } else if (e.code === 'KeyF' && !wasDown) {
-      this.toggleCandle();
+      const duty=this.activeDuty();
+      if(duty&&this.activeInteractId==='tenesir_slab'&&duty.body==='slab'&&duty.stage<6&&!this.isOverlayBlockingMove()){
+        const problem=workProblem(duty);
+        if(problem)this.showCaption(problem,4);
+        else if(!['KeyW','KeyA','KeyS','KeyD'].some(k=>this.keys[k]))this.dutyWork={stage:duty.stage,progress:newScrub(),seconds:0};
+        return;
+      }
+      const target=this.manualWashTarget();
+      if(target){
+        const applied=this.soapAppliedFor===target.who;
+        if(!this.vigilLit){this.showCaption('Yıkamaya başlamadan sabır mumunu yak.',4);return;}
+        if(this.heldWashTool!==requiredWashTool(target.stage,applied) || (this.soapAppliedFor && !applied))this.showCaption(washInstruction(target.stage,applied),4);
+        else if(!['KeyW','KeyA','KeyS','KeyD'].some(k=>this.keys[k]))this.manualWash={id:target.id,stage:target.stage,progress:newScrub(),seconds:0};
+      } else this.toggleCandle();
     } else if (e.code === 'KeyM' && !wasDown) {
       this.toggleMute();
     } else if (e.code === 'KeyC' && !wasDown && this.controlSettings.crouchToggle) {
@@ -2368,10 +3182,11 @@ export class SonVazifeEngine {
 
   private onKeyUp = (e: KeyboardEvent): void => {
     this.keys[e.code] = false;
+    if(e.code==='KeyF'){this.manualWash=null;this.dutyWork=null;}
   };
 
   private isInsideGasilhane(p: THREE.Vector3): boolean {
-    return p.x >= -13.9 && p.x <= -7.1 && p.z >= 2.8 && p.z <= 9.2;
+    return p.x >= -13.9 && p.x <= -7.1 && p.z >= 2.8 && p.z <= 10.4;
   }
 
   private isInsideAbandoned(p: THREE.Vector3): boolean {
@@ -2379,11 +3194,11 @@ export class SonVazifeEngine {
   }
 
   private isInsideMuhtar(p: THREE.Vector3): boolean {
-    return p.x >= 7.3 && p.x <= 13.7 && p.z >= -21.0 && p.z <= -15.0;
+    return Math.abs(p.x - MUHTAR.x) <= 3.2 && Math.abs(p.z - MUHTAR.z) <= 3;
   }
 
   private isInsideClinic(p: THREE.Vector3): boolean {
-    return p.x >= 22.3 && p.x <= 29.7 && p.z >= -31.3 && p.z <= -24.7;
+    return Math.abs(p.x - CLINIC.x) <= 3.7 && Math.abs(p.z - CLINIC.z) <= 3.3;
   }
 
   private isInsideMill(p: THREE.Vector3): boolean {
@@ -2399,74 +3214,99 @@ export class SonVazifeEngine {
   }
 
   private isUnderPorchOrAlcove(p: THREE.Vector3): boolean {
-    const muhtarPorch = p.x >= 5.3 && p.x <= 7.4 && p.z >= -19.8 && p.z <= -16.2;
+    const muhtarPorch = p.x >= MUHTAR.x - 5.2 && p.x <= MUHTAR.x - 3.1 && Math.abs(p.z - MUHTAR.z) <= 1.8;
     const abandonedPorch = p.x >= -7.8 && p.x <= -6.1 && p.z >= -12.3 && p.z <= -8.7;
     const mosquePorch = p.x >= -6.3 && p.x <= -4.4 && p.z >= -1.8 && p.z <= 4.5;
     return muhtarPorch || abandonedPorch || mosquePorch;
   }
 
   private getCurrentDistrict(p: THREE.Vector3): DistrictId {
-    if (Math.hypot(p.x - 26, p.z + 28) < 13) return 'clinic';
-    if (p.x < -21 && p.z > -10) return 'mill';
-    if (p.x < -20 && p.z <= -22) return 'cemetery';
-    if (Math.hypot(p.x - 28, p.z - 20) < 13) return 'crash_site';
-    return 'square';
+    return districtAt(p.x, p.z);
   }
 
   private resolveCollisions(nextPos: THREE.Vector3): void {
-    nextPos.x = THREE.MathUtils.clamp(nextPos.x, -46.5, 38.5);
-    nextPos.z = THREE.MathUtils.clamp(nextPos.z, -48.5, 39.5);
+    nextPos.x = THREE.MathUtils.clamp(nextPos.x, VALLEY.x1, VALLEY.x2);
+    nextPos.z = THREE.MathUtils.clamp(nextPos.z, VALLEY.z1, VALLEY.z2);
 
-    for (const c of this.world.colliders) {
-      const closestX = THREE.MathUtils.clamp(nextPos.x, c.minX, c.maxX);
-      const closestZ = THREE.MathUtils.clamp(nextPos.z, c.minZ, c.maxZ);
-      const dx = nextPos.x - closestX;
-      const dz = nextPos.z - closestZ;
-      const distSq = dx * dx + dz * dz;
-
-      if (distSq < PLAYER_RADIUS * PLAYER_RADIUS) {
-        const dist = Math.sqrt(distSq) || 0.0001;
-        const push = PLAYER_RADIUS - dist;
-        if (distSq > 0.00001) {
-          nextPos.x += (dx / dist) * push;
-          nextPos.z += (dz / dist) * push;
-        } else {
-          const penLeft = Math.abs(nextPos.x - c.minX);
-          const penRight = Math.abs(c.maxX - nextPos.x);
-          const penTop = Math.abs(nextPos.z - c.minZ);
-          const penBot = Math.abs(c.maxZ - nextPos.z);
-          const minPen = Math.min(penLeft, penRight, penTop, penBot);
-          if (minPen === penLeft) nextPos.x = c.minX - PLAYER_RADIUS;
-          else if (minPen === penRight) nextPos.x = c.maxX + PLAYER_RADIUS;
-          else if (minPen === penTop) nextPos.z = c.minZ - PLAYER_RADIUS;
-          else nextPos.z = c.maxZ + PLAYER_RADIUS;
-        }
-      }
+    for (const c of this.world.colliders) pushOutsideBox(nextPos, c, PLAYER_RADIUS);
+    for (const home of this.world.homes) if (!home.open) pushOutsideBox(nextPos, home.doorCollider, PLAYER_RADIUS);
+    for (const id of OUTPOST_IDS) {
+      const door = this.world.outpostDoors[id];
+      if (!door.open) pushOutsideBox(nextPos, door.collider, PLAYER_RADIUS);
     }
 
+    // Give solid residents a small footprint, while preserving enough room to pass.
+    for (const actor of Object.values(this.world.npcs)) {
+      const dx = nextPos.x - actor.pos.x, dz = nextPos.z - actor.pos.z;
+      const dist = Math.hypot(dx, dz), radius = PLAYER_RADIUS + 0.12;
+      if (dist < radius) {
+        if (dist < 0.0001) nextPos.x += radius;
+        else { nextPos.x += dx / dist * (radius - dist); nextPos.z += dz / dist * (radius - dist); }
+      }
+    }
+    if (!this.mosqueDoorOpen && Math.abs(nextPos.x + 7.1) < 0.45 && nextPos.z > -0.45 && nextPos.z < 1.05) {
+      nextPos.x = nextPos.x > -7.1 ? -6.65 : -7.55;
+    }
     if (!this.gasilDoorOpen && Math.abs(nextPos.x - -7.1) < 0.45 && nextPos.z > 5.2 && nextPos.z < 6.8) {
       nextPos.x = nextPos.x > -7.1 ? -7.1 + 0.45 : -7.1 - 0.45;
     }
-    if (!this.abandonedDoorOpen && Math.abs(nextPos.x - -7.8) < 0.45 && nextPos.z > -11.3 && nextPos.z < -9.7) {
+    if (
+      !this.abandonedDoorOpen &&
+      Math.abs(nextPos.x - -7.8) < 0.45 &&
+      nextPos.z > -11.3 &&
+      nextPos.z < -9.7
+    ) {
       nextPos.x = nextPos.x > -7.8 ? -7.8 + 0.45 : -7.8 - 0.45;
     }
-    if (!this.muhtarDoorOpen && Math.abs(nextPos.x - 7.3) < 0.45 && nextPos.z > -18.8 && nextPos.z < -17.2) {
-      nextPos.x = nextPos.x > 7.3 ? 7.3 + 0.45 : 7.3 - 0.45;
+    if (
+      !this.muhtarDoorOpen &&
+      Math.abs(nextPos.x - (MUHTAR.x - 3.2)) < 0.45 &&
+      nextPos.z > MUHTAR.z - 0.8 &&
+      nextPos.z < MUHTAR.z + 0.8
+    ) {
+      nextPos.x = nextPos.x > MUHTAR.x - 3.2 ? MUHTAR.x - 2.75 : MUHTAR.x - 3.65;
     }
-    if (!this.clinicDoorOpen && Math.abs(nextPos.x - 22.3) < 0.45 && nextPos.z > -28.8 && nextPos.z < -27.2) {
-      nextPos.x = nextPos.x > 22.3 ? 22.3 + 0.45 : 22.3 - 0.45;
+    if (
+      !this.clinicDoorOpen &&
+      Math.abs(nextPos.x - (CLINIC.x - 3.7)) < 0.45 &&
+      nextPos.z > CLINIC.z - 0.8 &&
+      nextPos.z < CLINIC.z + 0.8
+    ) {
+      nextPos.x = nextPos.x > CLINIC.x - 3.7 ? CLINIC.x - 3.25 : CLINIC.x - 4.15;
     }
     if (!this.millDoorOpen && Math.abs(nextPos.x - -32.9) < 0.45 && nextPos.z > 7.2 && nextPos.z < 8.8) {
       nextPos.x = nextPos.x > -32.9 ? -32.9 + 0.45 : -32.9 - 0.45;
     }
-    if (!this.cryptDoorOpen && Math.abs(nextPos.z - -36.8) < 0.45 && nextPos.x > -33.15 && nextPos.x < -31.65) {
+    if (
+      !this.cryptDoorOpen &&
+      Math.abs(nextPos.z - -36.8) < 0.45 &&
+      nextPos.x > -33.15 &&
+      nextPos.x < -31.65
+    ) {
       nextPos.z = nextPos.z > -36.8 ? -36.8 + 0.45 : -36.8 - 0.45;
     }
   }
 
   private renderFrame(): void {
     if (this.isContextLost) return;
-    if (this.postProcessing && !this.isSoftwareGl && this.resolvedQualityTier !== 'low') {
+    this.world.horizon.position.copy(this.camera.position);
+    this.world.updateDetail(this.camera.position, this.resolvedQualityTier);
+    if (this.usingVertexLight) {
+      const exam = this.world.autopsyLights;
+      const lamp =
+        exam.flashLight.intensity > 0.05
+          ? exam.flashLight
+          : exam.examLight.intensity > 0.05
+            ? exam.examLight
+            : this.world.worldLightPool[0];
+      this.vertexLight.update(
+        this.world.hemiLight.intensity,
+        this.world.sunKeyLight.intensity,
+        lamp,
+        this.handCandle.light.intensity,
+      );
+    }
+    if (this.postProcessing) {
       this.postProcessing.update(
         this.elapsedTime,
         THREE.MathUtils.clamp(this.dreadLevel / 100, 0, 1),
@@ -2479,7 +3319,11 @@ export class SonVazifeEngine {
   }
 
   private evaluateAdaptiveQuality(rawDt: number): void {
-    if (this.isSoftwareGl || this.screen !== 'playing' || this.controlSettings.graphicsQuality !== 'auto') {
+    if (
+      this.isSoftwareGl ||
+      this.screen !== 'playing' ||
+      this.controlSettings.graphicsQuality !== 'auto'
+    ) {
       return;
     }
     const frameMs = THREE.MathUtils.clamp(rawDt * 1000, 4, 100);
@@ -2488,31 +3332,54 @@ export class SonVazifeEngine {
     if (this.qualityEvalTimer < 1.2) return;
     this.qualityEvalTimer = 0;
 
-    let nextTier = this.resolvedQualityTier;
-    if (this.emaFrameMs > 29) {
-      nextTier = 'low';
-    } else if (this.emaFrameMs > 22) {
-      nextTier = this.resolvedQualityTier === 'high' ? 'medium' : 'low';
-    } else if (this.emaFrameMs < 13.5) {
-      nextTier = this.resolvedQualityTier === 'low' ? 'medium' : 'high';
-    }
-
+    this.fastWindows = this.emaFrameMs < 18.2 ? this.fastWindows + 1 : 0;
+    const nextTier = adaptiveTier(
+      this.resolvedQualityTier,
+      this.autoCeiling,
+      this.emaFrameMs,
+      this.fastWindows,
+    );
     if (nextTier !== this.resolvedQualityTier) {
+      this.fastWindows = 0;
       this.applyGraphicsQuality(nextTier);
       this.pushHudState(true);
     }
   }
 
   private startLoop(): void {
+    let lastFrameAt = performance.now();
+    let lastSoftwareDraw = -Infinity;
+    const gl = this.isSoftwareGl ? (this.renderer.getContext() as WebGL2RenderingContext) : null;
+    // Service controls independently of a busy software GPU. Only submit a new
+    // frame when the previous one has finished; never gate simulation on a fence.
+    const schedule = () => {
+      this.frameId = gl ? window.setTimeout(tick, 16) : requestAnimationFrame(tick);
+    };
     const tick = () => {
       if (this.disposed) return;
 
-      const rawDt = this.clock.getDelta();
-      const dt = Math.min(rawDt, 0.05);
-      this.elapsedTime += dt;
-
+      const now = performance.now();
+      const rawDt = (now - lastFrameAt) / 1000;
+      lastFrameAt = now;
+      // Reading a delivery sheet is untimed. Keep the last composed frame
+      // beneath the dialog instead of drawing the whole village behind it.
+      if (
+        this.isContextLost ||
+        this.screen === 'paused' ||
+        this.registryCaseId ||
+        this.nightPage ||
+        document.hidden
+      ) {
+        this.frameId = window.setTimeout(tick, 100);
+        return;
+      }
+      const dt = Math.min(rawDt, this.isSoftwareGl ? 0.12 : 0.05);
+      const steps = Math.max(1, Math.ceil(dt / 0.05));
       this.evaluateAdaptiveQuality(rawDt);
-      this.updateSimulation(dt);
+      for (let i = 0; i < steps; i++) {
+        this.elapsedTime += dt / steps;
+        this.updateSimulation(dt / steps);
+      }
 
       if (this.renderer.shadowMap.enabled && !this.isSoftwareGl && this.shadowRefreshStride > 0) {
         this.shadowFrameCounter += 1;
@@ -2522,37 +3389,100 @@ export class SonVazifeEngine {
         }
       }
 
-      this.renderFrame();
-
-      if (this.isSoftwareGl) {
-        this.afterDraw(tick);
-      } else {
-        this.frameId = requestAnimationFrame(tick);
+      if (gl && this.softwareFence) {
+        const status = gl.clientWaitSync(this.softwareFence, 0, 0);
+        // Some drivers never signal after context restoration. Retry a draw,
+        // not a blocking wait, if the fence has outlived a full second.
+        if (status !== gl.TIMEOUT_EXPIRED || now - lastSoftwareDraw > 1000) {
+          if (
+            status !== gl.WAIT_FAILED &&
+            status !== gl.TIMEOUT_EXPIRED &&
+            this.softwareBudget.sample(now - lastSoftwareDraw)
+          )
+            this.applyGraphicsQuality('minimum');
+          gl.deleteSync(this.softwareFence);
+          this.softwareFence = null;
+        }
       }
+      if (!gl || (!this.softwareFence && now - lastSoftwareDraw >= 30)) {
+        this.renderFrame();
+        if (gl && !this.isContextLost) {
+          this.softwareFence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+          gl.flush();
+          lastSoftwareDraw = now;
+        }
+      }
+      schedule();
     };
-
-    if (this.isSoftwareGl) {
-      this.afterDraw(tick);
-    } else {
-      this.frameId = requestAnimationFrame(tick);
-    }
+    schedule();
   }
 
-  private afterDraw(cb: () => void): void {
-    const gl = this.renderer.getContext() as WebGL2RenderingContext;
-    const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-    gl.flush();
-    const poll = () => {
-      if (this.disposed) return;
-      const state = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS);
-      if (state === gl.UNSIGNALED) {
-        this.frameId = window.setTimeout(poll, 5);
-      } else {
-        if (sync) gl.deleteSync(sync);
-        this.frameId = window.setTimeout(cb, 80);
+  private putAwayCandle(): void {
+    if (this.candleLit) { this.candleLit = false; this.handCandle.root.visible = false; this.handCandle.light.intensity = 0; this.showCaption('İki elini kullanmak için mumu söndürüp bıraktın.', 3); }
+  }
+
+  private updateHeldWashVisual(): void {
+    if (!this.washingHand || !this.washTools) return;
+    const held = this.activeDuty()?.held ?? this.heldWashTool;
+    this.washingHand.visible = this.screen === 'playing' && !this.activeAutopsyCaseId;
+    if (this.washAnim <= 0) for (const [name, group] of Object.entries(this.washTools))
+      group.visible = name === (held === 'dirty' ? 'bucket' : held);
+  }
+
+  private performWashStep(who: WashPerson, stage: number): boolean {
+    const applied = this.soapAppliedFor === who;
+    const required = requiredWashTool(stage, applied);
+    if (this.heldWashTool !== required) { this.showCaption(washInstruction(stage, applied), 4); return false; }
+    if (this.soapAppliedFor && !applied) { this.showCaption('Önce sabun sürdüğün cenazeyi ellerinle yıkamayı tamamla.', 4); return false; }
+    this.putAwayCandle();
+    if ((stage === 1 || stage === 2) && !applied) {
+      this.soapAppliedFor = who; this.startWashAnimation('soap');
+      this.showCaption('Sabunu sürdün. Sabunu yerine bırakıp iki elle yıka.', 4);
+      this.triggerAutoSave(false); this.pushHudState(true); return false;
+    }
+    this.soapAppliedFor = null;
+    this.startWashAnimation(stage === 3 ? 'ewer' : 'cloth');
+    return true;
+  }
+
+  private startWashAnimation(tool: 'cloth' | 'soap' | 'bucket' | 'ewer' | 'camphor' | 'shroud'): void {
+    this.washAnim = 1.5;
+    for (const [name, group] of Object.entries(this.washTools)) group.visible = name === tool;
+    this.washingHand.visible = true;
+  }
+
+  /** Show the actual attacker model (or its existing fallback) in camera space, not a separate monster. */
+  private startCreatureScare(source: THREE.Object3D, fatal = false): void {
+    if (this.scareFigure) this.camera.remove(this.scareFigure);
+    const figure = source.clone(true);
+    figure.visible = true; figure.position.set(0, -1.65, -1.5); figure.rotation.set(0, Math.PI, 0); figure.scale.setScalar(1);
+    this.camera.add(figure); this.scareFigure = figure; this.scareTime = 1.25; this.scareFatal = fatal;
+    this.audio.playViolationSting();
+  }
+
+  private updateCreatureScare(dt: number): boolean {
+    if (!this.scareFigure) return false;
+    this.scareTime = Math.max(0, this.scareTime - dt);
+    const phase = 1.25 - this.scareTime;
+    this.scareFigure.position.z = -1.55 + Math.sin(Math.min(1, phase * 2) * Math.PI / 2) * 0.65;
+    this.scareFigure.rotation.z = Math.sin(phase * 22) * 0.10;
+    this.scareFigure.rotation.x = 0.12 + Math.sin(phase * 13) * 0.08;
+    const head = this.scareFigure.getObjectByName('scare-head');
+    const left = this.scareFigure.getObjectByName('scare-left');
+    const right = this.scareFigure.getObjectByName('scare-right');
+    if (head) head.rotation.z = Math.sin(phase * 9) * 0.17;
+    if (left) left.rotation.x = -0.9 * Math.sin(Math.min(1, phase * 2) * Math.PI / 2);
+    if (right) right.rotation.x = -0.9 * Math.sin(Math.min(1, phase * 2) * Math.PI / 2);
+    if (this.scareTime === 0) {
+      this.camera.remove(this.scareFigure); this.scareFigure = null;
+      if (this.scareFatal) {
+        this.scareFatal = false; this.screen = 'game_over';
+        this.endingReason = 'Kara Basma ve Sis Gözcüsü seni yağmurlu sokakta yakaladı. Köyün sisi seni yuttu.';
+        if (document.pointerLockElement === this.renderer.domElement) document.exitPointerLock();
+        this.pushHudState(true);
       }
-    };
-    this.frameId = window.setTimeout(poll, 5);
+    }
+    return true;
   }
 
   private updateSimulation(dt: number): void {
@@ -2560,6 +3490,9 @@ export class SonVazifeEngine {
     if (this.world?.millAndBridge) {
       this.world.millAndBridge.wheelPivot.rotation.x += dt * 0.72;
     }
+
+    this.washingHand.visible = (this.screen === 'playing' || this.screen === 'paused') && !this.activeAutopsyCaseId;
+    this.handCandle.root.visible = this.candleLit;
 
     // 1. Title Screen Camera Orbit
     if (this.screen === 'title') {
@@ -2575,7 +3508,50 @@ export class SonVazifeEngine {
       return;
     }
 
-    if (this.screen !== 'playing') return;
+    if (this.screen !== 'playing') {this.manualWash=null;this.dutyWork=null;return;}
+    if(this.dutyWork){
+      const duty=this.activeDuty();
+      if(!this.keys.KeyF || this.isOverlayBlockingMove() || this.activeInteractId!=='tenesir_slab' || !duty || duty.body!=='slab' || duty.stage!==this.dutyWork.stage || document.hidden)this.dutyWork=null;
+      else if(this.dutyWork.stage>=3){this.dutyWork.seconds+=dt;if(this.dutyWork.seconds>=1.2)this.finishDutyWork();}
+    }
+    if(this.manualWash){
+      if(!this.keys.KeyF || this.isOverlayBlockingMove() || this.manualWashTarget()?.id!==this.manualWash.id || document.hidden)this.manualWash=null;
+      else if(this.manualWash.stage>=3){
+        this.manualWash.seconds+=dt;
+        if(this.manualWash.seconds>=1.2)this.finishManualWash();
+      }
+    }
+    if (!this.isOverlayBlockingMove() && this.updateCreatureScare(dt)) return;
+
+    if (this.registryCaseId || this.nightPage) return;
+    if (!this.isOverlayBlockingMove()) {
+      const oldDay = survivalDay(this.survivalSeconds), wasEvening=isEvening(this.survivalSeconds);
+      this.survivalSeconds += dt;
+      if(this.activeDuty()&&wasEvening!==isEvening(this.survivalSeconds))this.syncVisualMeshes();
+      this.survivalSaveClock += dt;
+      if (survivalDay(this.survivalSeconds) !== oldDay) {
+        this.showCaption(`${survivalDay(this.survivalSeconds)}. gün: Sis hâlâ dağılmadı. Hayatta kal.`, 5);
+      }
+      if (this.survivalSaveClock >= 30) {
+        this.survivalSaveClock = 0;
+        this.triggerAutoSave(false);
+      }
+      if (this.finalCall && atEscapePoint(this.playerPos.x, this.playerPos.z)) {
+        this.triggerEnding();
+        return;
+      }
+    }
+
+    this.world.homes.forEach(home => {
+      home.door.rotation.y = THREE.MathUtils.damp(home.door.rotation.y, home.open ? -Math.PI * 0.52 : 0, 7, dt);
+    });
+    this.world.gasil.mosqueDoorPivot.rotation.y = THREE.MathUtils.damp(
+      this.world.gasil.mosqueDoorPivot.rotation.y, this.mosqueDoorOpen ? -Math.PI * 0.52 : 0, 7, dt,
+    );
+    for (const id of OUTPOST_IDS) {
+      const door = this.world.outpostDoors[id];
+      door.pivot.rotation.y = THREE.MathUtils.damp(door.pivot.rotation.y, door.open ? -Math.PI * 0.52 : 0, 7, dt);
+    }
 
     // 2. NPC Patrols (zero-GC index loop)
     for (let i = 0; i < this.npcKeys.length; i++) {
@@ -2649,7 +3625,11 @@ export class SonVazifeEngine {
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
         this.targetYaw += diff * Math.min(1, dt * 5);
-        this.targetPitch = THREE.MathUtils.damp(this.targetPitch, -0.05, 5, dt);
+        const facePitch = Math.atan2(
+          actor.pos.y + actor.visual.eyeHeight - this.camera.position.y,
+          Math.max(0.3, Math.hypot(dx, dz)),
+        );
+        this.targetPitch = THREE.MathUtils.damp(this.targetPitch, facePitch, 5, dt);
       }
     }
 
@@ -2665,9 +3645,10 @@ export class SonVazifeEngine {
 
     // 4. Inertial Player Movement, Crouch & Stamina
     const holdCrouch =
-      Boolean(this.keys['ControlLeft']) ||
+      Boolean(this.keys['ControlLeft']) || Boolean(this.keys['ControlRight']) ||
       (!this.controlSettings.crouchToggle && Boolean(this.keys['KeyC']));
-    const crouching = this.controlSettings.crouchToggle ? this.crouchToggled || holdCrouch : holdCrouch;
+    // The touch button always toggles. Hold/toggle preference only changes the keyboard binding.
+    const crouching = this.crouchToggled || holdCrouch;
     this.isCrouching = crouching;
 
     let moveZ = 0;
@@ -2682,9 +3663,12 @@ export class SonVazifeEngine {
     }
 
     const wantsMove = Math.hypot(moveX, moveZ) > 0.05;
+    const dutyBody = this.activeDuty()?.body;
+    const carryingBody = this.initialBody === 'carried' || this.bodyTransport === 'carried' || dutyBody === 'carrying' || dutyBody === 'burialCarry';
     const wantsSprint =
       Boolean(this.keys['ShiftLeft'] || this.keys['ShiftRight'] || this.virtualSprint) &&
       wantsMove &&
+      !carryingBody &&
       !crouching &&
       !this.isZooming;
 
@@ -2703,16 +3687,25 @@ export class SonVazifeEngine {
       this.isSprinting = false;
     }
 
-    const targetSpeed = crouching ? 2.2 : this.isSprinting ? 5.2 : 3.7;
+    const targetSpeed = carryingBody ? 1.8 : crouching ? 2.2 : this.isSprinting ? 5.2 : 3.7;
     const insideGasil = this.isInsideGasilhane(this.playerPos);
+    const insideMosque = this.playerPos.x > -13.9 && this.playerPos.x < -7.1 && this.playerPos.z > -2 && this.playerPos.z < 2.6;
     const insideAbandoned = this.isInsideAbandoned(this.playerPos);
     const insideMuhtar = this.isInsideMuhtar(this.playerPos);
     const insideClinic = this.isInsideClinic(this.playerPos);
     const insideMill = this.isInsideMill(this.playerPos);
     const insideCrypt = this.isInsideCrypt(this.playerPos);
     const onBridge = this.isOnBridge(this.playerPos);
+    const outpost = insideOutpost(this.playerPos.x, this.playerPos.z);
+    const home = this.world.homes.find(h => insideHome(h, this.playerPos.x, this.playerPos.z));
     const isIndoors =
-      insideGasil || insideAbandoned || insideMuhtar || insideClinic || insideMill || insideCrypt;
+      !!home || !!outpost || insideMosque ||
+      insideGasil ||
+      insideAbandoned ||
+      insideMuhtar ||
+      insideClinic ||
+      insideMill ||
+      insideCrypt;
 
     const currentDistrict = this.getCurrentDistrict(this.playerPos);
     if (!this.discoveredDistricts.has(currentDistrict)) {
@@ -2742,24 +3735,31 @@ export class SonVazifeEngine {
       }
     }
 
-    const groundY = isIndoors
-      ? (insideGasil
+    const groundY = home
+      ? home.ground + 0.08
+      : insideMosque ? groundHeightAt(-10.5, 6) + 0.16
+      : outpost
+      ? OUTPOSTS[outpost].y + 0.09
+      : isIndoors
+        ? insideGasil
           ? groundHeightAt(-10.5, 6.0) + 0.16
           : insideAbandoned
             ? groundHeightAt(-10.8, -10.5) + 0.16
             : insideMuhtar
-              ? groundHeightAt(10.5, -18.0) + 0.16
+              ? groundHeightAt(MUHTAR.x, MUHTAR.z) + 0.16
               : insideClinic
-                ? groundHeightAt(26.0, -28.0) + 0.16
+                ? groundHeightAt(CLINIC.x, CLINIC.z) + 0.16
                 : insideMill
                   ? groundHeightAt(-36.0, 8.0) + 0.16
-                  : groundHeightAt(-34.0, -36.0) + 0.14)
-      : onBridge
-        ? 0.44
-        : groundHeightAt(this.playerPos.x, this.playerPos.z);
+                  : groundHeightAt(-34.0, -36.0) + 0.14
+        : onBridge
+          ? 0.44
+          : exteriorFloorAt(this.playerPos.x, this.playerPos.z);
 
+    this.playerPos.y = groundY;
     const bobAmp = THREE.MathUtils.clamp(horizSpeed / 3.5, 0, 1.2) * (crouching ? 0.02 : 0.032);
-    const targetEyeY = groundY + (crouching ? 1.12 : PLAYER_EYE_HEIGHT) + Math.sin(this.headBobPhase) * bobAmp;
+    const targetEyeY =
+      groundY + (crouching ? 1.12 : PLAYER_EYE_HEIGHT) + Math.sin(this.headBobPhase) * bobAmp;
     this.camera.position.x = this.playerPos.x;
     this.camera.position.z = this.playerPos.z;
     this.camera.position.y = THREE.MathUtils.damp(this.camera.position.y, targetEyeY, 14, dt);
@@ -2775,7 +3775,12 @@ export class SonVazifeEngine {
     }
 
     // 5. Doors & Shutters Damping
-    this.gasilDoorAngle = THREE.MathUtils.damp(this.gasilDoorAngle, this.gasilDoorOpen ? -Math.PI * 0.56 : 0, 7, dt);
+    this.gasilDoorAngle = THREE.MathUtils.damp(
+      this.gasilDoorAngle,
+      this.gasilDoorOpen ? -Math.PI * 0.56 : 0,
+      7,
+      dt,
+    );
     this.world.gasil.doorPivot.rotation.y = this.gasilDoorAngle;
 
     this.abandonedDoorAngle = THREE.MathUtils.damp(
@@ -2786,57 +3791,123 @@ export class SonVazifeEngine {
     );
     this.world.abandoned.doorPivot.rotation.y = this.abandonedDoorAngle;
 
-    this.muhtarDoorAngle = THREE.MathUtils.damp(this.muhtarDoorAngle, this.muhtarDoorOpen ? Math.PI * 0.56 : 0, 7, dt);
+    this.muhtarDoorAngle = THREE.MathUtils.damp(
+      this.muhtarDoorAngle,
+      this.muhtarDoorOpen ? Math.PI * 0.56 : 0,
+      7,
+      dt,
+    );
     this.world.muhtar.doorPivot.rotation.y = this.muhtarDoorAngle;
 
-    this.clinicDoorAngle = THREE.MathUtils.damp(this.clinicDoorAngle, this.clinicDoorOpen ? Math.PI * 0.56 : 0, 7, dt);
+    this.clinicDoorAngle = THREE.MathUtils.damp(
+      this.clinicDoorAngle,
+      this.clinicDoorOpen ? Math.PI * 0.56 : 0,
+      7,
+      dt,
+    );
     this.world.clinic.doorPivot.rotation.y = this.clinicDoorAngle;
 
-    this.millDoorAngle = THREE.MathUtils.damp(this.millDoorAngle, this.millDoorOpen ? -Math.PI * 0.56 : 0, 7, dt);
+    this.millDoorAngle = THREE.MathUtils.damp(
+      this.millDoorAngle,
+      this.millDoorOpen ? -Math.PI * 0.56 : 0,
+      7,
+      dt,
+    );
     this.world.millAndBridge.doorPivot.rotation.y = this.millDoorAngle;
 
-    this.cryptDoorAngle = THREE.MathUtils.damp(this.cryptDoorAngle, this.cryptDoorOpen ? -Math.PI * 0.58 : 0, 7, dt);
+    this.cryptDoorAngle = THREE.MathUtils.damp(
+      this.cryptDoorAngle,
+      this.cryptDoorOpen ? -Math.PI * 0.58 : 0,
+      7,
+      dt,
+    );
     this.world.cemetery.doorPivot.rotation.y = this.cryptDoorAngle;
 
-    this.shutterAngle = THREE.MathUtils.damp(this.shutterAngle, this.shutterClosed ? 0 : Math.PI * 0.62, 9, dt);
+    this.shutterAngle = THREE.MathUtils.damp(
+      this.shutterAngle,
+      this.shutterClosed ? 0 : Math.PI * 0.62,
+      9,
+      dt,
+    );
     this.world.gasil.shutterPivot.rotation.y = this.shutterAngle;
 
+    if (this.washAnim > 0) {
+      for (const side of [-1, 1]) {
+        const hand = this.washingHand.getObjectByName(side < 0 ? 'Sol el' : 'Sağ el')!;
+        hand.position.set(side * 0.24, -0.12, 0);
+        hand.rotation.set(0, 0, side * -0.12);
+      }
+      this.washAnim = Math.max(0, this.washAnim - dt);
+      this.washingHand.visible = !this.activeAutopsyCaseId;
+      if (this.washAnim === 0) this.updateHeldWashVisual();
+      const phase = 1.5 - this.washAnim;
+      this.washingHand.position.x = Math.sin(phase * 12) * 0.10;
+      this.washingHand.position.y = -0.3 + Math.sin(phase * 6) * 0.05;
+      this.washingHand.rotation.z = Math.sin(phase * 8) * 0.12;
+      this.washingHand.rotation.x = (this.washTools.bucket.visible || this.washTools.ewer.visible) ? -0.35 * Math.sin(Math.min(1, phase / 1.5) * Math.PI) : 0;
+      this.washingHand.traverse(o => { if (o.name === 'parmak') o.rotation.x = 0.15 + Math.sin(phase * 9) * 0.12; });
+    } else {
+      const currentDuty=this.activeDuty();
+      const restrained = this.heldWashTool !== 'empty' || this.initialBody === 'carried' || this.bodyTransport === 'carried' || !!currentDuty&&(currentDuty.held!=='empty'||currentDuty.body==='carrying'||currentDuty.body==='burialCarry');
+      const motion = armSwing(this.headBobPhase, blocked ? 0 : horizSpeed, this.isSprinting, restrained);
+      this.washingHand.position.set(0, -0.3 + motion.bounce * 0.015, -0.65);
+      this.washingHand.rotation.set(0, 0, 0);
+      for (const side of [-1, 1]) {
+        const hand = this.washingHand.getObjectByName(side < 0 ? 'Sol el' : 'Sağ el')!;
+        // Held equipment stays aligned with the shared tool rig; empty arms swing independently.
+        const swing = restrained ? 0 : motion.swing * side * (this.candleLit && side === 1 ? 0.25 : 1);
+        hand.position.set(side * 0.24, -0.12 + swing * 0.045, swing * 0.075);
+        hand.rotation.set(swing * 0.25, 0, side * -0.12 + swing * 0.06);
+      }
+      this.washingHand.traverse(o => { if (o.name === 'parmak') o.rotation.x = 0.1; });
+    }
     // 6. Candle Flicker, Sway & Oil
     if (this.candleLit) {
-      this.candleOil = Math.max(8, this.candleOil - dt * 0.1);
-      const flicker = 0.88 + Math.sin(this.elapsedTime * 19) * 0.08 + Math.sin(this.elapsedTime * 31) * 0.06;
+      this.candleOil = Math.max(0, this.candleOil - dt * 0.1);
+      if (this.candleOil === 0) {
+        this.candleLit = false;
+        this.handCandle.root.visible = false;
+        this.showCaption('Mum yağı bitti; karanlıkta kalacaksın.', 4);
+        this.pushHudState(true);
+      }
+      const flicker =
+        0.88 + Math.sin(this.elapsedTime * 19) * 0.08 + Math.sin(this.elapsedTime * 31) * 0.06;
       this.handCandle.light.intensity = 4.4 * flicker;
       this.handCandle.flame.scale.set(1, flicker, 1);
-      const swayAmp = THREE.MathUtils.clamp(horizSpeed / 4.2, 0.08, 1);
-      this.handCandle.root.position.set(
-        0.32 + Math.cos(this.headBobPhase * 0.5) * 0.014 * swayAmp,
-        -0.34 + Math.sin(this.headBobPhase) * 0.015 * swayAmp,
-        -0.52,
-      );
+
     } else {
       this.handCandle.light.intensity = 0;
     }
 
-    // 7. Rule 1: Sabır Mumu Vigil outside Gasilhane once gusül has started
+    // Leaving an unfinished preparation without the vigil disturbs the body.
+    const duty=this.activeDuty();
+    if(duty && !insideGasil && leaveUnwatched(duty)){this.syncVisualMeshes();this.showCaption('Sabır mumu yanmadan uzaklaştın.',5);this.triggerAutoSave(false);}
+    if (!duty && this.act >= 2 && this.act <= 5 && this.stepPrepDone && !this.stepShroudDone && !insideGasil && !this.vigilLit && !this.leftGasilWithoutVigilFlagged) {
+      this.leftGasilWithoutVigilFlagged = true;
+      this.bodyRisen = true;
+      this.unlockGlossaryEntry('anom_vigil');
+      this.violateRule('rule_alone', 'Sabır mumu yanmıyor. Gasilhaneden taş üzerinde sürtünme sesi geldi.');
+      this.audio.playFloorboardCreak(1);
+      this.triggerAutoSave(false);
+    }
+    const body = this.world.gasil.deceasedGroup;
+    body.rotation.z = THREE.MathUtils.damp(body.rotation.z, (duty?duty.risen:this.bodyRisen) ? -Math.PI / 2 : 0, 1.4, dt);
+    body.position.y = THREE.MathUtils.damp(body.position.y, (duty?duty.risen:this.bodyRisen) ? 0.95 : 0.862, 1.4, dt);
+    // The vigil slowly burns down while away after the wash.
     if ((this.act === 3 || this.act === 4) && this.stepWashDone && !insideGasil) {
-      if (!this.vigilLit && !this.leftGasilWithoutVigilFlagged) {
-        this.leftGasilWithoutVigilFlagged = true;
-        this.unlockGlossaryEntry('anom_vigil');
-        this.violateRule(
-          'rule_alone',
-          'KURAL İHLALİ: Ölüyü Sabır Mumu yakmadan yalnız bıraktın! Arkandan bir kapı çarptı.',
-        );
-        this.syncVisualMeshes();
-      }
-      this.vigilTimer = Math.max(0, this.vigilTimer - dt * (this.vigilLit ? 0.55 : 1.5));
-      if (this.vigilTimer <= 0 && !this.leftGasilWithoutVigilFlagged) {
-        this.leftGasilWithoutVigilFlagged = true;
-        this.unlockGlossaryEntry('anom_vigil');
-        this.violateRule(
-          'rule_alone',
-          'Sabır Mumu söndü! Gasilhanede mermer taş üzerinden bir sürtünme sesi geldi.',
-        );
-        this.syncVisualMeshes();
+      if (this.vigilLit) {
+        this.vigilTimer = Math.max(0, this.vigilTimer - dt * 0.55);
+        if (this.vigilTimer <= 0) {
+          this.vigilLit = false;
+          this.bodyRisen = true;
+          this.unlockGlossaryEntry('anom_vigil');
+          if (!this.leftGasilWithoutVigilFlagged) {
+            this.leftGasilWithoutVigilFlagged = true;
+            this.violateRule('rule_alone', 'Sabır Mumu söndü! Gasilhaneden taş üzerinde bir sürtünme sesi geldi.');
+          } else this.showCaption('Sabır Mumu söndü. Gasilhaneden bir sürtünme sesi geldi.', 5);
+          this.syncVisualMeshes();
+          this.triggerAutoSave(false);
+        }
       }
     }
 
@@ -2935,26 +4006,32 @@ export class SonVazifeEngine {
       }
     }
 
-    // 9. Nocturnal Threats (Acts 3-5): Kara Basma & Sis Gözcüsü
+    // 9. Nocturnal Threats (Acts III–VIII): Kara Basma & Sis Gözcüsü
     let dangerProximity = 0;
-    const isHiding = isIndoors || ((this.isUnderPorchOrAlcove(this.playerPos) || crouching) && !this.candleLit);
+    const isHiding =
+      isIndoors || ((this.isUnderPorchOrAlcove(this.playerPos) || crouching) && !this.candleLit);
 
     if (this.act >= 3) {
-      // Kara Basma patrols center/clinic roads
-      this.karaPatrolT += dt * (this.act >= 4 ? 0.26 : 0.21);
-      const kz = Math.sin(this.karaPatrolT) * 20.0 - 6.0;
-      const kx = Math.cos(this.karaPatrolT * 0.72) * 8.0;
-      const ky = groundHeightAt(kx, kz);
-      this.world.karaBasma.root.position.set(kx, ky, kz);
-
-      // Sis Gözcüsü patrols stream bridge & cemetery hill
-      this.sisPatrolT += dt * 0.18;
-      const sx = -26 + Math.sin(this.sisPatrolT) * 9.0;
-      const sz = -14 + Math.cos(this.sisPatrolT * 0.8) * 18.0;
-      const sy = groundHeightAt(sx, sz);
-      this.world.sisGozcusu.position.set(sx, sy + Math.sin(this.elapsedTime * 2.1) * 0.08, sz);
-      this.world.sisGozcusu.lookAt(this.playerPos.x, sy, this.playerPos.z);
-
+      const exposed = !blocked && !isHiding && this.karaCatchCooldown <= 0;
+      const beat = this.act === 8 && this.hasEntry('night_line') ? 5 : this.act;
+      const a = this.karaPatrol.tick(
+        this.world.karaBasma.root,
+        beat,
+        dt,
+        this.playerPos,
+        exposed,
+        this.world.colliders,
+      );
+      const b = this.mistPatrol.tick(
+        this.world.sisGozcusu,
+        beat,
+        dt,
+        this.playerPos,
+        exposed,
+        this.world.colliders,
+      );
+      this.world.poseWatchers(this.elapsedTime, a, b);
+      this.world.keeper.pose(dt, this.elapsedTime, this.playerPos);
       const dKara = this.playerPos.distanceTo(this.world.karaBasma.root.position);
       const dSis = this.playerPos.distanceTo(this.world.sisGozcusu.position);
       if (dKara < 14.0 && this.unlockGlossaryEntry('anom_karabasma')) {
@@ -2963,9 +4040,20 @@ export class SonVazifeEngine {
       if (dSis < 15.0 && this.unlockGlossaryEntry('anom_sisgozcusu')) {
         this.pushHudState(true);
       }
+      // Surprise appearances use the same figures and do not cause damage.
+      if (!blocked && !isIndoors && !this.scareFigure && this.elapsedTime >= this.nextScareTime) {
+        this.nextScareTime = this.elapsedTime + 45 + Math.random() * 45;
+        const figures = [this.world.karaBasma.root, this.world.sisGozcusu, ...this.horrorFigures];
+        this.startCreatureScare(figures[Math.floor(Math.random() * figures.length)]);
+      }
       const closestThreat = Math.min(dKara, dSis);
-      const threatObj = dKara <= dSis ? this.world.karaBasma.root : this.world.sisGozcusu;
+      const catchDistance = Math.min(a ? dKara : Infinity, b ? dSis : Infinity);
       dangerProximity = THREE.MathUtils.clamp(1 - (closestThreat - 2.2) / 14.0, 0, 1);
+      this.creatureSoundCooldown = Math.max(0, this.creatureSoundCooldown - dt);
+      if (!blocked && dangerProximity > 0.38 && this.creatureSoundCooldown === 0) {
+        this.audio.playWhisper(0.5 + dangerProximity * 0.5);
+        this.creatureSoundCooldown = 12 + Math.random() * 8;
+      }
 
       if (this.karaCatchCooldown > 0) this.karaCatchCooldown -= dt;
 
@@ -2975,24 +4063,11 @@ export class SonVazifeEngine {
           if (this.candleLit) {
             this.handCandle.light.intensity *= 0.45 + Math.random() * 0.4;
           }
-          _vec3.subVectors(this.playerPos, threatObj.position);
-          _vec3.y = 0;
-          if (_vec3.lengthSq() > 0.01) {
-            _vec3.normalize();
-            threatObj.position.addScaledVector(_vec3, dt * (this.candleLit ? 2.5 : 1.35));
-            threatObj.lookAt(this.playerPos.x, threatObj.position.y, this.playerPos.z);
-          }
-
-          if (closestThreat < 2.15 && this.karaCatchCooldown <= 0) {
+          if (catchDistance < 1.55 && this.karaCatchCooldown <= 0) {
             this.karaCatchCooldown = 6.5;
             this.caughtCount += 1;
+            this.startCreatureScare(a && (!b || dKara <= dSis) ? this.world.karaBasma.root : this.world.sisGozcusu, this.caughtCount >= 3);
             if (this.caughtCount >= 3) {
-              this.screen = 'game_over';
-              this.endingReason = 'Kara Basma ve Sis Gözcüsü seni yağmurlu sokakta yakaladı. Köyün sisi seni yuttu.';
-              if (document.pointerLockElement === this.renderer.domElement) {
-                document.exitPointerLock();
-              }
-              this.pushHudState(true);
               return;
             } else {
               this.violateRule(
@@ -3001,12 +4076,11 @@ export class SonVazifeEngine {
               );
               this.candleLit = false;
               this.handCandle.root.visible = false;
+              this.triggerAutoSave(false);
             }
           }
         }
       }
-
-      this.world.karaBasma.root.position.y += Math.sin(this.elapsedTime * 3.2) * 0.06;
     }
 
     // 9b. Modular Spatial Dread-Level Listener (whispers & floorboard creaks when dread > 70% & stationary)
@@ -3054,22 +4128,15 @@ export class SonVazifeEngine {
 
         let foundId: string | null = null;
         let foundLabel: string | null = null;
-        if (hits.length > 0) {
-          const hitId = hits[0].object.userData.interactId as string;
-          const interactables = this.world.interactables;
-          for (let i = 0; i < interactables.length; i++) {
-            const target = interactables[i];
-            if (target.id === hitId) {
-              if (hits[0].distance <= target.maxDist) {
-                const lbl = target.label();
-                if (lbl) {
-                  foundId = hitId;
-                  foundLabel = lbl;
-                }
-              }
-              break;
-            }
-          }
+        // A collected item or inactive record cannot mask a live target behind it.
+        for (const hit of hits) {
+          const target = this.world.interactables[hit.object.userData.targetIndex];
+          if (!target || hit.distance > target.maxDist) continue;
+          const label = target.label();
+          if (!label) continue;
+          foundId = target.id;
+          foundLabel = label;
+          break;
         }
         if (foundId !== this.activeInteractId || foundLabel !== this.activeInteractLabel) {
           this.activeInteractId = foundId;
@@ -3095,32 +4162,28 @@ export class SonVazifeEngine {
   }
 
   private updateEnvironmentVisuals(dt: number, isIndoors: boolean, dangerProximity: number): void {
-    const targetBgHex = this.act === 1 ? 0x212936 : 0x080b10;
-    const baseFogDensity = this.act === 1 ? 0.022 : this.act >= 3 ? 0.044 : 0.032;
-    const targetFogDensity =
-      this.resolvedQualityTier === 'low' ? Math.max(baseFogDensity, 0.034) : baseFogDensity;
-
-    if (this.scene.background instanceof THREE.Color) {
-      _vec3.set((targetBgHex >> 16) & 255, (targetBgHex >> 8) & 255, targetBgHex & 255).divideScalar(255);
-      this.scene.background.r = THREE.MathUtils.damp(this.scene.background.r, _vec3.x, 1.5, dt);
-      this.scene.background.g = THREE.MathUtils.damp(this.scene.background.g, _vec3.y, 1.5, dt);
-      this.scene.background.b = THREE.MathUtils.damp(this.scene.background.b, _vec3.z, 1.5, dt);
-    }
-
+    const rainLevel = this.act === 1 ? 0 : this.act >= 3 ? 1.0 : 0.45;
+    const a = atmosphereTargets(this.survivalSeconds, rainLevel, isIndoors, this.resolvedQualityTier === 'minimum', this.resolvedQualityTier === 'low');
+    const blend = 1 - Math.exp(-1.2 * dt);
+    this.scene.environmentIntensity = THREE.MathUtils.damp(this.scene.environmentIntensity, 0.05 + a.daylight * 0.11, 1.2, dt);
+    const horizonTint = this.world.horizon.material.color;
+    horizonTint.setScalar(THREE.MathUtils.damp(horizonTint.r, 0.16 + a.daylight * 0.43 - rainLevel * 0.06, 1.2, dt));
+    this.world.moonMesh.visible = a.daylight < 0.45;
+    _atmosphereColor.copy(_nightFog).lerp(_duskFog, a.daylight).lerp(_weatherFog, rainLevel * 0.22);
+    if (this.scene.background instanceof THREE.Color) this.scene.background.lerp(_atmosphereColor, blend);
     if (this.scene.fog instanceof THREE.FogExp2 && this.scene.background instanceof THREE.Color) {
       this.scene.fog.color.copy(this.scene.background);
-      this.scene.fog.density = THREE.MathUtils.damp(this.scene.fog.density, targetFogDensity, 1.5, dt);
+      this.scene.fog.density = THREE.MathUtils.damp(this.scene.fog.density, a.fog, 1.2, dt);
     }
-
-    const targetKey = this.act === 1 ? 1.35 : 0.28 + this.stormFlashIntensity;
+    // Slow sun/moon direction changes use the existing tier-limited shadow map.
+    positionSunLight(this.world.sunKeyLight, this.playerPos.x, this.playerPos.z, this.survivalSeconds, a.daylight);
+    this.world.sunKeyLight.color.copy(_nightKey).lerp(_dayKey, a.daylight);
+    this.world.sunKeyLight.intensity = THREE.MathUtils.damp(this.world.sunKeyLight.intensity, a.key + this.stormFlashIntensity, 3, dt);
     const iblBoost = this.scene.environment === null ? 0.14 : 0;
-    this.world.sunKeyLight.intensity = THREE.MathUtils.damp(this.world.sunKeyLight.intensity, targetKey, 4, dt);
-    this.world.hemiLight.intensity = THREE.MathUtils.damp(
-      this.world.hemiLight.intensity,
-      (this.act === 1 ? 0.72 : 0.34) + iblBoost,
-      2,
-      dt,
-    );
+    this.world.hemiLight.intensity = THREE.MathUtils.damp(this.world.hemiLight.intensity, a.ambient + iblBoost, 1.5, dt);
+    const aperture = this.world.apertureLights;
+    aperture.window.opacity = THREE.MathUtils.damp(aperture.window.opacity, this.shutterClosed ? 0 : a.aperture, 3, dt);
+    aperture.officeDoor.opacity = THREE.MathUtils.damp(aperture.officeDoor.opacity, this.muhtarDoorOpen ? a.aperture : 0, 3, dt);
 
     const mistSprites = this.world.mistSprites;
     for (let idx = 0; idx < mistSprites.length; idx++) {
@@ -3130,7 +4193,7 @@ export class SonVazifeEngine {
       sp.position.x = baseX + Math.sin(this.elapsedTime * 0.25 + idx) * 2.1;
     }
 
-    const rainLevel = this.act === 1 ? 0.15 : this.act >= 3 ? 1.0 : 0.45;
+    this.world.rainPoints.visible = rainLevel > 0 && !isIndoors;
     this.world.rainUniforms.uTime.value = this.elapsedTime;
     this.world.rainUniforms.uPlayerPos.value.copy(this.camera.position);
     this.world.rainUniforms.uOpacity.value = rainLevel * 0.58;
@@ -3165,7 +4228,7 @@ export class SonVazifeEngine {
       this.world.gasil.ceilingLight.intensity = 0.0;
       this.world.gasil.ceilingBulbMat.emissiveIntensity = 0.05;
     } else if (this.windowAnomalyActive) {
-      const bf = Math.sin(this.elapsedTime * 34) > 0.3 ? 1.0 : 0.18;
+      const bf = 0.55 + Math.sin(this.elapsedTime * 2.4) * 0.37;
       this.world.gasil.ceilingLight.intensity = 6.2 * bf;
       this.world.gasil.ceilingBulbMat.emissiveIntensity = 1.4 * bf;
     } else if (this.windowWhisperFxTimer > 0 && this.windowWhisperVariant === 2) {
@@ -3241,36 +4304,59 @@ export class SonVazifeEngine {
     const insideCrypt = this.isInsideCrypt(this.playerPos);
     const district = this.getCurrentDistrict(this.playerPos);
 
-    const location = insideGasil
-      ? 'Gasilhane (Gusül Odası)'
-      : insideAbandoned
-        ? 'Eski Köy Evi'
-        : insideMuhtar
-          ? 'Muhtarın Odası'
-          : insideClinic
-            ? 'Sağlık Ocağı · Otopsi'
-            : insideMill
-              ? 'Eski Su Değirmeni'
-              : insideCrypt
-                ? 'Mezarlık · Taş Mahzen'
-                : district === 'clinic'
-                  ? 'Yukarı Mahalle · Sağlık Ocağı Önü'
-                  : district === 'mill'
-                    ? 'Dere Köprüsü & Değirmen Kıyısı'
-                    : district === 'cemetery'
-                      ? 'Mezarlık Tepesi'
-                      : district === 'crash_site'
-                        ? 'Viraj Kaza Alanı'
-                        : 'Kuzdağ Köy Meydanı';
+    const outer = insideOutpost(this.playerPos.x, this.playerPos.z);
+    const location = outer
+      ? OUTPOSTS[outer].name
+      : district === 'school'
+        ? 'Mektep Yolu'
+        : district === 'station'
+          ? 'Doğu Hattı'
+          : district === 'exchange'
+            ? 'Santral Sırtı'
+            : insideGasil
+              ? 'Gasilhane (Gusül Odası)'
+              : insideAbandoned
+                ? 'Eski Köy Evi'
+                : insideMuhtar
+                  ? 'Muhtarın Odası'
+                  : insideClinic
+                    ? 'Sağlık Ocağı · Kayıt Odası'
+                    : insideMill
+                      ? 'Eski Su Değirmeni'
+                      : insideCrypt
+                        ? 'Mezarlık · Taş Mahzen'
+                        : district === 'clinic'
+                          ? 'Yukarı Mahalle · Sağlık Ocağı Önü'
+                          : district === 'mill'
+                            ? 'Dere Köprüsü & Değirmen Kıyısı'
+                            : district === 'cemetery'
+                              ? 'Mezarlık Tepesi'
+                              : district === 'crash_site'
+                                ? 'Viraj Kaza Alanı'
+                                : 'Kuzdağ Köy Meydanı';
 
+    const duty=this.activeDuty();
+    if(duty)return {actTitle:`GASSALLIK · ${duty.night}. VAZİFE`,objective:ritualObjective(duty,isEvening(this.survivalSeconds)),location};
+    if (this.finalCall) return { actTitle: 'SON YOL · KAÇIŞ', objective: 'İstasyondaki son perona ulaş ve köyden kaç.', location };
+    if (this.act >= 6) {
+      const next = this.nextNight() ?? 'night_call';
+      const pending = this.isInsideGasilhane(this.playerPos) && (this.extraWashes.mahmut < 4 || (this.hasEntry('night_tag') && this.extraWashes.yolcu < 4));
+      const objective = pending ? `Gassallık: sedyelerin baş ucunda Mahmut ve yolcuyu adım adım yıka. Sonra: ${PAGES[next].objective}` : PAGES[next].objective;
+      return { actTitle: NIGHT_TITLES[PAGES[next].act], objective, location };
+    }
     if (this.act === 1) {
+      if(this.initialBody==='bed') return {actTitle:'BÖLÜM I · İLK VAZİFE',objective:'Gasilhane önündeki sedyeden cenazeyi al.',location};
+      if(this.initialBody==='carried') return {actTitle:'BÖLÜM I · İLK VAZİFE',objective:'Cenazeyi gasilhaneye taşı ve teneşire yerleştir.',location};
       const collectedCount = ['defter', 'kefen', 'sabun', 'ibrik'].filter(
         (id) => this.inventory.find((i) => i.id === id)?.collected,
       ).length;
       if (!this.autopsyCases.case_arif.completed) {
         return {
-          actTitle: 'BÖLÜM I · İLK OTOPSİ VE HAZIRLIK',
-          objective: `Malzemeleri topla (${collectedCount}/4), Bekçi Hasan’la konuş ve Teneşirde Vaka I otopsisini tamamla`,
+          actTitle: 'BÖLÜM I · İLK VAZİFE',
+          objective:
+            this.world.npcs.bekci.spokenNodes.size === 0 && collectedCount === 0
+              ? 'Meydandaki Bekçi Hasan’ı bul ve onunla konuş.'
+              : `Gasilhanedeki teslim dosyasını aç. Gusül malzemeleri: ${collectedCount}/4.`,
           location,
         };
       }
@@ -3282,14 +4368,15 @@ export class SonVazifeEngine {
         };
       }
       return {
-        actTitle: 'BÖLÜM I · İLK OTOPSİ VE HAZIRLIK',
+        actTitle: 'BÖLÜM I · İLK VAZİFE',
         objective: 'Gasilhaneye girip gusle başla veya Vaka I kanıtıyla Bekçi Hasan’la konuş',
         location,
       };
     }
 
     if (this.act === 2) {
-      let objective = 'Bekçi Hasan’dan Sağlık Ocağı Anahtarını al ve Şoför Mahmut’a otopsi yap';
+      let objective =
+        'Bekçi Hasan’dan Sağlık Ocağı Anahtarını al ve Şoför Mahmut’un teslim dosyasını aç';
       if (!this.stepPrepDone) {
         objective = 'Teneşirde setr-i avret örtüsünü ser veya Sağlık Ocağına git';
       } else if (!this.stepWashDone) {
@@ -3301,7 +4388,7 @@ export class SonVazifeEngine {
       } else if (!this.inventory.find((i) => i.id === 'clinic_key')?.collected) {
         objective = 'Sabır Mumunu yak · Dışarıda Bekçi Hasan’la konuşup Sağlık Ocağı Anahtarını al';
       } else {
-        objective = 'Doğu yolundaki Sağlık Ocağına gir · Şoför Mahmut üzerinde Vaka II otopsisini çöz';
+        objective = 'Doğu yolundaki Sağlık Ocağına gir · Şoför Mahmut’un kayıtlarını karşılaştır';
       }
       return {
         actTitle: 'BÖLÜM II · SAĞLIK OCAĞI & VAKA II',
@@ -3313,7 +4400,7 @@ export class SonVazifeEngine {
     if (this.act === 3) {
       const hasMillLedger = this.clues.find((c) => c.id === 'clue_mill_ledger')?.discovered;
       const objective = !hasMillLedger
-        ? 'Dere Köprüsünden Eski Su Değirmenine geç · Boğanak otunu ve Değirmen Zehir Kaydını bul'
+        ? 'Dere Köprüsünden Eski Su Değirmenine geç · Boğanak otunu ve değirmenin eski defterini bul'
         : 'Viraj Kaza Alanını incele, Eski Evden Gülsuyu al ve Katip Kenan’la yüzleş!';
       return {
         actTitle: 'BÖLÜM III · DEĞİRMEN & VİRAJ',
@@ -3326,7 +4413,7 @@ export class SonVazifeEngine {
       const hasCryptKey = this.inventory.find((i) => i.id === 'crypt_key')?.collected;
       const objective = !hasCryptKey
         ? 'Mezarlık Tepesindeki Mezarcı İdris’ten Taş Mahzen Anahtarını al'
-        : 'Taş Mahzene gir ve İsimsiz Yolcu (Vaka III) otopsisini çöz';
+        : 'Taş Mahzene gir ve isimsiz yolcunun kaydını tamamla';
       return {
         actTitle: 'BÖLÜM IV · MEZARLIK & TAŞ MAHZEN',
         objective,
@@ -3337,7 +4424,7 @@ export class SonVazifeEngine {
     const hasKafur = this.inventory.find((i) => i.id === 'kafur')?.collected;
     const hasGulsuyu = this.inventory.find((i) => i.id === 'gulsuyu')?.collected;
     return {
-      actTitle: 'BÖLÜM V · SON VAZİFE VE ŞAFAK',
+      actTitle: 'BÖLÜM V · ÜÇ TESLİM FİŞİ',
       objective: !hasKafur
         ? 'Muhtarlık odasına gir · Belgeleri incele ve Kafur Kavanozunu al'
         : !hasGulsuyu
@@ -3346,7 +4433,7 @@ export class SonVazifeEngine {
             ? 'Gasilhaneye dön ve teneşirde kafurlu su ile son durulamayı yap'
             : !this.stepDryDone
               ? 'Temiz havlu ve gülsuyu ile cenazeyi kurula'
-              : 'Cenazeyi kefenle ve sabah ezanını bekle',
+              : !this.stepShroudDone ? 'Cenazeyi kefenle' : this.bodyTransport === 'carried' ? 'Cenazeyi gasilhane dışındaki nakil sedyesine taşı' : 'Teneşirdeki cenazeyi kaldır',
       location,
     };
   }
@@ -3358,7 +4445,8 @@ export class SonVazifeEngine {
       this.isInsideMuhtar(this.playerPos) ||
       this.isInsideClinic(this.playerPos) ||
       this.isInsideMill(this.playerPos) ||
-      this.isInsideCrypt(this.playerPos),
+      this.isInsideCrypt(this.playerPos) ||
+      !!insideOutpost(this.playerPos.x, this.playerPos.z),
     isHiding = false,
     dangerProximity = this.dangerProximity,
   ): void {
@@ -3397,6 +4485,9 @@ export class SonVazifeEngine {
 
     this.onHudUpdate({
       screen: this.screen,
+      survivalDay: survivalDay(this.survivalSeconds),
+      isEvening: isEvening(this.survivalSeconds),
+      survivalHits: this.caughtCount,
       act: this.act,
       actTitle: meta.actTitle,
       objectiveText: meta.objective,
@@ -3407,7 +4498,7 @@ export class SonVazifeEngine {
       candleLit: this.candleLit,
       candleOil: Math.round(this.candleOil),
       vigilTimer: Math.ceil(this.vigilTimer),
-      vigilActive: this.act >= 3 && this.stepWashDone,
+      vigilActive: (this.act === 3 || this.act === 4) && this.stepWashDone,
       dreadLevel: Math.round(this.dreadLevel),
       stamina: Math.round(this.stamina),
       isCrouching: this.isCrouching,
@@ -3437,6 +4528,9 @@ export class SonVazifeEngine {
       saveSummary: this.saveSummary,
       saveNoticeText: this.saveNoticeText,
       activeDialogue: this.getActiveDialogueState(),
+      registryCaseId: this.registryCaseId,
+      nightPage: this.nightPage,
+      puzzleSeed: this.puzzleSeed,
       activeAutopsyCaseId: this.activeAutopsyCaseId,
       activeAutopsyTool: this.activeAutopsyTool,
       activeAutopsyCameraAngle: this.activeAutopsyCameraAngle,
@@ -3456,6 +4550,9 @@ export class SonVazifeEngine {
     this.disposed = true;
     cancelAnimationFrame(this.frameId);
     clearTimeout(this.frameId);
+    if (this.softwareFence)
+      (this.renderer.getContext() as WebGL2RenderingContext).deleteSync(this.softwareFence);
+    this.softwareFence = null;
 
     window.removeEventListener('resize', this.onResize);
     window.removeEventListener('keydown', this.onKeyDown);
@@ -3470,13 +4567,22 @@ export class SonVazifeEngine {
     window.removeEventListener('mousemove', this.onMouseMove);
     window.removeEventListener('mouseup', this.onMouseUp);
 
-    this.envTexture?.dispose();
+    this.vertexLight.restore();
+    this.envTarget?.dispose();
     this.postProcessing?.dispose();
+    const handGeometries = new Set<THREE.BufferGeometry>(), handMaterials = new Set<THREE.Material>();
+    this.washingHand.traverse(o => {
+      if (o instanceof THREE.Mesh) { handGeometries.add(o.geometry); handMaterials.add(o.material as THREE.Material); }
+    });
+    handGeometries.forEach(g => g.dispose()); handMaterials.forEach(m => m.dispose());
+    if (this.scareFigure) this.camera.remove(this.scareFigure);
+    disposeHorrorFigures(this.horrorFigures);
     this.world.dispose();
-    this.cc0.dispose();
+    this.assets.dispose();
     this.textures.disposeAll();
     this.audio.dispose();
     this.renderer.dispose();
+    this.renderer.forceContextLoss();
 
     if (this.renderer.domElement.parentNode === this.container) {
       this.container.removeChild(this.renderer.domElement);

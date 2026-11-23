@@ -1,0 +1,43 @@
+{
+  "ctorMs": 272,
+  "tier": "minimum",
+  "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "course": "İlk nöbet / meydan döngüsü",
+  "sampleBuffer": [
+    384,
+    240
+  ],
+  "loopBuffer": [
+    288,
+    180
+  ],
+  "rows": [
+    {
+      "place": "Meydan",
+      "medianMs": 79,
+      "p90Ms": 90,
+      "draws": 74,
+      "triangles": 40845
+    },
+    {
+      "place": "Çeşme",
+      "medianMs": 70.8,
+      "p90Ms": 87.8,
+      "draws": 40,
+      "triangles": 29240
+    },
+    {
+      "place": "Gasilhane",
+      "medianMs": 101.9,
+      "p90Ms": 120.7,
+      "draws": 62,
+      "triangles": 31022
+    }
+  ],
+  "submittedFps": 12.5,
+  "requests": 30,
+  "assetBytes": 2265901,
+  "textures": 28,
+  "geometries": 135,
+  "errors": []
+}

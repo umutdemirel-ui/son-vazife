@@ -1,0 +1,50 @@
+{
+  "ctorMs": 242,
+  "tier": "minimum",
+  "gpu": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+  "course": "Gece / peron döngüsü",
+  "sampleBuffer": [
+    384,
+    240
+  ],
+  "loopBuffer": [
+    288,
+    180
+  ],
+  "rows": [
+    {
+      "place": "Kabul sedyeleri",
+      "medianMs": 96.7,
+      "p90Ms": 129.1,
+      "draws": 68,
+      "triangles": 34982
+    },
+    {
+      "place": "Sarı Mektep",
+      "medianMs": 69,
+      "p90Ms": 77,
+      "draws": 19,
+      "triangles": 14394
+    },
+    {
+      "place": "Son peron",
+      "medianMs": 88.2,
+      "p90Ms": 98.2,
+      "draws": 54,
+      "triangles": 33136
+    },
+    {
+      "place": "Sırt Santrali",
+      "medianMs": 88.9,
+      "p90Ms": 114,
+      "draws": 41,
+      "triangles": 26952
+    }
+  ],
+  "submittedFps": 11.6,
+  "requests": 38,
+  "assetBytes": 2972381,
+  "textures": 29,
+  "geometries": 150,
+  "errors": []
+}

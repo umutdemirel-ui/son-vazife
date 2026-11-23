@@ -29,7 +29,9 @@ export class HorrorAudioEngine {
       return;
     }
 
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
 
     const ctx = new AudioCtx();
@@ -192,6 +194,52 @@ export class HorrorAudioEngine {
     osc.stop(t + 0.1);
   }
 
+  /** A few distant steps continue after the player stops, independent of walking cadence. */
+  public playGhostFootsteps(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const ctx=this.ctx, start=ctx.currentTime;
+    for(const [i,delay] of [0.12,0.68,1.24].entries()){
+      const at=start+delay,osc=ctx.createOscillator(),gain=ctx.createGain();
+      osc.type='sine';osc.frequency.setValueAtTime(95-i*5,at);osc.frequency.exponentialRampToValueAtTime(38,at+.08);
+      gain.gain.setValueAtTime(.075-i*.012,at);gain.gain.exponentialRampToValueAtTime(.001,at+.11);
+      osc.connect(gain);gain.connect(this.masterGain);osc.start(at);osc.stop(at+.12);
+    }
+  }
+
+  /** A subdued scrape, as if fabric were dragged across the floor. */
+  public playDistantDrag(): void {
+    if (!this.ctx || !this.masterGain || !this.noiseBuffer || this.muted) return;
+    const ctx=this.ctx, t=ctx.currentTime+.08;
+    const source=ctx.createBufferSource(), filter=ctx.createBiquadFilter(), gain=ctx.createGain();
+    source.buffer=this.noiseBuffer;filter.type='bandpass';filter.frequency.value=340;filter.Q.value=.7;
+    gain.gain.setValueAtTime(.0001,t);
+    gain.gain.linearRampToValueAtTime(.035,t+.32);
+    gain.gain.linearRampToValueAtTime(.012,t+.75);
+    gain.gain.linearRampToValueAtTime(.027,t+1.05);
+    gain.gain.exponentialRampToValueAtTime(.0001,t+1.7);
+    source.connect(filter);filter.connect(gain);gain.connect(this.masterGain);
+    source.start(t,0,1.75);source.stop(t+1.75);
+  }
+
+  /** A distant, wavering low animal call, not a jump scare. */
+  public playDistantAnimal(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const ctx=this.ctx, t=ctx.currentTime+.05;
+    for (const [harmonic,volume] of [[1,.045],[2,.013]] as const) {
+      const voice=ctx.createOscillator(), envelope=ctx.createGain();
+      voice.type=harmonic===1?'triangle':'sine';
+      voice.frequency.setValueAtTime(132*harmonic,t);
+      voice.frequency.linearRampToValueAtTime(155*harmonic,t+.38);
+      voice.frequency.linearRampToValueAtTime(112*harmonic,t+1.15);
+      envelope.gain.setValueAtTime(.0001,t);
+      envelope.gain.linearRampToValueAtTime(volume,t+.23);
+      envelope.gain.linearRampToValueAtTime(volume*.65,t+.72);
+      envelope.gain.exponentialRampToValueAtTime(.0001,t+1.3);
+      voice.connect(envelope);envelope.connect(this.masterGain);
+      voice.start(t);voice.stop(t+1.32);
+    }
+  }
+
   public playPickup(): void {
     if (!this.ctx || !this.masterGain || this.muted) return;
     const t = this.ctx.currentTime;
@@ -206,6 +254,50 @@ export class HorrorAudioEngine {
     gain.connect(this.masterGain);
     osc.start(t);
     osc.stop(t + 0.2);
+  }
+
+  /** Two low, distant bell strokes. No abrupt jumps in level. */
+  public playTelephone(): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const t = this.ctx.currentTime + 0.18;
+    for (const delay of [0, 0.28, 1.6, 1.88]) {
+      for (const hz of [473, 731]) {
+        const bell = this.ctx.createOscillator();
+        const envelope = this.ctx.createGain();
+        bell.type = 'sine';
+        bell.frequency.value = hz;
+        envelope.gain.setValueAtTime(0.0001, t + delay);
+        envelope.gain.exponentialRampToValueAtTime(0.027, t + delay + 0.04);
+        envelope.gain.exponentialRampToValueAtTime(0.0001, t + delay + 0.32);
+        bell.connect(envelope);
+        envelope.connect(this.masterGain);
+        bell.start(t + delay);
+        bell.stop(t + delay + 0.34);
+      }
+    }
+  }
+
+  public playSchoolBell(long: boolean): void {
+    if (!this.ctx || !this.masterGain || this.muted) return;
+    const ctx = this.ctx,
+      t = ctx.currentTime,
+      end = t + (long ? 0.95 : 0.34);
+    for (const [hz, level] of [
+      [516, 0.085],
+      [1304, 0.027],
+      [1811, 0.013],
+    ]) {
+      const tone = ctx.createOscillator(),
+        gain = ctx.createGain();
+      tone.frequency.value = hz;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(level, t + 0.013);
+      gain.gain.exponentialRampToValueAtTime(0.0001, end);
+      tone.connect(gain);
+      gain.connect(this.masterGain);
+      tone.start(t);
+      tone.stop(end + 0.02);
+    }
   }
 
   public playDoorCreak(): void {

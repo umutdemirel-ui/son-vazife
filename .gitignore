@@ -6,3 +6,7 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Offline art tools and local browser QA
+__pycache__/
+.arena/

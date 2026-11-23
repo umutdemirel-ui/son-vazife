@@ -1,165 +1,42 @@
-import React from 'react';
-import { SaveSummary } from '../game/types';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowRight, BookOpen, CloudFog, Crosshair, Focus, Headphones, MapPin, Maximize, Minimize, Mountain, Play, RotateCcw, UserRound, VolumeX } from 'lucide-react';
+import { ARCHIVE } from '../archive';
+import { HorrorAudioEngine } from '../game/audio';
+import {MenuDialog} from './MenuDialog';
+import {autoSaveStatus,readAutoSave} from '../game/saveSystem';
+import { readControls, readMuted, storeControls, storeMuted } from '../game/preferences';
+import type { ControlSettings } from '../game/types';
+import { ArchivePrint } from './ArchivePrint';
+import { ArchivePanel, ControlsPanel, SettingsPanel } from './MenuPanels';
 
-interface TitleScreenProps {
-  onStart: () => void;
-  onContinue: () => void;
-  hasSavedGame: boolean;
-  saveSummary: SaveSummary | null;
-  assetLoadPercent: number;
-  assetsReady: boolean;
-  isMuted: boolean;
-  onToggleMute: () => void;
+type Panel = 'archive' | 'controls' | 'settings' | 'saveWarning' | null;
+export function TitleScreen({onLaunch}:{onLaunch:(resume:boolean)=>void}) {
+  const [panel,setPanel]=useState<Panel>(null),[photo,setPhoto]=useState(0),[controls,setControls]=useState(readControls),[muted,setMuted]=useState(readMuted),[fullscreen,setFullscreen]=useState(Boolean(document.fullscreenElement)),[notice,setNotice]=useState('');
+  const [save]=useState(readAutoSave),[saveStatus]=useState(autoSaveStatus);
+  const audio=useRef<HorrorAudioEngine|null>(null);
+  function wakeAudio(){if(!audio.current)audio.current=new HorrorAudioEngine();audio.current.setMuted(muted||document.hidden);audio.current.init();}
+  useEffect(()=>{const sync=()=>setFullscreen(Boolean(document.fullscreenElement));document.addEventListener('fullscreenchange',sync);return()=>{document.removeEventListener('fullscreenchange',sync);audio.current?.dispose();audio.current=null;};},[]);
+  useEffect(()=>{const sync=()=>audio.current?.setMuted(muted||document.hidden);sync();document.addEventListener('visibilitychange',sync);return()=>document.removeEventListener('visibilitychange',sync);},[muted]);
+  useEffect(()=>{if(!notice)return;const t=window.setTimeout(()=>setNotice(''),4500);return()=>window.clearTimeout(t);},[notice]);
+  function toggleMute(){const value=!muted;audio.current?.setMuted(value);setMuted(value);storeMuted(value);}
+  function update(patch:Partial<ControlSettings>){const next={...controls,...patch};setControls(next);storeControls(next);}
+  function openPanel(next:Panel){audio.current?.playPaperFlip();setPanel(next);}
+  function photoBy(by:number){audio.current?.playPaperFlip();setPhoto(i=>(i+by+ARCHIVE.length)%ARCHIVE.length);}
+  function launch(){if(saveStatus==='available')onLaunch(true);else if(saveStatus==='missing')onLaunch(false);else openPanel('saveWarning');}
+  async function toggleFullscreen(){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{setNotice('Tarayıcın bu görünümde tam ekrana izin vermiyor.');}}
+  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||panel)return;if(e.code==='KeyM'){wakeAudio();toggleMute();return;}if(e.target instanceof HTMLElement&&e.target.closest('button,input,select,textarea,a,[contenteditable="true"]'))return;if(e.code==='Enter'||e.code==='Space'){e.preventDefault();wakeAudio();launch();}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);});
+  return <div className="sv-shell" onPointerDownCapture={wakeAudio} onKeyDownCapture={wakeAudio}>
+    <header className="menu-header">
+      <button className="brand" aria-label="Kuzdağ Arşivi · Ana menü" onClick={()=>setPanel(null)}><img width="36" height="41" src="/mark.svg" alt=""/><span><b>KUZDAĞ</b><small>KÖY ARŞİVİ</small></span></button>
+      <nav aria-label="Oyun menüsü" className="main-nav"><button className={!panel?'active':''} aria-current={!panel?'page':undefined} onClick={()=>setPanel(null)}>Ana menü</button><button className={panel==='archive'?'active':''} onClick={()=>openPanel('archive')}>Köy arşivi</button><button className={panel==='settings'?'active':''} onClick={()=>openPanel('settings')}>Ayarlar</button></nav>
+      <div className="header-tools"><button className="sound-button" aria-label={muted?'Sesi aç':'Sesi kapat'} aria-pressed={!muted} onClick={toggleMute}>{muted?<VolumeX size={17}/>:<span className="equalizer" aria-hidden="true"><i/><i/><i/><i/><i/></span>}<span>{muted?'Ses kapalı':'Ses açık'}</span></button><span className="tool-divider"/><button className="fullscreen-button" onClick={()=>void toggleFullscreen()} aria-label={fullscreen?'Tam ekrandan çık':'Tam ekran'} title={fullscreen?'Tam ekrandan çık':'Tam ekran'}>{fullscreen?<Minimize size={18}/>:<Maximize size={18}/>}</button></div>
+    </header>
+    <main className="title-stage"><div className="stage-art" aria-hidden="true"/><div className="stage-shade" aria-hidden="true"/><div className="hero-grid"><section className="hero-copy" aria-labelledby="game-title"><p className="kicker hero-kicker"><i/>ANADOLU PSİKOLOJİK KORKU</p><h1 id="game-title" className="game-title" aria-label="Son Vazife"><span className="title-son">SON</span> <span className="title-vazife">VAZİFE</span></h1><div className="genre-row"><span><Focus size={15}/>Birinci şahıs</span><i/><span><UserRound size={14}/>Tek oyunculu</span></div><p className="story-intro">Ustanın mektubu seni Kuzdağ’a çağırıyor. Köyü keşfet, kayıtları incele ve yarım kalan son vazifeyi tamamla.</p><div className="hero-actions"><button className="menu-button primary" onClick={launch}><Play size={15} fill="currentColor" strokeWidth={1}/>{save?'DEVAM ET':'KÖYE GİR'}<ArrowRight size={16} className="cta-arrow"/></button><button className="menu-button secondary" onClick={()=>openPanel('controls')}><BookOpen size={17}/>Nasıl oynanır?</button></div>{save&&<div className="resume-meta"><span>{save.actTitle} · KUZDAĞ</span></div>}</section><ArchivePrint index={photo} change={photoBy} onInspect={()=>openPanel('archive')}/></div><div className="scene-id" aria-hidden="true"><span/><Crosshair size={12}/>MEKÂN 01 <i>/</i> GASİLHANE</div></main>
+    <footer className="field-footer"><dl className="field-readings"><div><MapPin/><dt>Konum</dt><dd>Kuzdağ Köyü, Anadolu</dd></div><div><Mountain/><dt>Arazi</dt><dd>Dağ köyü</dd></div><div><CloudFog/><dt>Hava durumu</dt><dd>Sisli</dd></div></dl><div className="headphone-note"><Headphones size={20}/><span>Kulaklıkla oynamanız önerilir.</span></div></footer>
+    {notice&&<p role="status" className="menu-toast">{notice}</p>}
+    {panel==='archive'&&<ArchivePanel index={photo} onSelect={i=>{audio.current?.playPaperFlip();setPhoto(i);}} onClose={()=>setPanel(null)}/>}
+    {panel==='settings'&&<SettingsPanel controls={controls} update={update} muted={muted} toggleMute={toggleMute} onClose={()=>setPanel(null)}/>}
+    {panel==='controls'&&<ControlsPanel onClose={()=>setPanel(null)}/>}
+    {panel==='saveWarning'&&<MenuDialog title="Kuzdağ kaydı" kicker="KAYIT / KORUMA" onClose={()=>setPanel(null)}><p className="panel-intro">{saveStatus==='invalid'?'Kuzdağ kaydı okunamıyor. Üzerine yazmamak için oyun başlatılmadı.':'Kayıt alanına erişilemiyor; mevcut kayıt korunamadığı için oyun başlatılmadı.'}</p></MenuDialog>}
+  </div>;
 }
-
-export const TitleScreen: React.FC<TitleScreenProps> = ({
-  onStart,
-  onContinue,
-  hasSavedGame,
-  saveSummary,
-  assetLoadPercent,
-  assetsReady,
-  isMuted,
-  onToggleMute,
-}) => {
-  const completedAutopsies = saveSummary?.completedAutopsies ?? 0;
-  const discoveredClues = saveSummary?.discoveredClues ?? 0;
-  const activeGoal = saveSummary ? saveSummary.actTitle : 'GASSALHANE HAZIRLIK';
-
-  return (
-    <div
-      className="fixed inset-0 z-20 grid grid-rows-[auto_1fr_auto] text-[#e2d9c8]"
-      style={{
-        background:
-          'radial-gradient(circle at 50% 48%, rgba(140, 29, 24, 0.08) 0%, rgba(12, 13, 15, 0.72) 66%, rgba(7, 8, 10, 0.92) 100%)',
-      }}
-    >
-      {/* Top Header */}
-      <header className="px-6 md:px-12 py-6 md:py-7 flex items-center justify-between gap-6 border-b border-[#e2d9c8]/10">
-        <span className="font-mono-tech text-[11px] uppercase tracking-[0.25em] text-[#8c8174] whitespace-nowrap shrink-0">
-          KUZDAĞ KÖYÜ · RAKIM 1480m
-        </span>
-
-        <div className="flex items-center gap-4 shrink-0">
-          {!assetsReady && (
-            <span className="font-mono-tech text-[11px] uppercase tracking-[0.16em] text-[#c79e59] tabular-nums whitespace-nowrap">
-              3B Köy Paketleri Yükleniyor %{assetLoadPercent}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={onToggleMute}
-            className="font-mono-tech text-[11px] uppercase tracking-[0.18em] px-4 py-2 border border-[#e2d9c8]/20 bg-[#0c0d0f]/70 text-[#b4aa9a] hover:text-[#e2d9c8] hover:border-[#8c1d18] transition-colors cursor-pointer whitespace-nowrap shrink-0"
-          >
-            {isMuted ? 'SES KAPALI' : 'SES AÇIK'}
-          </button>
-        </div>
-      </header>
-
-      {/* Main Split Editorial Layout */}
-      <main className="px-6 md:px-12 py-6 grid grid-cols-1 lg:grid-cols-[1fr_420px] items-center gap-8 lg:gap-16 overflow-y-auto lg:overflow-hidden">
-        <div className="max-w-xl">
-          <span className="font-mono-tech block text-xs uppercase tracking-[0.28em] text-[#b8322c] mb-4">
-            ANADOLU HALK İNANIŞLARI VE ADLİ OTOPSİ
-          </span>
-
-          <h1 className="font-display font-bold uppercase text-white leading-[0.86] tracking-[-0.03em] text-[clamp(4.25rem,9vw,8.5rem)] mb-7">
-            SON
-            <br />
-            VAZİFE
-          </h1>
-
-          <p className="text-base md:text-lg font-light leading-relaxed text-[#e2d9c8]/75 max-w-[500px] mb-9">
-            Köyün son gassalı vefat etti. Dağ vadisinin beş farklı bölgesinde tanıkları dinle,
-            üç ayrı cenazenin adli otopsi bulgularını çöz ve halk inanışlarını çiğnemeden son
-            vazifeyi tamamla.
-          </p>
-
-          <div className="flex flex-wrap items-center gap-4">
-            {hasSavedGame && saveSummary ? (
-              <>
-                <button
-                  type="button"
-                  onClick={onContinue}
-                  className="font-mono-tech px-7 py-4 bg-[#8c1d18] hover:bg-[#a6231d] text-white text-xs font-medium uppercase tracking-[0.16em] transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                >
-                  KALDIĞIN YERDEN DEVAM ET
-                </button>
-                <button
-                  type="button"
-                  onClick={onStart}
-                  className="font-mono-tech px-7 py-4 bg-[#0c0d0f]/60 border border-[#e2d9c8]/25 hover:border-[#e2d9c8]/60 text-[#e2d9c8] text-xs font-medium uppercase tracking-[0.16em] transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                >
-                  YENİ GÖREV
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={onStart}
-                  className="font-mono-tech px-8 py-4 bg-[#8c1d18] hover:bg-[#a6231d] text-white text-xs font-medium uppercase tracking-[0.18em] transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                >
-                  GÖREVE BAŞLA
-                </button>
-                <span className="font-mono-tech text-[11px] uppercase tracking-[0.14em] text-[#8c8174]">
-                  [Enter] veya [Boşluk]
-                </span>
-              </>
-            )}
-          </div>
-
-          {hasSavedGame && saveSummary && (
-            <p className="font-mono-tech mt-5 text-[11px] uppercase tracking-[0.12em] text-[#8c8174] tabular-nums">
-              Son Kayıt: {saveSummary.actTitle} · Saat {saveSummary.savedAt} · Otopsi{' '}
-              {completedAutopsies}/3 · Belge {discoveredClues}
-            </p>
-          )}
-        </div>
-
-        {/* Right Editorial Case Dossier Column */}
-        <div className="lg:h-[52vh] border-t lg:border-t-0 lg:border-l border-[#e2d9c8]/10 pt-6 lg:pt-0 lg:pl-14 flex flex-col justify-center">
-          <div className="border-b border-[#e2d9c8]/10 py-5">
-            <span className="font-mono-tech block text-[11px] uppercase tracking-[0.18em] text-[#8c8174] mb-1.5">
-              OTOPSİ DURUMU
-            </span>
-            <span className="font-display text-2xl text-[#e2d9c8] tabular-nums">
-              {completedAutopsies === 0
-                ? 'TAMAMLANMADI [0/3]'
-                : completedAutopsies < 3
-                  ? `DEVAM EDİYOR [${completedAutopsies}/3]`
-                  : 'TÜMÜ MÜHÜRLENDİ [3/3]'}
-            </span>
-          </div>
-
-          <div className="border-b border-[#e2d9c8]/10 py-5">
-            <span className="font-mono-tech block text-[11px] uppercase tracking-[0.18em] text-[#8c8174] mb-1.5">
-              BULUNAN BELGELER
-            </span>
-            <span className="font-display text-2xl text-[#e2d9c8] tabular-nums">
-              {discoveredClues === 0 ? 'HENÜZ YOK [0]' : `${discoveredClues} ADET KANIT`}
-            </span>
-          </div>
-
-          <div className="py-5">
-            <span className="font-mono-tech block text-[11px] uppercase tracking-[0.18em] text-[#8c8174] mb-1.5">
-              GÜNCEL HEDEF
-            </span>
-            <span className="font-display text-2xl text-[#e2d9c8]">{activeGoal}</span>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="px-6 md:px-12 py-5 border-t border-[#e2d9c8]/10 flex flex-wrap justify-between items-center gap-4">
-        <div className="font-mono-tech text-[11px] tracking-[0.08em] text-[#8c8174] uppercase">
-          WASD Hareket · Shift Koş · C Eğil · Fare / Sağ Tık Odak · E / Sol Tık Etkileşim &amp;
-          Otopsi · F Mum · Tab Defter &amp; Harita · M Ses · Esc Duraklat
-        </div>
-        <div className="font-mono-tech text-[10px] tracking-[0.22em] text-[#6e6459] uppercase whitespace-nowrap">
-          KUZDAĞ ARŞİVİ · ANADOLU PSİKOLOJİK KORKU
-        </div>
-      </footer>
-    </div>
-  );
-};
