@@ -2,6 +2,7 @@ import type { DistrictId } from '../game/types';
 import {
   CORE_HOME_CENTRES,
   CORE_LANES,
+  CLINIC,
   LANDMARKS,
   MAIN_LANES,
   MUHTAR,
